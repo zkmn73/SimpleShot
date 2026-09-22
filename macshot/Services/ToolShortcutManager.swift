@@ -25,9 +25,6 @@ enum ToolShortcutManager {
         case adjustSelection
         case openInEditor
         case pin
-        #if !OFFLINE
-        case upload
-        #endif
         case copy
         case save
         case ocr
@@ -57,9 +54,6 @@ enum ToolShortcutManager {
             case .adjustSelection: return L("Auto-Adjust Selection")
             case .openInEditor: return L("Open in Editor")
             case .pin: return L("Pin")
-            #if !OFFLINE
-            case .upload: return L("Upload")
-            #endif
             case .copy: return L("Copy")
             case .save: return L("Save")
             case .ocr: return L("OCR & QR")
@@ -91,9 +85,6 @@ enum ToolShortcutManager {
             case .adjustSelection: return "s"
             case .openInEditor: return "e"
             case .pin: return "f"
-            #if !OFFLINE
-            case .upload: return "u"
-            #endif
             case .copy: return ""
             case .save: return ""
             case .ocr: return ""
@@ -159,9 +150,6 @@ enum ToolShortcutManager {
             case .adjustSelection: lookup[k] = .adjustSelection
             case .openInEditor: lookup[k] = .detach
             case .pin: lookup[k] = .pin
-            #if !OFFLINE
-            case .upload: lookup[k] = .upload
-            #endif
             case .copy: lookup[k] = .copy
             case .save: lookup[k] = .save
             case .ocr: lookup[k] = .ocr
@@ -207,9 +195,6 @@ enum ToolShortcutManager {
             }
         case .detach: action = .openInEditor
         case .pin: action = .pin
-        #if !OFFLINE
-        case .upload: action = .upload
-        #endif
         case .copy: action = .copy
         case .save: action = .save
         case .ocr: action = .ocr

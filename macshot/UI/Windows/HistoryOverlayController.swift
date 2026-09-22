@@ -245,16 +245,6 @@ final class HistoryOverlayController: NSObject, QLPreviewPanelDataSource, QLPrev
         )
     }
 
-    #if !OFFLINE
-    func uploadEntry(index: Int) {
-        let entries = ScreenshotHistory.shared.entries
-        guard index >= 0, index < entries.count else { return }
-        guard let image = ScreenshotHistory.shared.loadImage(for: entries[index]) else { return }
-        dismiss()
-        (NSApp.delegate as? AppDelegate)?.uploadImage(image)
-    }
-    #endif
-
     func runOCR(index: Int) {
         let entries = ScreenshotHistory.shared.entries
         guard index >= 0, index < entries.count else { return }
@@ -323,12 +313,6 @@ final class HistoryOverlayController: NSObject, QLPreviewPanelDataSource, QLPrev
         pinItem.tag = globalIndex
         menu.addItem(pinItem)
 
-        #if !OFFLINE
-        let uploadItem = ImageContextMenu.item(title: L("Upload"), symbolName: "icloud.and.arrow.up", action: #selector(contextUpload(_:)), target: self)
-        uploadItem.tag = globalIndex
-        menu.addItem(uploadItem)
-        #endif
-
         let qlItem = ImageContextMenu.item(title: L("Quick Look"), symbolName: "eye", action: #selector(contextQuickLook(_:)), target: self, keyEquivalent: " ")
         qlItem.keyEquivalentModifierMask = []
         qlItem.tag = globalIndex
@@ -364,9 +348,6 @@ final class HistoryOverlayController: NSObject, QLPreviewPanelDataSource, QLPrev
     @objc private func contextSave(_ sender: NSMenuItem) { saveToFile(index: sender.tag) }
     @objc private func contextOpenEditor(_ sender: NSMenuItem) { openInEditor(index: sender.tag) }
     @objc private func contextPin(_ sender: NSMenuItem) { pinToScreen(index: sender.tag) }
-    #if !OFFLINE
-    @objc private func contextUpload(_ sender: NSMenuItem) { uploadEntry(index: sender.tag) }
-    #endif
     @objc private func contextQuickLook(_ sender: NSMenuItem) { quickLook(index: sender.tag) }
     @objc private func contextOCR(_ sender: NSMenuItem) { runOCR(index: sender.tag) }
     @objc private func contextDelete(_ sender: NSMenuItem) { deleteEntry(index: sender.tag) }

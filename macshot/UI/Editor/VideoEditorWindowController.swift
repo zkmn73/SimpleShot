@@ -275,7 +275,6 @@ private final class VideoEditorView: NSView {
     private var playBtnRect: NSRect = .zero
     private var saveBtnRect: NSRect = .zero
     private var saveArrowRect: NSRect = .zero
-    private var uploadBtnRect: NSRect = .zero
     private var copyBtnRect: NSRect = .zero
     private var copyArrowRect: NSRect = .zero
     private var muteBtnRect: NSRect = .zero
@@ -294,7 +293,7 @@ private final class VideoEditorView: NSView {
     private var exportInfoCache: (revision: UInt64, gif: Bool, muted: Bool, text: String)?
     private enum ToolbarControl: Int {
         case play, mute, mp4, gif, dimensions, quality, gifFPS, effect
-        case save, saveMenu, upload, finder, copy, copyMenu
+        case save, saveMenu, finder, copy, copyMenu
     }
     private var toolbarControls: [ToolbarControl: NSButton] = [:]
     /// Guards against re-entrant Save/Copy while an MP4 export is running
@@ -941,10 +940,7 @@ private final class VideoEditorView: NSView {
         // Pre-compute right group width so left content knows where to stop
         let copyArrowW: CGFloat = 20
         let saveArrowW: CGFloat = 20
-        var rightGroupW = (labelBtnW + copyArrowW) + gap + iconBtnW + gap + (labelBtnW + saveArrowW)
-        #if !OFFLINE
-        rightGroupW += gap + labelBtnW
-        #endif
+        let rightGroupW = (labelBtnW + copyArrowW) + gap + iconBtnW + gap + (labelBtnW + saveArrowW)
         let maxLeftX = bounds.width - timelinePad - rightGroupW - 12  // 12pt breathing room
 
         // Left group: play, mute
@@ -1076,7 +1072,7 @@ private final class VideoEditorView: NSView {
                 }
             }
 
-        // Right group: save, upload, finder, copy
+        // Right group: save, finder, copy
         x = bounds.width - timelinePad
         let fullCopyW = labelBtnW + copyArrowW
         x -= fullCopyW
@@ -1135,13 +1131,6 @@ private final class VideoEditorView: NSView {
         x -= gap + iconBtnW
         finderBtnRect = NSRect(x: x, y: btnY, width: iconBtnW, height: btnH)
         drawIconButton(rect: finderBtnRect, symbol: "folder", accent: false, dimmed: savedURL == nil)
-        #if !OFFLINE
-        x -= gap + labelBtnW
-        let uploadProvider = UserDefaults.standard.string(forKey: "uploadProvider") ?? "imgbb"
-        let canUpload = (uploadProvider == "gdrive" && GoogleDriveUploader.shared.isSignedIn) || (uploadProvider == "s3" && S3Uploader.shared.isConfigured)
-        uploadBtnRect = NSRect(x: x, y: btnY, width: labelBtnW, height: btnH)
-        drawLabelButton(rect: uploadBtnRect, symbol: "icloud.and.arrow.up", label: L("Upload"), dimmed: !canUpload)
-        #endif
         let arrowW: CGFloat = 20
         x -= gap + labelBtnW + arrowW
         let fullSaveW = labelBtnW + arrowW
@@ -1236,9 +1225,6 @@ private final class VideoEditorView: NSView {
         update(.effect, "+ " + L("Effect"), addEffectBtnRect)
         update(.save, L("Save"), saveBtnRect, enabled: !isExporting)
         update(.saveMenu, L("Save") + "…", saveArrowRect, enabled: !isExporting)
-        #if !OFFLINE
-        update(.upload, L("Upload"), uploadBtnRect, enabled: !isExporting)
-        #endif
         update(.finder, L("Show in Finder"), finderBtnRect, enabled: savedURL != nil)
         update(.copy, L("Copy"), copyBtnRect, enabled: !isExporting)
         update(.copyMenu, L("Copy") + "…", copyArrowRect, enabled: !isExporting)
@@ -1267,12 +1253,6 @@ private final class VideoEditorView: NSView {
             }
         case .save: saveVideo()
         case .saveMenu: showSaveMenu()
-        case .upload:
-            #if !OFFLINE
-            uploadVideo()
-            #else
-            break
-            #endif
         case .finder:
             if let url = savedURL { NSWorkspace.shared.activateFileViewerSelecting([url]) }
         case .copy: copyToClipboard()
@@ -1579,7 +1559,7 @@ private final class VideoEditorView: NSView {
             (formatMP4Rect, .mp4), (formatGIFRect, .gif), (dimensionsBtnRect, .dimensions),
             (qualityBtnRect, .quality), (gifFPSBtnRect, .gifFPS), (addEffectBtnRect, .effect),
             (playBtnRect, .play), (muteBtnRect, .mute), (saveArrowRect, .saveMenu),
-            (saveBtnRect, .save), (uploadBtnRect, .upload), (finderBtnRect, .finder),
+            (saveBtnRect, .save), (finderBtnRect, .finder),
             (copyArrowRect, .copyMenu), (copyBtnRect, .copy),
         ]
         if let control = controls.first(where: { $0.0.contains(point) }) { performToolbarControl(control.1) }
@@ -2361,80 +2341,6 @@ private final class VideoEditorView: NSView {
             videoSettings: plan.outputSettings,
             decodedSize: nil, outputTransform: .identity, sourceFrameDuration: cadence)
     }
-
-    #if !OFFLINE
-    private func uploadVideo() {
-        guard !isExporting else { return }
-        let provider = UserDefaults.standard.string(forKey: "uploadProvider") ?? "imgbb"
-
-        if provider == "gdrive" && !GoogleDriveUploader.shared.isSignedIn {
-            showStatus(L("Sign in to Google Drive in Settings"), isError: true)
-            return
-        }
-        if provider == "s3" && !S3Uploader.shared.isConfigured {
-            showStatus(L("Configure S3 in Settings"), isError: true)
-            return
-        }
-        if provider != "gdrive" && provider != "s3" {
-            showStatus(L("Video upload requires Google Drive or S3"), isError: true)
-            return
-        }
-
-        let providerLabel = provider == "s3" ? "S3" : "Drive"
-        showStatus(String(format: L("Uploading to %@... %d%%"), providerLabel, 0))
-
-        let progressHandler: @MainActor @Sendable (Double) -> Void = { [weak self] fraction in
-            self?.showStatus(String(format: L("Uploading to %@... %d%%"), providerLabel, Int(fraction * 100)))
-        }
-
-        let completionHandler: (Result<String, Error>) -> Void = { [weak self] result in
-            switch result {
-            case .success(let link):
-                NSPasteboard.general.clearContents()
-                NSPasteboard.general.setString(link, forType: .string)
-                self?.showStatus(L("Uploaded! Link copied."))
-            case .failure(let error):
-                self?.showStatus(String(format: L("Upload failed: %@"), error.localizedDescription), isError: true)
-            }
-        }
-
-        let sourceLease = self.sourceLease
-        let uploadFileURL: (URL, Bool) -> Void = { fileURL, isTemp in
-            let wrappedCompletion: (Result<String, Error>) -> Void = { [sourceLease] result in
-                defer { withExtendedLifetime(sourceLease) {} }
-                if isTemp { try? FileManager.default.removeItem(at: fileURL) }
-                completionHandler(result)
-            }
-            if provider == "s3" {
-                S3Uploader.shared.uploadVideo(url: fileURL, progress: progressHandler, completion: wrappedCompletion)
-            } else {
-                GoogleDriveUploader.shared.uploadVideo(url: fileURL, progress: progressHandler, completion: wrappedCompletion)
-            }
-        }
-
-        if let savedURL {
-            uploadFileURL(savedURL, false)
-        } else if exportAsGIF && !isGIF {
-            let url = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".gif")
-            convertToGIF(destURL: url, cacheResult: false) { success in
-                if success { uploadFileURL(url, true) }
-            }
-        } else if !isGIF && hasPendingEdits {
-            // Use the same selected scale, quality and edits as Save/Copy.
-            // Previously uploads always used the High-quality session and
-            // ignored changes that only affected scale or compression.
-            exportEditedTemp { [weak self] result in
-                switch result {
-                case .success(let url): uploadFileURL(url, true)
-                case .failure(let error):
-                    if !(error is CancellationError) { self?.showStatus(L("Export failed"), isError: true) }
-                }
-            }
-        } else {
-            uploadFileURL(mediaURL, false)
-        }
-    }
-    #endif
 
     // MARK: - Keyboard
 

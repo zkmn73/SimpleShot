@@ -66,7 +66,6 @@ protocol OverlayWindowControllerDelegate: AnyObject {
     func overlayDidConfirm(_ controller: OverlayWindowController, capturedImage: NSImage?, annotationData: CaptureAnnotationData?)
     func overlayDidRequestPin(_ controller: OverlayWindowController, image: NSImage, annotationData: CaptureAnnotationData?)
     func overlayDidRequestOCR(_ controller: OverlayWindowController, result: OCRScanResult, image: NSImage?)
-    func overlayDidRequestUpload(_ controller: OverlayWindowController, image: NSImage, annotationData: CaptureAnnotationData?)
     func overlayDidRequestStartRecording(
         _ controller: OverlayWindowController, rect: NSRect, screen: NSScreen)
     func overlayDidRequestStopRecording(_ controller: OverlayWindowController)
@@ -639,17 +638,6 @@ extension OverlayWindowController: OverlayViewDelegate {
                 }
             }
         }
-    }
-
-    func overlayViewDidRequestUpload() {
-        #if !OFFLINE
-        guard var image = captureRegion() else { return }
-        let annotationData = currentAnnotationDataForHistory()
-        image = applyBeautifyIfNeeded(image) ?? image
-        playCopySound()
-        dismiss()
-        overlayDelegate?.overlayDidRequestUpload(self, image: image, annotationData: annotationData)
-        #endif
     }
 
     func overlayViewDidRequestShare(anchorView: NSView?) {

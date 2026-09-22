@@ -199,9 +199,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
     private var delayCountdownWindow: NSWindow?
     private var delayTimer: Timer?
     private var delayEscMonitor: Any?
-    #if !OFFLINE
-    private var uploadToastController: UploadToastController?
-    #endif
     /// Transient toast for failures that would otherwise be invisible — a save
     /// that couldn't be written, a recording that produced no file.
     private var errorToastController: UploadToastController?
@@ -1887,20 +1884,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
             // Image already has beautify/effects baked in — disable to avoid double-applying
             DetachedEditorWindowController.open(image: image, historyEntryID: id, disableBeautify: true)
         }
-        #if !OFFLINE
-        controller.onUpload = { [weak self, weak controller] in
-            guard let self = self, let controller = controller else { return }
-            let image = controller.image
-            let data = controller.annotationData
-            ScreenshotHistory.shared.add(
-                image: image,
-                rawImage: data?.rawImage,
-                annotations: data?.annotations,
-                editState: data?.editState
-            )
-            self.showUploadProgress(image: image)
-        }
-        #endif
         controller.onTransform = { transformed in
             if let id = historyEntryID {
                 ScreenshotHistory.shared.updateEntry(id: id, compositedImage: transformed, rawImage: nil, annotations: nil)
@@ -2073,14 +2056,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         ImageSaveService.saveToConfiguredFolder(image, panelLevel: .floating, activateApp: true)
     }
 
-    #if !OFFLINE
-    // MARK: - Upload
-
-    func uploadImage(_ image: NSImage) {
-        showUploadProgress(image: image)
-    }
-    #endif
-
     @objc private func pinFromHistory(_ notification: Notification) {
         guard let image = notification.object as? NSImage else { return }
         showPin(image: image)
@@ -2105,78 +2080,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         pin.show()
         pinControllers.append(pin)
     }
-
-    #if !OFFLINE
-    private func showUploadProgress(image: NSImage) {
-        uploadToastController?.dismiss()
-        let toast = UploadToastController()
-        uploadToastController = toast
-        toast.onDismiss = { [weak self] in
-            self?.uploadToastController = nil
-        }
-        toast.show(status: "Uploading...")
-
-        let provider = UserDefaults.standard.string(forKey: "uploadProvider") ?? "imgbb"
-
-        if provider == "gdrive" && !GoogleDriveUploader.shared.isSignedIn {
-            toast.showError(message: "Google Drive not signed in")
-            return
-        }
-
-        if provider == "s3" && !S3Uploader.shared.isConfigured {
-            toast.showError(message: "S3 not configured — check Settings")
-            return
-        }
-
-        if provider == "gdrive" {
-            GoogleDriveUploader.shared.uploadImage(image) { result in
-                switch result {
-                case .success(let link):
-                    let pasteboard = NSPasteboard.general
-                    pasteboard.clearContents()
-                    pasteboard.setString(link, forType: .string)
-                    toast.showSuccess(link: link, deleteURL: "")
-                case .failure(let error):
-                    toast.showError(message: error.localizedDescription)
-                }
-            }
-        } else if provider == "s3" {
-            S3Uploader.shared.uploadImage(image, progress: { fraction in
-                toast.updateProgress(fraction)
-            }) { result in
-                switch result {
-                case .success(let link):
-                    let pasteboard = NSPasteboard.general
-                    pasteboard.clearContents()
-                    pasteboard.setString(link, forType: .string)
-                    toast.showSuccess(link: link, deleteURL: "")
-                case .failure(let error):
-                    toast.showError(message: error.localizedDescription)
-                }
-            }
-        } else {
-            ImageUploader.upload(image: image) { result in
-                switch result {
-                case .success(let uploadResult):
-                    let pasteboard = NSPasteboard.general
-                    pasteboard.clearContents()
-                    pasteboard.setString(uploadResult.link, forType: .string)
-
-                    var uploads = UserDefaults.standard.array(forKey: "imgbbUploads") as? [[String: String]] ?? []
-                    uploads.append([
-                        "deleteURL": uploadResult.deleteURL,
-                        "link": uploadResult.link,
-                    ])
-                    UserDefaults.standard.set(uploads, forKey: "imgbbUploads")
-
-                    toast.showSuccess(link: uploadResult.link, deleteURL: uploadResult.deleteURL)
-                case .failure(let error):
-                    toast.showError(message: error.localizedDescription)
-                }
-            }
-        }
-    }
-    #endif
 
     // MARK: - Open Image
 
@@ -2585,24 +2488,6 @@ extension AppDelegate: OverlayWindowControllerDelegate {
             ocrController = ocr
             ocr.show()
         }
-    }
-
-    func overlayDidRequestUpload(_ controller: OverlayWindowController, image: NSImage, annotationData: CaptureAnnotationData?) {
-        #if !OFFLINE
-        ScreenshotHistory.shared.add(
-            image: image,
-            rawImage: annotationData?.rawImage,
-            annotations: annotationData?.annotations,
-            editState: annotationData?.editState
-        )
-        let appToRefocus = previousApp
-        dismissOverlays(refocusPreviousApp: false)
-        showUploadProgress(image: image)
-        // Return focus — upload toast stays visible (hidesOnDeactivate=false)
-        if let app = appToRefocus, !app.isTerminated, app.bundleIdentifier != Bundle.main.bundleIdentifier {
-            DispatchQueue.main.async { AppDelegate.activateApp(app) }
-        }
-        #endif
     }
 
     func overlayDidRequestStartRecording(_ controller: OverlayWindowController, rect: NSRect, screen: NSScreen) {

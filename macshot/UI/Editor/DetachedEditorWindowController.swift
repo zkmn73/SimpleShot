@@ -540,15 +540,6 @@ extension DetachedEditorWindowController: OverlayViewDelegate {
         }
     }
 
-    func overlayViewDidRequestUpload() {
-        #if !OFFLINE
-        guard let save = captureHistorySave() else { return }
-        playCopySound()
-        (NSApp.delegate as? AppDelegate)?.uploadImage(save.image)
-        autoSaveToHistoryIfNeeded(save)
-        #endif
-    }
-
     func overlayViewDidRequestShare(anchorView: NSView?) {
         guard let save = captureHistorySave(), let imageData = ImageEncoder.encode(save.image) else { return }
         let tempURL = TmpScratchDirectory.makeURL(filename: FilenameFormatter.defaultImageFilename())
@@ -707,7 +698,6 @@ private class AddCaptureOverlayHandler: NSObject, OverlayWindowControllerDelegat
         onCapture?(image)
     }
     func overlayDidRequestOCR(_ controller: OverlayWindowController, result: OCRScanResult, image: NSImage?) {}
-    func overlayDidRequestUpload(_ controller: OverlayWindowController, image: NSImage, annotationData: CaptureAnnotationData?) {}
     func overlayDidRequestStartRecording(_ controller: OverlayWindowController, rect: NSRect, screen: NSScreen) {}
     func overlayDidRequestStopRecording(_ controller: OverlayWindowController) {}
     func overlayDidRequestScrollCapture(_ controller: OverlayWindowController, rect: NSRect, screen: NSScreen) {}

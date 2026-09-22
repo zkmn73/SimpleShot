@@ -3,45 +3,6 @@ import UniformTypeIdentifiers
 
 extension OverlayView {
 
-    #if !OFFLINE
-    func showUploadConfirmPopover(anchorRect: NSRect, anchorView: NSView? = nil) {
-        if PopoverHelper.toggleClosedIfOpen() { return }
-
-        let current = UserDefaults.standard.bool(forKey: "uploadConfirmEnabled")
-        let container = NSView(frame: NSRect(x: 0, y: 0, width: 180, height: 32))
-
-        let toggle = NSButton(checkboxWithTitle: L("Confirm before upload"), target: nil, action: nil)
-        toggle.state = current ? .on : .off
-        toggle.font = NSFont.systemFont(ofSize: 12, weight: .medium)
-        toggle.sizeToFit()
-        toggle.frame.origin = NSPoint(x: 10, y: (32 - toggle.frame.height) / 2)
-        toggle.target = toggle  // self-target via associated handler
-        container.addSubview(toggle)
-
-        class ToggleHandler: NSObject {
-            @objc func toggled(_ sender: NSButton) {
-                UserDefaults.standard.set(sender.state == .on, forKey: "uploadConfirmEnabled")
-            }
-        }
-        let handler = ToggleHandler()
-        toggle.target = handler
-        toggle.action = #selector(ToggleHandler.toggled(_:))
-        objc_setAssociatedObject(toggle, "handler", handler, .OBJC_ASSOCIATION_RETAIN)
-
-        let size = NSSize(width: max(180, toggle.frame.width + 20), height: 32)
-        container.frame.size = size
-
-        if let anchor = anchorView {
-            PopoverHelper.show(
-                container, size: size, relativeTo: anchor.bounds, of: anchor, preferredEdge: .maxY)
-        } else {
-            PopoverHelper.showAtPoint(
-                container, size: size, at: NSPoint(x: anchorRect.maxX + 4, y: anchorRect.midY),
-                in: self, preferredEdge: .maxX)
-        }
-    }
-    #endif
-
     func showRedactTypePopover(anchorRect: NSRect, anchorView: NSView? = nil) {
         if PopoverHelper.toggleClosedIfOpen() { return }
         let types = AutoRedactor.redactTypeNames

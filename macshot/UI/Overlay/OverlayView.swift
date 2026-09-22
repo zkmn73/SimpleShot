@@ -14,7 +14,6 @@ protocol OverlayViewDelegate: AnyObject {
     func overlayViewDidRequestOCR()
     func overlayViewDidRequestQuickSave()
     func overlayViewDidRequestFileSave()
-    func overlayViewDidRequestUpload()
     func overlayViewDidRequestShare(anchorView: NSView?)
     @available(macOS 14.0, *)
     func overlayViewDidRequestRemoveBackground()
@@ -2253,8 +2252,6 @@ class OverlayView: NSView {
                 // Stroke width picker popover
 
                 // Loupe size picker
-
-                // Upload confirm picker
 
                 // Redact type picker
 
@@ -7834,11 +7831,6 @@ class OverlayView: NSView {
             }
             menu.popUp(
                 positioning: nil, at: NSPoint(x: 0, y: anchorView.bounds.height), in: anchorView)
-        case .upload:
-            #if !OFFLINE
-            showUploadConfirmPopover(
-                anchorRect: anchorView.convert(anchorView.bounds, to: self), anchorView: anchorView)
-            #endif
         case .translate:
             showTranslatePopover(
                 anchorRect: anchorView.convert(anchorView.bounds, to: self), anchorView: anchorView)
@@ -8238,35 +8230,6 @@ class OverlayView: NSView {
             overlayDelegate?.overlayViewDidConfirm()
         case .save:
             overlayDelegate?.overlayViewDidRequestSave()
-        case .upload:
-            #if !OFFLINE
-            let confirmEnabled = UserDefaults.standard.bool(forKey: "uploadConfirmEnabled")
-            if confirmEnabled {
-                let provider = UserDefaults.standard.string(forKey: "uploadProvider") ?? "imgbb"
-                let title: String
-                switch provider {
-                case "gdrive": title = L("Upload to Google Drive?")
-                case "s3": title = L("Upload to S3?")
-                default: title = L("Upload to imgbb.com?")
-                }
-                let alert = NSAlert()
-                alert.messageText = title
-                alert.informativeText = L("Your screenshot will be uploaded.")
-                alert.addButton(withTitle: L("Upload"))
-                alert.addButton(withTitle: L("Cancel"))
-                alert.alertStyle = .informational
-                // Temporarily lower window level so the alert is visible
-                let originalLevel = window?.level ?? .statusBar
-                window?.level = .normal
-                let response = alert.runModal()
-                window?.level = originalLevel
-                if response == .alertFirstButtonReturn {
-                    overlayDelegate?.overlayViewDidRequestUpload()
-                }
-            } else {
-                overlayDelegate?.overlayViewDidRequestUpload()
-            }
-            #endif
         case .share:
             // Show share picker anchored to the share button, then dismiss on selection
             let shareBtn = rightStripView?.buttonViews.first { if case .share = $0.action { return true }; return false }

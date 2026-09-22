@@ -24,7 +24,6 @@ enum ToolbarButtonAction {
     case moveSelection
     case adjustSelection
     case delayCapture
-    case upload
     case share
     case removeBackground
     case invertColors
@@ -57,9 +56,6 @@ struct ToolbarButton {
 }
 
 enum ToolbarCustomAction: Int {
-    #if !OFFLINE
-    case upload = 1001
-    #endif
     case pin = 1002
     case ocr = 1003
     case beautify = 1004
@@ -74,15 +70,10 @@ enum ToolbarCustomAction: Int {
     case effects = 1013
 
     static var allKnownActions: [ToolbarCustomAction] {
-        var actions: [ToolbarCustomAction] = []
-        #if !OFFLINE
-        actions.append(.upload)
-        #endif
-        actions.append(contentsOf: [
+        [
             .pin, .ocr, .beautify, .removeBackground, .autoRedact, .reserved1007,
             .translate, .record, .scrollCapture, .invertColors, .share, .effects,
-        ])
-        return actions
+        ]
     }
 
     static var bottomToolbarActions: [ToolbarCustomAction] {
@@ -90,12 +81,7 @@ enum ToolbarCustomAction: Int {
     }
 
     static var rightToolbarActions: [ToolbarCustomAction] {
-        var actions: [ToolbarCustomAction] = [.share]
-        #if !OFFLINE
-        actions.append(.upload)
-        #endif
-        actions.append(contentsOf: [.pin, .ocr, .translate, .scrollCapture, .record])
-        return actions
+        [.share, .pin, .ocr, .translate, .scrollCapture, .record]
     }
 
     static var bottomSettingsActions: [ToolbarCustomAction] {
@@ -103,19 +89,11 @@ enum ToolbarCustomAction: Int {
     }
 
     static var rightSettingsActions: [ToolbarCustomAction] {
-        var actions: [ToolbarCustomAction] = []
-        #if !OFFLINE
-        actions.append(.upload)
-        #endif
-        actions.append(contentsOf: [.pin, .ocr, .autoRedact, .translate, .record, .scrollCapture, .share])
-        return actions
+        [.pin, .ocr, .autoRedact, .translate, .record, .scrollCapture, .share]
     }
 
     var settingsLabel: String {
         switch self {
-        #if !OFFLINE
-        case .upload: return L("Upload")
-        #endif
         case .pin: return L("Pin (floating window)")
         case .ocr: return L("OCR & QR")
         case .beautify: return L("Beautify")
@@ -139,12 +117,6 @@ enum ToolbarCustomAction: Int {
         isEditorMode: Bool = false
     ) -> ToolbarButton? {
         switch self {
-        #if !OFFLINE
-        case .upload:
-            var button = ToolbarButton(action: .upload, sfSymbol: "icloud.and.arrow.up", tooltip: L("Upload"))
-            button.hasContextMenu = true
-            return button
-        #endif
         case .pin:
             return ToolbarButton(action: .pin, sfSymbol: "pin.fill", tooltip: L("Pin"))
         case .ocr:

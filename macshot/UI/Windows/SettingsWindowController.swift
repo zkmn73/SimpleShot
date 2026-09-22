@@ -32,9 +32,6 @@ class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSWindowD
             TabDef(id: "tools",     label: "Tools",     symbolName: "paintbrush",                legacyImageName: NSImage.preferencesGeneralName),
             TabDef(id: "recording", label: "Recording", symbolName: "record.circle",             legacyImageName: NSImage.preferencesGeneralName),
         ]
-        #if !OFFLINE
-        tabs.append(TabDef(id: "uploads", label: "Uploads", symbolName: "icloud.and.arrow.up", legacyImageName: NSImage.preferencesGeneralName))
-        #endif
         tabs.append(TabDef(id: "about", label: "About", symbolName: "info.circle", legacyImageName: NSImage.preferencesGeneralName))
         return tabs
     }
@@ -112,25 +109,6 @@ class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSWindowD
     private var captureMenuOrderRowsStack: NSStackView?
     // embedColorProfileCheckbox removed — native color profile is always embedded
     private var localMonitor: Any?
-    #if !OFFLINE
-    private var imgbbKeyField: NSTextField!
-    private weak var uploadsStack: NSStackView?
-    private var providerPopup: NSPopUpButton!
-    private var gdriveSignInBtn: NSButton!
-    private var gdriveStatusLabel: NSTextField!
-    private var gdriveFolderField: NSTextField!
-    // S3 tab controls
-    private var s3EndpointField: NSTextField!
-    private var s3RegionField: NSTextField!
-    private var s3BucketField: NSTextField!
-    private var s3AccessKeyField: NSTextField!
-    private var s3SecretKeyField: NSSecureTextField!
-    private var s3PublicURLField: NSTextField!
-    private var s3PathPrefixField: NSTextField!
-    private var s3PublicReadCheckbox: NSButton!
-    private var s3TestBtn: NSButton!
-    private var s3StatusLabel: NSTextField!
-    #endif
     // Recording tab controls
     private var recordingFPSPopup: NSPopUpButton!
     private var recordingOnStopPopup: NSPopUpButton!
@@ -205,9 +183,6 @@ class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSWindowD
         tabContentViews["shortcuts"] = makeShortcutsTabView()
         tabContentViews["tools"]     = makeToolsTabView()
         tabContentViews["recording"] = makeRecordingTabView()
-        #if !OFFLINE
-        tabContentViews["uploads"] = makeUploadsTabView()
-        #endif
         tabContentViews["about"]     = makeAboutTabView()
 
         // Container that swaps content views
@@ -284,11 +259,6 @@ class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSWindowD
         ])
         currentTabID = id
         window?.title = "\(BuildVariant.displayName) \(L("Settings")) — \(L(Self.tabDefs.first(where: { $0.id == id })?.label ?? ""))"
-        #if !OFFLINE
-        if id == "uploads" {
-            reloadUploadsTab()
-        }
-        #endif
     }
 
     @objc private func toolbarTabSelected(_ sender: NSToolbarItem) {
@@ -698,9 +668,6 @@ class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSWindowD
         tabContentViews["shortcuts"] = makeShortcutsTabView()
         tabContentViews["tools"] = makeToolsTabView()
         tabContentViews["recording"] = makeRecordingTabView()
-        #if !OFFLINE
-        tabContentViews["uploads"] = makeUploadsTabView()
-        #endif
         tabContentViews["about"] = makeAboutTabView()
         showTab(id: previouslySelected)
     }
@@ -1873,221 +1840,6 @@ class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSWindowD
         return scroll
     }
 
-    #if !OFFLINE
-    // MARK: - Uploads Tab
-
-    private func makeUploadsTabView() -> NSView {
-        let scroll = NSScrollView()
-        scroll.hasVerticalScroller = true
-        scroll.autohidesScrollers = true
-        scroll.borderType = .noBorder
-        scroll.drawsBackground = false
-        scroll.autoresizingMask = [.width, .height]
-
-        let stack = NSStackView()
-        stack.orientation = .vertical
-        stack.alignment = .leading
-        stack.spacing = 6
-        stack.translatesAutoresizingMaskIntoConstraints = false
-        stack.edgeInsets = NSEdgeInsets(top: 0, left: 20, bottom: 16, right: 20)
-
-        // ── Upload Provider ──
-        stack.addArrangedSubview(sectionHeader(L("Upload Provider")))
-        stack.setCustomSpacing(10, after: stack.arrangedSubviews.last!)
-
-        providerPopup = NSPopUpButton()
-        providerPopup.addItems(withTitles: [L("imgbb (images only)"), L("Google Drive (images + videos)"), L("S3-Compatible (images + videos)")])
-        let currentProvider = UserDefaults.standard.string(forKey: "uploadProvider") ?? "imgbb"
-        switch currentProvider {
-        case "gdrive": providerPopup.selectItem(at: 1)
-        case "s3": providerPopup.selectItem(at: 2)
-        default: providerPopup.selectItem(at: 0)
-        }
-        providerPopup.target = self
-        providerPopup.action = #selector(uploadProviderChanged(_:))
-        stack.addArrangedSubview(labeledRow(L("Provider:"), controls: [providerPopup]))
-        stack.setCustomSpacing(16, after: stack.arrangedSubviews.last!)
-
-        // ── Google Drive ──
-        stack.addArrangedSubview(sectionHeader(L("Google Drive")))
-        stack.setCustomSpacing(10, after: stack.arrangedSubviews.last!)
-
-        gdriveStatusLabel = NSTextField(labelWithString: "")
-        gdriveStatusLabel.font = NSFont.systemFont(ofSize: 11)
-        gdriveStatusLabel.textColor = .secondaryLabelColor
-        updateGDriveStatus()
-
-        gdriveSignInBtn = NSButton(title: L("Sign In with Google"), target: self, action: #selector(gdriveSignInTapped(_:)))
-        gdriveSignInBtn.bezelStyle = .rounded
-        updateGDriveButton()
-
-        stack.addArrangedSubview(labeledRow(L("Account:"), controls: [gdriveStatusLabel]))
-        stack.addArrangedSubview(indented(gdriveSignInBtn))
-        stack.setCustomSpacing(10, after: stack.arrangedSubviews.last!)
-
-        gdriveFolderField = NSTextField()
-        gdriveFolderField.placeholderString = "macshot"
-        gdriveFolderField.font = NSFont.monospacedSystemFont(ofSize: 11, weight: .regular)
-        gdriveFolderField.stringValue = UserDefaults.standard.string(forKey: "gdriveFolderName") ?? ""
-        gdriveFolderField.target = self
-        gdriveFolderField.action = #selector(gdriveFolderChanged(_:))
-        stack.addArrangedSubview(labeledRow(L("Folder:"), controls: [gdriveFolderField]))
-        stack.setCustomSpacing(4, after: stack.arrangedSubviews.last!)
-
-        let gdriveNote = NSTextField(wrappingLabelWithString: L("Files are uploaded to this folder in your Google Drive. Leave empty to use \"macshot\". macshot can only use folders it created itself, so a folder you made in Drive with the same name won't be reused — a new one is created instead. Everything stays private — nothing is shared publicly."))
-        gdriveNote.font = NSFont.systemFont(ofSize: 10)
-        gdriveNote.textColor = .secondaryLabelColor
-        stack.addArrangedSubview(indented(gdriveNote))
-        stack.setCustomSpacing(16, after: stack.arrangedSubviews.last!)
-
-        // ── S3-Compatible ──
-        stack.addArrangedSubview(sectionHeader(L("S3-Compatible Storage")))
-        stack.setCustomSpacing(10, after: stack.arrangedSubviews.last!)
-
-        s3EndpointField = NSTextField()
-        s3EndpointField.placeholderString = "https://abc123.r2.cloudflarestorage.com"
-        s3EndpointField.font = NSFont.monospacedSystemFont(ofSize: 11, weight: .regular)
-        s3EndpointField.stringValue = UserDefaults.standard.string(forKey: "s3Endpoint") ?? ""
-        s3EndpointField.target = self
-        s3EndpointField.action = #selector(s3FieldChanged(_:))
-        stack.addArrangedSubview(labeledRow(L("Endpoint:"), controls: [s3EndpointField]))
-
-        s3RegionField = NSTextField()
-        s3RegionField.placeholderString = "auto"
-        s3RegionField.font = NSFont.monospacedSystemFont(ofSize: 11, weight: .regular)
-        s3RegionField.stringValue = UserDefaults.standard.string(forKey: "s3Region") ?? "auto"
-        s3RegionField.target = self
-        s3RegionField.action = #selector(s3FieldChanged(_:))
-        stack.addArrangedSubview(labeledRow(L("Region:"), controls: [s3RegionField]))
-
-        s3BucketField = NSTextField()
-        s3BucketField.placeholderString = "my-bucket"
-        s3BucketField.font = NSFont.monospacedSystemFont(ofSize: 11, weight: .regular)
-        s3BucketField.stringValue = UserDefaults.standard.string(forKey: "s3Bucket") ?? ""
-        s3BucketField.target = self
-        s3BucketField.action = #selector(s3FieldChanged(_:))
-        stack.addArrangedSubview(labeledRow(L("Bucket:"), controls: [s3BucketField]))
-
-        s3AccessKeyField = NSTextField()
-        s3AccessKeyField.placeholderString = "AKIAIOSFODNN7EXAMPLE"
-        s3AccessKeyField.font = NSFont.monospacedSystemFont(ofSize: 11, weight: .regular)
-        s3AccessKeyField.stringValue = UserDefaults.standard.string(forKey: "s3AccessKeyID") ?? ""
-        s3AccessKeyField.target = self
-        s3AccessKeyField.action = #selector(s3FieldChanged(_:))
-        stack.addArrangedSubview(labeledRow(L("Access Key:"), controls: [s3AccessKeyField]))
-
-        s3SecretKeyField = NSSecureTextField()
-        s3SecretKeyField.placeholderString = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
-        s3SecretKeyField.font = NSFont.monospacedSystemFont(ofSize: 11, weight: .regular)
-        s3SecretKeyField.stringValue = UserDefaults.standard.string(forKey: "s3SecretAccessKey") ?? ""
-        s3SecretKeyField.target = self
-        s3SecretKeyField.action = #selector(s3FieldChanged(_:))
-        stack.addArrangedSubview(labeledRow(L("Secret Key:"), controls: [s3SecretKeyField]))
-
-        s3PublicURLField = NSTextField()
-        s3PublicURLField.placeholderString = "https://cdn.example.com"
-        s3PublicURLField.font = NSFont.monospacedSystemFont(ofSize: 11, weight: .regular)
-        s3PublicURLField.stringValue = UserDefaults.standard.string(forKey: "s3PublicURLBase") ?? ""
-        s3PublicURLField.target = self
-        s3PublicURLField.action = #selector(s3FieldChanged(_:))
-        stack.addArrangedSubview(labeledRow(L("Public URL:"), controls: [s3PublicURLField]))
-        stack.setCustomSpacing(4, after: stack.arrangedSubviews.last!)
-
-        let publicURLNote = NSTextField(wrappingLabelWithString: L("Base URL for public access. If empty, the S3 endpoint URL is used (may not be publicly accessible)."))
-        publicURLNote.font = NSFont.systemFont(ofSize: 10)
-        publicURLNote.textColor = .secondaryLabelColor
-        stack.addArrangedSubview(indented(publicURLNote))
-
-        s3PathPrefixField = NSTextField()
-        s3PathPrefixField.placeholderString = "screenshots/"
-        s3PathPrefixField.font = NSFont.monospacedSystemFont(ofSize: 11, weight: .regular)
-        s3PathPrefixField.stringValue = UserDefaults.standard.string(forKey: "s3PathPrefix") ?? ""
-        s3PathPrefixField.target = self
-        s3PathPrefixField.action = #selector(s3FieldChanged(_:))
-        stack.addArrangedSubview(labeledRow(L("Path Prefix:"), controls: [s3PathPrefixField]))
-        stack.setCustomSpacing(8, after: stack.arrangedSubviews.last!)
-
-        s3PublicReadCheckbox = NSButton(checkboxWithTitle: L("Make uploads publicly readable"), target: self, action: #selector(s3PublicReadChanged(_:)))
-        s3PublicReadCheckbox.state = UserDefaults.standard.bool(forKey: "s3PublicRead") ? .on : .off
-        stack.addArrangedSubview(indented(s3PublicReadCheckbox))
-        stack.setCustomSpacing(4, after: stack.arrangedSubviews.last!)
-
-        let publicReadNote = NSTextField(wrappingLabelWithString: L("Sends the public-read ACL so uploaded files are viewable by anyone with the link. Needed for AWS S3, DigitalOcean Spaces, MinIO and Backblaze B2, which store objects privately by default. Leave off for Cloudflare R2, which has no ACLs and rejects the header."))
-        publicReadNote.font = NSFont.systemFont(ofSize: 10)
-        publicReadNote.textColor = .secondaryLabelColor
-        stack.addArrangedSubview(indented(publicReadNote))
-        stack.setCustomSpacing(8, after: stack.arrangedSubviews.last!)
-
-        s3TestBtn = NSButton(title: L("Test Connection"), target: self, action: #selector(s3TestTapped(_:)))
-        s3TestBtn.bezelStyle = .rounded
-
-        s3StatusLabel = NSTextField(labelWithString: "")
-        s3StatusLabel.font = NSFont.systemFont(ofSize: 11)
-        s3StatusLabel.textColor = .secondaryLabelColor
-        s3StatusLabel.lineBreakMode = .byTruncatingTail
-
-        let testRow = NSStackView(views: [s3TestBtn, s3StatusLabel])
-        testRow.orientation = .horizontal
-        testRow.spacing = 8
-        stack.addArrangedSubview(indented(testRow))
-        stack.setCustomSpacing(4, after: stack.arrangedSubviews.last!)
-
-        let s3Note = NSTextField(wrappingLabelWithString: L("Works with AWS S3, Cloudflare R2, MinIO, DigitalOcean Spaces, Backblaze B2, and other S3-compatible services. Supports images and videos."))
-        s3Note.font = NSFont.systemFont(ofSize: 10)
-        s3Note.textColor = .secondaryLabelColor
-        stack.addArrangedSubview(indented(s3Note))
-        stack.setCustomSpacing(16, after: stack.arrangedSubviews.last!)
-
-        // ── imgbb ──
-        stack.addArrangedSubview(sectionHeader("imgbb"))
-        stack.setCustomSpacing(10, after: stack.arrangedSubviews.last!)
-
-        imgbbKeyField = NSTextField()
-        imgbbKeyField.placeholderString = L("Leave empty to use default")
-        imgbbKeyField.font = NSFont.monospacedSystemFont(ofSize: 11, weight: .regular)
-        imgbbKeyField.target = self
-        imgbbKeyField.action = #selector(imgbbKeyChanged(_:))
-        if let key = UserDefaults.standard.string(forKey: "imgbbAPIKey") {
-            imgbbKeyField.stringValue = key
-        }
-
-        stack.addArrangedSubview(labeledRow(L("API key:"), controls: [imgbbKeyField]))
-        stack.setCustomSpacing(4, after: stack.arrangedSubviews.last!)
-
-        let imgbbNote = NSTextField(wrappingLabelWithString: L("A shared key is included — get your own free key at imgbb.com/api if you hit rate limits. Images only (no video support)."))
-        imgbbNote.font = NSFont.systemFont(ofSize: 10)
-        imgbbNote.textColor = .secondaryLabelColor
-        stack.addArrangedSubview(indented(imgbbNote))
-        stack.setCustomSpacing(20, after: stack.arrangedSubviews.last!)
-
-        // ── Upload History ──
-        stack.addArrangedSubview(sectionHeader(L("Upload History")))
-        stack.setCustomSpacing(10, after: stack.arrangedSubviews.last!)
-
-        // Placeholder for upload history rows
-        let historyContainer = NSStackView()
-        historyContainer.orientation = .vertical
-        historyContainer.alignment = .width
-        historyContainer.spacing = 6
-        historyContainer.translatesAutoresizingMaskIntoConstraints = false
-        stack.addArrangedSubview(historyContainer)
-        // Stretch to full stack width
-        historyContainer.widthAnchor.constraint(equalTo: stack.widthAnchor, constant: -40).isActive = true
-        self.uploadsStack = historyContainer
-
-        let clipView = scroll.contentView
-        scroll.documentView = stack
-
-        NSLayoutConstraint.activate([
-            stack.topAnchor.constraint(equalTo: clipView.topAnchor),
-            stack.leadingAnchor.constraint(equalTo: clipView.leadingAnchor),
-            stack.trailingAnchor.constraint(equalTo: clipView.trailingAnchor),
-        ])
-
-        return scroll
-    }
-    #endif
-
     // MARK: - About Tab
 
     private func makeAboutTabView() -> NSView {
@@ -2231,206 +1983,6 @@ class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSWindowD
             }
         }
     }
-
-    #if !OFFLINE
-    private func updateGDriveStatus() {
-        if GoogleDriveUploader.shared.isSignedIn {
-            gdriveStatusLabel?.stringValue = GoogleDriveUploader.shared.userEmail ?? L("Signed in")
-            gdriveStatusLabel?.textColor = .labelColor
-        } else {
-            gdriveStatusLabel?.stringValue = L("Not signed in")
-            gdriveStatusLabel?.textColor = .secondaryLabelColor
-        }
-    }
-
-    private func updateGDriveButton() {
-        if GoogleDriveUploader.shared.isSignedIn {
-            gdriveSignInBtn?.title = L("Sign Out")
-        } else {
-            gdriveSignInBtn?.title = L("Sign In with Google")
-        }
-    }
-
-    @objc private func uploadProviderChanged(_ sender: NSPopUpButton) {
-        let provider: String
-        switch sender.indexOfSelectedItem {
-        case 1: provider = "gdrive"
-        case 2: provider = "s3"
-        default: provider = "imgbb"
-        }
-        UserDefaults.standard.set(provider, forKey: "uploadProvider")
-    }
-
-    @objc private func gdriveSignInTapped(_ sender: NSButton) {
-        if GoogleDriveUploader.shared.isSignedIn {
-            GoogleDriveUploader.shared.signOut()
-            updateGDriveStatus()
-            updateGDriveButton()
-        } else {
-            GoogleDriveUploader.shared.signIn(from: window) { [weak self] success in
-                guard let self = self, success else {
-                    self?.updateGDriveStatus()
-                    self?.updateGDriveButton()
-                    return
-                }
-                self.window?.makeKeyAndOrderFront(nil)
-                self.updateGDriveButton()
-                // Fetch email then update status label
-                GoogleDriveUploader.shared.fetchUserEmail { [weak self] in
-                    self?.updateGDriveStatus()
-                }
-            }
-        }
-    }
-
-    @objc private func gdriveFolderChanged(_ sender: NSTextField) {
-        UserDefaults.standard.set(gdriveFolderField.stringValue, forKey: "gdriveFolderName")
-    }
-
-    @objc private func s3FieldChanged(_ sender: NSTextField) {
-        UserDefaults.standard.set(s3EndpointField.stringValue, forKey: "s3Endpoint")
-        UserDefaults.standard.set(s3RegionField.stringValue, forKey: "s3Region")
-        UserDefaults.standard.set(s3BucketField.stringValue, forKey: "s3Bucket")
-        UserDefaults.standard.set(s3AccessKeyField.stringValue, forKey: "s3AccessKeyID")
-        UserDefaults.standard.set(s3SecretKeyField.stringValue, forKey: "s3SecretAccessKey")
-        UserDefaults.standard.set(s3PublicURLField.stringValue, forKey: "s3PublicURLBase")
-        UserDefaults.standard.set(s3PathPrefixField.stringValue, forKey: "s3PathPrefix")
-    }
-
-    @objc private func s3PublicReadChanged(_ sender: NSButton) {
-        UserDefaults.standard.set(sender.state == .on, forKey: "s3PublicRead")
-    }
-
-    @objc private func s3TestTapped(_ sender: NSButton) {
-        // Save current field values first
-        s3FieldChanged(s3EndpointField)
-
-        guard S3Uploader.shared.isConfigured else {
-            s3StatusLabel.stringValue = L("Fill in endpoint, bucket, and credentials first")
-            s3StatusLabel.textColor = .systemOrange
-            return
-        }
-
-        s3TestBtn.isEnabled = false
-        s3StatusLabel.stringValue = L("Testing...")
-        s3StatusLabel.textColor = .secondaryLabelColor
-
-        // Upload a tiny test file
-        let testData = Data("macshot connection test".utf8)
-        let testKey = ".macshot_test_\(UUID().uuidString.prefix(8)).txt"
-        S3Uploader.shared.upload(data: testData, filename: testKey, contentType: "text/plain") { [weak self] result in
-            guard let self = self else { return }
-            self.s3TestBtn.isEnabled = true
-            switch result {
-            case .success:
-                self.s3StatusLabel.stringValue = L("Connection successful!")
-                self.s3StatusLabel.textColor = .systemGreen
-            case .failure(let error):
-                self.s3StatusLabel.stringValue = error.localizedDescription
-                self.s3StatusLabel.textColor = .systemRed
-            }
-        }
-    }
-
-    private func reloadUploadsTab() {
-        guard let stack = uploadsStack else { return }
-        stack.arrangedSubviews.forEach { stack.removeArrangedSubview($0); $0.removeFromSuperview() }
-
-        let uploads = ((UserDefaults.standard.array(forKey: "imgbbUploads") as? [[String: String]]) ?? [])
-            .reversed() as [[String: String]]
-
-        if uploads.isEmpty {
-            let lbl = NSTextField(labelWithString: L("No uploads yet."))
-            lbl.font = NSFont.systemFont(ofSize: 13)
-            lbl.textColor = .secondaryLabelColor
-            lbl.alignment = .center
-            lbl.translatesAutoresizingMaskIntoConstraints = false
-            stack.addArrangedSubview(lbl)
-        } else {
-            for (i, upload) in uploads.enumerated() {
-                let row = makeUploadRow(index: uploads.count - i,
-                                        link: upload["link"] ?? "",
-                                        deleteURL: upload["deleteURL"] ?? "")
-                stack.addArrangedSubview(row)
-            }
-        }
-    }
-
-    private func makeUploadRow(index: Int, link: String, deleteURL: String) -> NSView {
-        let box = NSView()
-        box.translatesAutoresizingMaskIntoConstraints = false
-        box.wantsLayer = true
-        box.layer?.backgroundColor = NSColor.windowBackgroundColor.withAlphaComponent(0.5).cgColor
-        box.layer?.cornerRadius = 6
-        box.layer?.borderWidth = 0.5
-        box.layer?.borderColor = NSColor.separatorColor.cgColor
-
-        let inner = NSStackView()
-        inner.orientation = .vertical
-        inner.alignment = .leading
-        inner.spacing = 6
-        inner.translatesAutoresizingMaskIntoConstraints = false
-        inner.edgeInsets = NSEdgeInsets(top: 8, left: 8, bottom: 8, right: 8)
-        box.addSubview(inner)
-
-        NSLayoutConstraint.activate([
-            inner.topAnchor.constraint(equalTo: box.topAnchor),
-            inner.leadingAnchor.constraint(equalTo: box.leadingAnchor),
-            inner.trailingAnchor.constraint(equalTo: box.trailingAnchor),
-            inner.bottomAnchor.constraint(equalTo: box.bottomAnchor),
-        ])
-
-        inner.addArrangedSubview(urlRow(tag: "URL", value: link, copyKey: "link::\(link)"))
-        inner.addArrangedSubview(urlRow(tag: "DEL", value: deleteURL, copyKey: "link::\(deleteURL)"))
-
-        return box
-    }
-
-    private func urlRow(tag: String, value: String, copyKey: String) -> NSView {
-        let row = NSView()
-        row.translatesAutoresizingMaskIntoConstraints = false
-        row.heightAnchor.constraint(equalToConstant: 24).isActive = true
-
-        let tagLbl = NSTextField(labelWithString: tag)
-        tagLbl.font = NSFont.systemFont(ofSize: 10, weight: .semibold)
-        tagLbl.textColor = .secondaryLabelColor
-        tagLbl.translatesAutoresizingMaskIntoConstraints = false
-
-        let field = NSTextField(labelWithString: value)
-        field.font = NSFont.monospacedSystemFont(ofSize: 11, weight: .regular)
-        field.textColor = tag == "URL" ? .labelColor : .secondaryLabelColor
-        field.lineBreakMode = .byTruncatingMiddle
-        field.isSelectable = true
-        field.translatesAutoresizingMaskIntoConstraints = false
-        field.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-
-        let btn = NSButton(title: L("Copy"), target: self, action: #selector(copyUploadURL(_:)))
-        btn.bezelStyle = .rounded
-        btn.font = NSFont.systemFont(ofSize: 11)
-        btn.identifier = NSUserInterfaceItemIdentifier(copyKey)
-        btn.translatesAutoresizingMaskIntoConstraints = false
-
-        row.addSubview(tagLbl)
-        row.addSubview(field)
-        row.addSubview(btn)
-
-        NSLayoutConstraint.activate([
-            tagLbl.leadingAnchor.constraint(equalTo: row.leadingAnchor),
-            tagLbl.widthAnchor.constraint(equalToConstant: 34),
-            tagLbl.centerYAnchor.constraint(equalTo: row.centerYAnchor),
-
-            btn.trailingAnchor.constraint(equalTo: row.trailingAnchor),
-            btn.widthAnchor.constraint(equalToConstant: 52),
-            btn.centerYAnchor.constraint(equalTo: row.centerYAnchor),
-
-            field.leadingAnchor.constraint(equalTo: tagLbl.trailingAnchor, constant: 6),
-            field.trailingAnchor.constraint(equalTo: btn.leadingAnchor, constant: -8),
-            field.centerYAnchor.constraint(equalTo: row.centerYAnchor),
-        ])
-
-        return row
-    }
-    #endif
 
     // MARK: - Layout helpers
 
@@ -2679,10 +2231,6 @@ class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSWindowD
         downscaleRetinaCheckbox.state = ImageEncoder.downscaleRetina ? .on : .off
         updateQualityVisibility()
 
-        #if !OFFLINE
-        imgbbKeyField.stringValue = UserDefaults.standard.string(forKey: "imgbbAPIKey") ?? ""
-        #endif
-
         // Recording
         let recFPS = UserDefaults.standard.integer(forKey: "recordingFPS")
         let mp4Options = [15, 24, 30, 60, 120]
@@ -2846,13 +2394,6 @@ class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSWindowD
     @objc private func downscaleRetinaChanged(_ sender: NSButton) {
         UserDefaults.standard.set(sender.state == .on, forKey: "downscaleRetina")
     }
-    #if !OFFLINE
-    @objc private func imgbbKeyChanged(_ sender: NSTextField) {
-        let key = sender.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
-        if key.isEmpty { UserDefaults.standard.removeObject(forKey: "imgbbAPIKey") }
-        else { UserDefaults.standard.set(key, forKey: "imgbbAPIKey") }
-    }
-    #endif
     @objc private func historySizeChanged(_ sender: NSStepper) {
         historySizeField.integerValue = sender.integerValue
         UserDefaults.standard.set(sender.integerValue, forKey: "historySize")
@@ -3065,15 +2606,6 @@ class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSWindowD
     }
     private func notifyToolbarColorChange() {
         NotificationCenter.default.post(name: .toolbarColorsDidChange, object: nil)
-    }
-    @objc private func copyUploadURL(_ sender: NSButton) {
-        guard let id = sender.identifier?.rawValue, id.hasPrefix("link::") else { return }
-        let url = String(id.dropFirst(6))
-        NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(url, forType: .string)
-        let orig = sender.title
-        sender.title = "✓"
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { sender.title = orig }
     }
     @objc private func snapGuidesChanged(_ sender: NSButton) {
         UserDefaults.standard.set(sender.state == .on, forKey: "snapGuidesEnabled")
