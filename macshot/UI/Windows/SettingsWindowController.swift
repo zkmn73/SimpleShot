@@ -124,7 +124,6 @@ class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSWindowD
     private var scrollMaxHeightField: NSTextField!
     private var scrollMaxHeightStepper: NSStepper!
     private var scrollFrozenDetectionCheckbox: NSButton!
-    private var languagePopup: NSPopUpButton!
 
     var onHotkeyChanged: (() -> Void)?
     var onEditorCommandShortcutChanged: (() -> Void)?
@@ -373,30 +372,6 @@ class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSWindowD
 
     private func makeGeneralTabView() -> NSView {
         let (scroll, stack) = makeSettingsScrollStack()
-
-        // ── Language ──────────────────────────────────────────
-        stack.addArrangedSubview(sectionHeader(L("Language")))
-        stack.setCustomSpacing(10, after: stack.arrangedSubviews.last!)
-
-        languagePopup = NSPopUpButton()
-        for lang in LanguageManager.availableLanguages {
-            languagePopup.addItem(withTitle: lang.name)
-        }
-        let currentLang = LanguageManager.shared.currentLanguage
-        if let idx = LanguageManager.availableLanguages.firstIndex(where: { $0.code == currentLang }) {
-            languagePopup.selectItem(at: idx)
-        }
-        languagePopup.target = self
-        languagePopup.action = #selector(languageChanged(_:))
-
-        stack.addArrangedSubview(labeledRow(L("Language:"), controls: [languagePopup]))
-        stack.setCustomSpacing(4, after: stack.arrangedSubviews.last!)
-
-        let langNote = NSTextField(wrappingLabelWithString: L("Restart the app to fully apply the new language."))
-        langNote.font = NSFont.systemFont(ofSize: 10)
-        langNote.textColor = .secondaryLabelColor
-        stack.addArrangedSubview(indented(langNote))
-        stack.setCustomSpacing(20, after: stack.arrangedSubviews.last!)
 
         // ── Application ──────────────────────────────────────
         stack.addArrangedSubview(sectionHeader(L("Application")))
@@ -2369,12 +2344,6 @@ class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSWindowD
     }
     @objc private func closeEditorAfterCopyChanged(_ sender: NSButton) {
         UserDefaults.standard.set(sender.state == .on, forKey: "closeEditorAfterCopy")
-    }
-    @objc private func languageChanged(_ sender: NSPopUpButton) {
-        let languages = LanguageManager.availableLanguages
-        let idx = sender.indexOfSelectedItem
-        guard idx >= 0, idx < languages.count else { return }
-        LanguageManager.shared.currentLanguage = languages[idx].code
     }
     @objc private func openGitHub() {
         if let url = URL(string: "https://github.com/sw33tLie/macshot") { NSWorkspace.shared.open(url) }
