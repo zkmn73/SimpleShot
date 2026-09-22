@@ -1002,6 +1002,48 @@ class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSWindowD
         stack.addArrangedSubview(indented(resetMenuOrderButton))
         stack.setCustomSpacing(20, after: stack.arrangedSubviews.last!)
 
+        // ── Scroll Capture ────────────────────────────────────
+        stack.addArrangedSubview(sectionHeader(L("Scroll Capture")))
+        stack.setCustomSpacing(10, after: stack.arrangedSubviews.last!)
+
+        scrollAutoScrollCheckbox = NSButton(checkboxWithTitle: L("Auto-scroll (sends synthetic scroll events)"),
+                                            target: self, action: #selector(scrollAutoScrollChanged(_:)))
+        stack.addArrangedSubview(scrollAutoScrollCheckbox)
+        stack.setCustomSpacing(8, after: stack.arrangedSubviews.last!)
+
+        scrollSpeedPopup = NSPopUpButton()
+        scrollSpeedPopup.addItems(withTitles: [L("Slow"), L("Medium"), L("Fast"), L("Very fast")])
+        scrollSpeedPopup.target = self
+        scrollSpeedPopup.action = #selector(scrollSpeedChanged(_:))
+        stack.addArrangedSubview(labeledRow(L("Scroll speed:"), controls: [scrollSpeedPopup]))
+        stack.setCustomSpacing(8, after: stack.arrangedSubviews.last!)
+
+        scrollMaxHeightField = NSTextField()
+        scrollMaxHeightField.isEditable = false
+        scrollMaxHeightField.isSelectable = false
+        scrollMaxHeightField.font = .monospacedDigitSystemFont(ofSize: 13, weight: .regular)
+        scrollMaxHeightField.translatesAutoresizingMaskIntoConstraints = false
+        scrollMaxHeightField.widthAnchor.constraint(equalToConstant: 60).isActive = true
+
+        scrollMaxHeightStepper = NSStepper()
+        scrollMaxHeightStepper.minValue = 0
+        scrollMaxHeightStepper.maxValue = 100000
+        scrollMaxHeightStepper.increment = 5000
+        scrollMaxHeightStepper.valueWraps = false
+        scrollMaxHeightStepper.target = self
+        scrollMaxHeightStepper.action = #selector(scrollMaxHeightChanged(_:))
+
+        let maxHeightNote = NSTextField(labelWithString: L("px (0 = unlimited)"))
+        maxHeightNote.font = .systemFont(ofSize: 11)
+        maxHeightNote.textColor = .secondaryLabelColor
+        stack.addArrangedSubview(labeledRow(L("Max height:"), controls: [scrollMaxHeightField, scrollMaxHeightStepper, maxHeightNote]))
+        stack.setCustomSpacing(8, after: stack.arrangedSubviews.last!)
+
+        scrollFrozenDetectionCheckbox = NSButton(checkboxWithTitle: L("Detect fixed/sticky headers"),
+                                                 target: self, action: #selector(scrollFrozenDetectionChanged(_:)))
+        stack.addArrangedSubview(scrollFrozenDetectionCheckbox)
+        stack.setCustomSpacing(20, after: stack.arrangedSubviews.last!)
+
         finalizeSettingsStack(scroll: scroll, stack: stack)
         return scroll
     }
