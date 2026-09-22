@@ -66,16 +66,12 @@ protocol OverlayWindowControllerDelegate: AnyObject {
     func overlayDidConfirm(_ controller: OverlayWindowController, capturedImage: NSImage?, annotationData: CaptureAnnotationData?)
     func overlayDidRequestPin(_ controller: OverlayWindowController, image: NSImage, annotationData: CaptureAnnotationData?)
     func overlayDidRequestOCR(_ controller: OverlayWindowController, result: OCRScanResult, image: NSImage?)
-    func overlayDidRequestStartRecording(
-        _ controller: OverlayWindowController, rect: NSRect, screen: NSScreen)
-    func overlayDidRequestStopRecording(_ controller: OverlayWindowController)
     func overlayDidRequestScrollCapture(
         _ controller: OverlayWindowController, rect: NSRect, screen: NSScreen)
     func overlayDidRequestStopScrollCapture(_ controller: OverlayWindowController)
     func overlayDidRequestCancelScrollCapture(_ controller: OverlayWindowController)
     func overlayDidRequestToggleAutoScroll(_ controller: OverlayWindowController)
     func overlayDidRequestAccessibilityPermission(_ controller: OverlayWindowController)
-    func overlayDidRequestInputMonitoringPermission(_ controller: OverlayWindowController)
     func overlayDidBeginSelection(_ controller: OverlayWindowController)
     func overlayDidChangeSelection(_ controller: OverlayWindowController, globalRect: NSRect)
     func overlayDidRemoteResizeSelection(_ controller: OverlayWindowController, globalRect: NSRect)
@@ -110,11 +106,6 @@ class OverlayWindowController {
     var selectionRect: NSRect { overlayView?.selectionRect ?? .zero }
     var remoteSelectionRect: NSRect { overlayView?.remoteSelectionRect ?? .zero }
 
-    // Session recording overrides (from toolbar popover, nil = use UserDefaults default)
-    var sessionRecordingFPS: Int? { overlayView?.sessionRecordingFPS }
-    var sessionRecordingOnStop: String? { overlayView?.sessionRecordingOnStop }
-    var sessionRecordingDelay: Int? { overlayView?.sessionRecordingDelay }
-    var sessionHideRecordingHUD: Bool? { overlayView?.sessionHideRecordingHUD }
     /// Create an overlay pre-populated with a screenshot. Visible immediately on showOverlay().
     init(capture: ScreenCapture) {
         let screen = capture.screen
@@ -293,11 +284,6 @@ class OverlayWindowController {
         overlayView?.applyFullScreenSelection()
     }
 
-    /// Set flag so overlay enters recording mode after user makes a selection.
-    func setAutoRecordMode() {
-        overlayView?.autoEnterRecordingMode = true
-    }
-
     /// Set flag so overlay triggers OCR immediately after user makes a selection.
     func setAutoOCRMode() {
         overlayView?.autoOCRMode = true
@@ -331,19 +317,6 @@ class OverlayWindowController {
     /// Set flag so overlay auto-confirms immediately after selection (no toolbars, no save).
     func setAutoConfirmMode() {
         overlayView?.autoConfirmMode = true
-    }
-
-    /// Enter recording mode — shows recording toolbar buttons in the normal toolbar.
-    func enterRecordingMode() {
-        overlayView?.isRecording = true
-        overlayView?.rebuildToolbarLayout()
-        overlayView?.needsDisplay = true
-    }
-
-    /// Auto-start recording immediately (used when timer + fullscreen record).
-    func autoStartRecording() {
-        overlayView?.overlayDelegate?.overlayViewDidRequestStartRecording(
-            rect: overlayView?.selectionRect ?? .zero)
     }
 
     func setScrollCaptureState(isActive: Bool, stripCount: Int = 0, pixelSize: CGSize = .zero,
@@ -699,30 +672,6 @@ extension OverlayWindowController: OverlayViewDelegate {
         }
     }
 
-    func overlayViewDidRequestEnterRecordingMode() {
-        enterRecordingMode()
-    }
-
-    func overlayViewDidRequestStartRecording(rect: NSRect) {
-        // Convert overlay-local rect to screen coordinates
-        let screenRect = NSRect(
-            x: screen.frame.minX + rect.minX,
-            y: screen.frame.minY + rect.minY,
-            width: rect.width,
-            height: rect.height
-        )
-        overlayDelegate?.overlayDidRequestStartRecording(self, rect: screenRect, screen: screen)
-    }
-
-    /// Detach the webcam setup preview so it can be reused during recording.
-    func detachWebcamPreview() -> WebcamOverlay? {
-        overlayView?.detachWebcamSetupPreview()
-    }
-
-    func overlayViewDidRequestStopRecording() {
-        overlayDelegate?.overlayDidRequestStopRecording(self)
-    }
-
     func overlayViewDidRequestScrollCapture(rect: NSRect) {
         let screenRect = NSRect(
             x: screen.frame.minX + rect.minX,
@@ -747,10 +696,6 @@ extension OverlayWindowController: OverlayViewDelegate {
 
     func overlayViewDidRequestAccessibilityPermission() {
         overlayDelegate?.overlayDidRequestAccessibilityPermission(self)
-    }
-
-    func overlayViewDidRequestInputMonitoringPermission() {
-        overlayDelegate?.overlayDidRequestInputMonitoringPermission(self)
     }
 
     func overlayViewDidBeginSelection() {

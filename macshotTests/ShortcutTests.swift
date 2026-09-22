@@ -329,7 +329,7 @@ final class HotkeyManagerTests: XCTestCase {
     }
 
     func testDisablingAHotkeyReportsNoBinding() {
-        let slot = HotkeyManager.HotkeySlot.recordArea
+        let slot = HotkeyManager.HotkeySlot.captureFullScreen
         withDefaults([slot.keyCodeKey: nil, slot.modifiersKey: nil, slot.disabledKey: nil]) {
             HotkeyManager.disableHotkey(for: slot)
             let read = HotkeyManager.readHotkey(for: slot)
@@ -340,7 +340,7 @@ final class HotkeyManagerTests: XCTestCase {
     }
 
     func testSavingAfterDisablingReEnables() {
-        let slot = HotkeyManager.HotkeySlot.recordArea
+        let slot = HotkeyManager.HotkeySlot.captureFullScreen
         withDefaults([slot.keyCodeKey: nil, slot.modifiersKey: nil, slot.disabledKey: nil]) {
             HotkeyManager.disableHotkey(for: slot)
             HotkeyManager.saveHotkey(for: slot, keyCode: 15, modifiers: UInt32(cmdKey))

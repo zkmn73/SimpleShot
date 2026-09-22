@@ -141,8 +141,8 @@ class ScrollCaptureHUDPanel: NSPanel {
     }
 
     // Never become key: clicking the HUD shouldn't steal focus from the app
-    // underneath (matches RecordingHUDPanel). Buttons still work via the
-    // nonactivating panel + acceptsFirstMouse.
+    // underneath. Buttons still work via the nonactivating panel +
+    // acceptsFirstMouse.
     override var canBecomeKey: Bool { false }
 
     /// Where the HUD goes for a given selection.

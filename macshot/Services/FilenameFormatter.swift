@@ -4,9 +4,6 @@ enum FilenameFormatter {
     static let defaultTemplate = "Screenshot {date} at {time}"
     static let userDefaultsKey = "filenameTemplate"
 
-    static let defaultRecordingTemplate = "Recording {date} at {time}"
-    static let recordingUserDefaultsKey = "recordingFilenameTemplate"
-
     /// Renders a filename *without* extension from a user-editable template.
     ///
     /// Supported tokens (case-sensitive, lowercase):

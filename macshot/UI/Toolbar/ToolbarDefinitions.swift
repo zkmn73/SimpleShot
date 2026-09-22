@@ -29,18 +29,9 @@ enum ToolbarButtonAction {
     case invertColors
     case loupe
     case translate
-    case record  // enters recording mode (shows recording toolbar)
-    case startRecord  // actually starts recording
-    case stopRecord
-    case mouseHighlight
-    case systemAudio
-    case micAudio
     case detach
     case scrollCapture
     case addCapture  // editor only: capture a new region and append to the canvas
-    case showKeystrokes
-    case webcam
-    case recordSettings  // recording mode: open format/FPS/when-done popover
     case effects  // image effects (CIFilter adjustments + presets)
 }
 
@@ -63,7 +54,6 @@ enum ToolbarCustomAction: Int {
     case autoRedact = 1006
     case reserved1007 = 1007
     case translate = 1008
-    case record = 1009
     case scrollCapture = 1010
     case invertColors = 1011
     case share = 1012
@@ -72,7 +62,7 @@ enum ToolbarCustomAction: Int {
     static var allKnownActions: [ToolbarCustomAction] {
         [
             .pin, .ocr, .beautify, .removeBackground, .autoRedact, .reserved1007,
-            .translate, .record, .scrollCapture, .invertColors, .share, .effects,
+            .translate, .scrollCapture, .invertColors, .share, .effects,
         ]
     }
 
@@ -81,7 +71,7 @@ enum ToolbarCustomAction: Int {
     }
 
     static var rightToolbarActions: [ToolbarCustomAction] {
-        [.share, .pin, .ocr, .translate, .scrollCapture, .record]
+        [.share, .pin, .ocr, .translate, .scrollCapture]
     }
 
     static var bottomSettingsActions: [ToolbarCustomAction] {
@@ -89,7 +79,7 @@ enum ToolbarCustomAction: Int {
     }
 
     static var rightSettingsActions: [ToolbarCustomAction] {
-        [.pin, .ocr, .autoRedact, .translate, .record, .scrollCapture, .share]
+        [.pin, .ocr, .autoRedact, .translate, .scrollCapture, .share]
     }
 
     var settingsLabel: String {
@@ -101,7 +91,6 @@ enum ToolbarCustomAction: Int {
         case .autoRedact: return L("Auto-Redact sensitive data")
         case .reserved1007: return ""
         case .translate: return L("Translate")
-        case .record: return L("Record screen")
         case .scrollCapture: return L("Scroll Capture")
         case .invertColors: return L("Invert Colors")
         case .share: return L("Share")
@@ -144,11 +133,6 @@ enum ToolbarCustomAction: Int {
             var button = ToolbarButton(action: .translate, sfSymbol: "translate", tooltip: L("Translate"))
             button.isSelected = translateEnabled
             button.hasContextMenu = true
-            return button
-        case .record:
-            guard !isEditorMode else { return nil }
-            var button = ToolbarButton(action: .record, sfSymbol: "video.fill", tooltip: L("Record"))
-            button.tintColor = ToolbarLayout.iconColor
             return button
         case .scrollCapture:
             guard !isRecording && !isEditorMode else { return nil }
@@ -382,72 +366,6 @@ class ToolbarLayout {
         isEditorMode: Bool = false
     ) -> [ToolbarButton] {
         var buttons: [ToolbarButton] = []
-
-        // Recording setup mode — show start button + toggles, then return early
-        if isRecording {
-            var startBtn = ToolbarButton(
-                action: .startRecord, sfSymbol: "record.circle", tooltip: L("Start Recording"))
-            startBtn.tintColor = .systemRed
-            buttons.append(startBtn)
-
-            // Stop/cancel button to exit recording mode without starting
-            buttons.append(
-                ToolbarButton(action: .stopRecord, sfSymbol: "xmark", tooltip: L("Cancel Recording")))
-
-            let mouseHighlightOn = UserDefaults.standard.bool(forKey: "recordMouseHighlight")
-            var mouseBtn = ToolbarButton(
-                action: .mouseHighlight, sfSymbol: "cursorarrow.click.2", tooltip: L("Highlight Mouse Clicks"))
-            mouseBtn.isSelected = mouseHighlightOn
-            buttons.append(mouseBtn)
-
-            let keystrokesOn = UserDefaults.standard.bool(forKey: "recordKeystroke")
-            var keystrokeBtn = ToolbarButton(
-                action: .showKeystrokes, sfSymbol: "keyboard", tooltip: L("Show Keystrokes"))
-            keystrokeBtn.isSelected = keystrokesOn
-            keystrokeBtn.hasContextMenu = true
-            buttons.append(keystrokeBtn)
-
-            let audioOn = UserDefaults.standard.bool(forKey: "recordSystemAudio")
-            var audioBtn = ToolbarButton(
-                action: .systemAudio, sfSymbol: audioOn ? "speaker.wave.2.fill" : "speaker.slash",
-                tooltip: L("Record System Audio"))
-            audioBtn.isSelected = audioOn
-            buttons.append(audioBtn)
-
-            let micOn = UserDefaults.standard.bool(forKey: "recordMicAudio")
-            var micBtn = ToolbarButton(
-                action: .micAudio, sfSymbol: micOn ? "mic.fill" : "mic.slash", tooltip: L("Record Microphone"))
-            micBtn.isSelected = micOn
-            micBtn.hasContextMenu = true
-            buttons.append(micBtn)
-
-            let webcamOn = UserDefaults.standard.bool(forKey: "recordWebcam")
-            let webcamSymbol: String = {
-                if #available(macOS 14.0, *) {
-                    return webcamOn ? "web.camera.fill" : "web.camera"
-                }
-                return webcamOn ? "camera.fill" : "camera"
-            }()
-            var webcamBtn = ToolbarButton(
-                action: .webcam, sfSymbol: webcamSymbol, tooltip: L("Webcam Overlay"))
-            webcamBtn.isSelected = webcamOn
-            webcamBtn.hasContextMenu = true
-            buttons.append(webcamBtn)
-
-            // Recording settings gear
-            buttons.append(
-                ToolbarButton(
-                    action: .recordSettings, sfSymbol: "gearshape",
-                    tooltip: L("Recording Settings")))
-
-            // Allow moving the selection before starting
-            buttons.append(
-                ToolbarButton(
-                    action: .moveSelection, sfSymbol: "arrow.up.and.down.and.arrow.left.and.right",
-                    tooltip: L("Move Selection")))
-
-            return buttons
-        }
 
         let enabledActions = ToolbarActionPreferences.enabledRawValuesAfterMigration()
 

@@ -128,7 +128,6 @@ enum LaunchCleanup {
     /// `LaunchCleaner`-conforming type.
     static let all: [LaunchCleaner] = [
         TmpFileCleaner(),
-        EditorSourceCleaner(),
         ScratchDirectoryCleaner(),
         LegacyClipboardBackingDirectoryCleaner(),
         LegacyClipboardTmpDirectoryCleaner(),
@@ -151,15 +150,6 @@ enum LaunchCleanup {
 }
 
 // MARK: - Concrete cleaners
-
-private struct EditorSourceCleaner: LaunchCleaner {
-    let name = "EditorSourceCleaner"
-    func sweep() -> DirectorySweeper.Result {
-        // APFS clones can share blocks with the original, so a file's logical
-        // size is not a meaningful estimate of reclaimed storage here.
-        DirectorySweeper.Result(removed: VideoSourceSnapshot.removeAbandonedTemporaryCopies())
-    }
-}
 
 /// Sweeps macshot-owned files from `NSTemporaryDirectory()` that match
 /// known stale patterns — legacy UUID-named clipboard PNGs, date-named

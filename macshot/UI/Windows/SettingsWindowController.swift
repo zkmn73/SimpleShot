@@ -30,7 +30,6 @@ class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSWindowD
             TabDef(id: "capture",   label: "Capture",   symbolName: "camera.viewfinder",         legacyImageName: NSImage.preferencesGeneralName),
             TabDef(id: "shortcuts", label: "Shortcuts", symbolName: "keyboard",                  legacyImageName: NSImage.preferencesGeneralName),
             TabDef(id: "tools",     label: "Tools",     symbolName: "paintbrush",                legacyImageName: NSImage.preferencesGeneralName),
-            TabDef(id: "recording", label: "Recording", symbolName: "record.circle",             legacyImageName: NSImage.preferencesGeneralName),
         ]
         tabs.append(TabDef(id: "about", label: "About", symbolName: "info.circle", legacyImageName: NSImage.preferencesGeneralName))
         return tabs
@@ -89,8 +88,6 @@ class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSWindowD
     private var disableSelectionShadowCheckbox: NSButton!
     private var filenameTemplateField: NSTextField!
     private var filenameTemplatePreview: NSTextField!
-    private var recordingFilenameTemplateField: NSTextField!
-    private var recordingFilenameTemplatePreview: NSTextField!
     private var autoUpdateCheckbox: NSButton!
     private var betaUpdateCheckbox: NSButton!
     private var accentColorWell: NSColorWell!
@@ -109,15 +106,6 @@ class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSWindowD
     private var captureMenuOrderRowsStack: NSStackView?
     // embedColorProfileCheckbox removed — native color profile is always embedded
     private var localMonitor: Any?
-    // Recording tab controls
-    private var recordingFPSPopup: NSPopUpButton!
-    private var recordingOnStopPopup: NSPopUpButton!
-    private var recSavePathField: NSTextField!
-    // Webcam controls
-    private var webcamPositionPopup: NSPopUpButton!
-    private var webcamSizeSlider: NSSlider!
-    private var webcamSizeLabel: NSTextField!
-    private var webcamShapePopup: NSPopUpButton!
     // Scroll capture controls
     private var scrollAutoScrollCheckbox: NSButton!
     private var scrollSpeedPopup: NSPopUpButton!
@@ -181,7 +169,6 @@ class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSWindowD
         tabContentViews["capture"]   = makeCaptureTabView()
         tabContentViews["shortcuts"] = makeShortcutsTabView()
         tabContentViews["tools"]     = makeToolsTabView()
-        tabContentViews["recording"] = makeRecordingTabView()
         tabContentViews["about"]     = makeAboutTabView()
 
         // Container that swaps content views
@@ -642,7 +629,6 @@ class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSWindowD
         tabContentViews["capture"] = makeCaptureTabView()
         tabContentViews["shortcuts"] = makeShortcutsTabView()
         tabContentViews["tools"] = makeToolsTabView()
-        tabContentViews["recording"] = makeRecordingTabView()
         tabContentViews["about"] = makeAboutTabView()
         showTab(id: previouslySelected)
     }
@@ -1623,198 +1609,6 @@ class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSWindowD
         return scroll
     }
 
-    // MARK: - Recording Tab
-
-    private func makeRecordingTabView() -> NSView {
-        let scroll = NSScrollView()
-        scroll.hasVerticalScroller = true
-        scroll.autohidesScrollers = true
-        scroll.borderType = .noBorder
-        scroll.drawsBackground = false
-        scroll.autoresizingMask = [.width, .height]
-
-        let stack = NSStackView()
-        stack.orientation = .vertical
-        stack.alignment = .leading
-        stack.spacing = 0
-        stack.translatesAutoresizingMaskIntoConstraints = false
-        stack.edgeInsets = NSEdgeInsets(top: 0, left: 20, bottom: 16, right: 20)
-
-        // ── Output ────────────────────────────────────────────
-        stack.addArrangedSubview(sectionHeader(L("Output")))
-        stack.setCustomSpacing(10, after: stack.arrangedSubviews.last!)
-
-        recordingFPSPopup = NSPopUpButton()
-        recordingFPSPopup.addItems(withTitles: [L("15 fps"), L("24 fps"), L("30 fps"), L("60 fps"), L("120 fps")])
-        recordingFPSPopup.target = self
-        recordingFPSPopup.action = #selector(recordingFPSChanged(_:))
-        stack.addArrangedSubview(labeledRow(L("Frame rate:"), controls: [recordingFPSPopup]))
-        stack.setCustomSpacing(8, after: stack.arrangedSubviews.last!)
-
-        recSavePathField = NSTextField()
-        recSavePathField.isEditable = false
-        recSavePathField.isSelectable = false
-        recSavePathField.lineBreakMode = .byTruncatingMiddle
-
-        let recBrowseBtn = NSButton(title: L("Browse…"), target: self, action: #selector(browseRecSavePath(_:)))
-        recBrowseBtn.bezelStyle = .rounded
-        let recClearBtn = NSButton(title: L("Clear"), target: self, action: #selector(clearRecSavePath(_:)))
-        recClearBtn.bezelStyle = .rounded
-
-        stack.addArrangedSubview(labeledRow(L("Save folder:"), controls: [recSavePathField, recBrowseBtn, recClearBtn]))
-        stack.setCustomSpacing(8, after: stack.arrangedSubviews.last!)
-
-        // Recording filename template
-        recordingFilenameTemplateField = NSTextField()
-        recordingFilenameTemplateField.placeholderString = FilenameFormatter.defaultRecordingTemplate
-        recordingFilenameTemplateField.font = NSFont.monospacedSystemFont(ofSize: 11, weight: .regular)
-        recordingFilenameTemplateField.stringValue = UserDefaults.standard.string(forKey: FilenameFormatter.recordingUserDefaultsKey) ?? FilenameFormatter.defaultRecordingTemplate
-        recordingFilenameTemplateField.target = self
-        recordingFilenameTemplateField.action = #selector(recordingFilenameTemplateCommitted(_:))
-        recordingFilenameTemplateField.delegate = self
-        recordingFilenameTemplateField.widthAnchor.constraint(greaterThanOrEqualToConstant: 260).isActive = true
-
-        recordingFilenameTemplatePreview = NSTextField(labelWithString: "")
-        recordingFilenameTemplatePreview.font = NSFont.systemFont(ofSize: 10)
-        recordingFilenameTemplatePreview.textColor = .secondaryLabelColor
-        recordingFilenameTemplatePreview.lineBreakMode = .byTruncatingMiddle
-
-        let recFilenameResetBtn = NSButton(title: L("Reset"), target: self, action: #selector(recordingFilenameTemplateReset(_:)))
-        recFilenameResetBtn.bezelStyle = .rounded
-
-        let recFilenameInfoIcon = HoverPopoverIconView(
-            image: NSImage(systemSymbolName: "info.circle", accessibilityDescription: L("Filename tokens")),
-            tintColor: .secondaryLabelColor,
-            toolTip: L("Show available filename tokens")
-        )
-        recFilenameInfoIcon.onHover = { [weak self] sourceView, shown in
-            if shown { self?.showFilenameTemplateInfoPopover(near: sourceView) }
-        }
-
-        stack.addArrangedSubview(labeledRow(L("Filename:"), controls: [recordingFilenameTemplateField, recFilenameInfoIcon, recFilenameResetBtn]))
-        stack.setCustomSpacing(2, after: stack.arrangedSubviews.last!)
-        stack.addArrangedSubview(indented(recordingFilenameTemplatePreview))
-        stack.setCustomSpacing(20, after: stack.arrangedSubviews.last!)
-        updateRecordingFilenamePreview()
-
-        // ── Behavior ──────────────────────────────────────────
-        stack.addArrangedSubview(sectionHeader(L("Behavior")))
-        stack.setCustomSpacing(10, after: stack.arrangedSubviews.last!)
-
-        recordingOnStopPopup = NSPopUpButton()
-        recordingOnStopPopup.addItems(withTitles: [L("Open editor"), L("Show in Finder"), L("Copy to clipboard")])
-        recordingOnStopPopup.target = self
-        recordingOnStopPopup.action = #selector(recordingOnStopChanged(_:))
-        stack.addArrangedSubview(labeledRow(L("When done:"), controls: [recordingOnStopPopup]))
-        stack.setCustomSpacing(8, after: stack.arrangedSubviews.last!)
-
-        let hideHUDCheckbox = NSButton(checkboxWithTitle: L("Hide recording controls"), target: self, action: #selector(hideRecordingHUDChanged(_:)))
-        hideHUDCheckbox.state = UserDefaults.standard.bool(forKey: "hideRecordingHUD") ? .on : .off
-        stack.addArrangedSubview(indented(hideHUDCheckbox))
-
-        let hideHUDNote = NSTextField(labelWithString: L("Stop recording from the menu bar icon instead."))
-        hideHUDNote.font = NSFont.systemFont(ofSize: 10)
-        hideHUDNote.textColor = .secondaryLabelColor
-        stack.addArrangedSubview(indented(hideHUDNote))
-        stack.setCustomSpacing(20, after: stack.arrangedSubviews.last!)
-
-        // ── Webcam ───────────────────────────────────────────
-        stack.addArrangedSubview(sectionHeader(L("Webcam")))
-        stack.setCustomSpacing(10, after: stack.arrangedSubviews.last!)
-
-        webcamPositionPopup = NSPopUpButton()
-        webcamPositionPopup.addItems(withTitles: [L("Bottom Right"), L("Bottom Left"), L("Top Right"), L("Top Left")])
-        webcamPositionPopup.target = self
-        webcamPositionPopup.action = #selector(webcamPositionChanged(_:))
-        stack.addArrangedSubview(labeledRow(L("Position:"), controls: [webcamPositionPopup]))
-        stack.setCustomSpacing(8, after: stack.arrangedSubviews.last!)
-
-        webcamSizeSlider = NSSlider(
-            value: Double(WebcamSize.savedPoints),
-            minValue: Double(WebcamSize.minPoints),
-            maxValue: Double(WebcamSize.maxPoints),
-            target: self, action: #selector(webcamSizeChanged(_:)))
-        webcamSizeSlider.isContinuous = true
-        webcamSizeSlider.translatesAutoresizingMaskIntoConstraints = false
-        webcamSizeSlider.widthAnchor.constraint(equalToConstant: 220).isActive = true
-        webcamSizeLabel = NSTextField(labelWithString: "")
-        webcamSizeLabel.font = NSFont.monospacedDigitSystemFont(ofSize: 11, weight: .regular)
-        webcamSizeLabel.alignment = .right
-        webcamSizeLabel.translatesAutoresizingMaskIntoConstraints = false
-        webcamSizeLabel.widthAnchor.constraint(equalToConstant: 52).isActive = true
-        updateWebcamSizeLabel()
-        stack.addArrangedSubview(labeledRow(
-            L("Size:"), controls: [webcamSizeSlider, webcamSizeLabel]))
-        stack.setCustomSpacing(8, after: stack.arrangedSubviews.last!)
-
-        webcamShapePopup = NSPopUpButton()
-        webcamShapePopup.addItems(withTitles: [L("Circle"), L("Rounded Rectangle")])
-        webcamShapePopup.target = self
-        webcamShapePopup.action = #selector(webcamShapeChanged(_:))
-        stack.addArrangedSubview(labeledRow(L("Shape:"), controls: [webcamShapePopup]))
-        stack.setCustomSpacing(20, after: stack.arrangedSubviews.last!)
-
-        // ── Scroll Capture ────────────────────────────────────
-        stack.addArrangedSubview(sectionHeader(L("Scroll Capture")))
-        stack.setCustomSpacing(10, after: stack.arrangedSubviews.last!)
-
-        scrollAutoScrollCheckbox = NSButton(checkboxWithTitle: L("Auto-scroll (sends synthetic scroll events)"),
-                                            target: self, action: #selector(scrollAutoScrollChanged(_:)))
-        stack.addArrangedSubview(scrollAutoScrollCheckbox)
-        stack.setCustomSpacing(8, after: stack.arrangedSubviews.last!)
-
-        scrollSpeedPopup = NSPopUpButton()
-        scrollSpeedPopup.addItems(withTitles: [L("Slow"), L("Medium"), L("Fast"), L("Very fast")])
-        scrollSpeedPopup.target = self
-        scrollSpeedPopup.action = #selector(scrollSpeedChanged(_:))
-        stack.addArrangedSubview(labeledRow(L("Scroll speed:"), controls: [scrollSpeedPopup]))
-        stack.setCustomSpacing(8, after: stack.arrangedSubviews.last!)
-
-        scrollMaxHeightField = NSTextField()
-        scrollMaxHeightField.isEditable = false
-        scrollMaxHeightField.isSelectable = false
-        scrollMaxHeightField.font = .monospacedDigitSystemFont(ofSize: 13, weight: .regular)
-        scrollMaxHeightField.translatesAutoresizingMaskIntoConstraints = false
-        scrollMaxHeightField.widthAnchor.constraint(equalToConstant: 60).isActive = true
-
-        scrollMaxHeightStepper = NSStepper()
-        scrollMaxHeightStepper.minValue = 0
-        scrollMaxHeightStepper.maxValue = 100000
-        scrollMaxHeightStepper.increment = 5000
-        scrollMaxHeightStepper.valueWraps = false
-        scrollMaxHeightStepper.target = self
-        scrollMaxHeightStepper.action = #selector(scrollMaxHeightChanged(_:))
-
-        let maxHeightNote = NSTextField(labelWithString: L("px (0 = unlimited)"))
-        maxHeightNote.font = .systemFont(ofSize: 11)
-        maxHeightNote.textColor = .secondaryLabelColor
-        stack.addArrangedSubview(labeledRow(L("Max height:"), controls: [scrollMaxHeightField, scrollMaxHeightStepper, maxHeightNote]))
-        stack.setCustomSpacing(8, after: stack.arrangedSubviews.last!)
-
-        scrollFrozenDetectionCheckbox = NSButton(checkboxWithTitle: L("Detect fixed/sticky headers"),
-                                                 target: self, action: #selector(scrollFrozenDetectionChanged(_:)))
-        stack.addArrangedSubview(scrollFrozenDetectionCheckbox)
-        stack.setCustomSpacing(20, after: stack.arrangedSubviews.last!)
-
-        // Spacer to absorb remaining height, keeping content pinned to top
-        let spacer = NSView()
-        spacer.translatesAutoresizingMaskIntoConstraints = false
-        spacer.setContentHuggingPriority(.fittingSizeCompression, for: .vertical)
-        stack.addArrangedSubview(spacer)
-
-        let clipView = scroll.contentView
-        scroll.documentView = stack
-
-        NSLayoutConstraint.activate([
-            stack.topAnchor.constraint(equalTo: clipView.topAnchor),
-            stack.leadingAnchor.constraint(equalTo: clipView.leadingAnchor),
-            stack.trailingAnchor.constraint(equalTo: clipView.trailingAnchor),
-            stack.heightAnchor.constraint(greaterThanOrEqualTo: clipView.heightAnchor),
-        ])
-
-        return scroll
-    }
-
     // MARK: - About Tab
 
     private func makeAboutTabView() -> NSView {
@@ -1859,7 +1653,7 @@ class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSWindowD
         stack.setCustomSpacing(20, after: versionLabel)
 
         // Description
-        let desc = NSTextField(wrappingLabelWithString: L("A free, open-source screenshot & screen recording tool for macOS.\nFully native — built with Swift and AppKit."))
+        let desc = NSTextField(wrappingLabelWithString: L("A free, open-source screenshot tool for macOS.\nFully native — built with Swift and AppKit."))
         desc.font = NSFont.systemFont(ofSize: 13)
         desc.textColor = .labelColor
         desc.alignment = .center
@@ -2164,8 +1958,6 @@ class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSWindowD
         disableSelectionShadowCheckbox.state = UserDefaults.standard.bool(forKey: "disableSelectionOutsideShadow") ? .on : .off
         filenameTemplateField.stringValue = UserDefaults.standard.string(forKey: FilenameFormatter.userDefaultsKey) ?? FilenameFormatter.defaultTemplate
         updateFilenamePreview()
-        recordingFilenameTemplateField.stringValue = UserDefaults.standard.string(forKey: FilenameFormatter.recordingUserDefaultsKey) ?? FilenameFormatter.defaultRecordingTemplate
-        updateRecordingFilenamePreview()
 
         let autoUpdate = UserDefaults.standard.object(forKey: "SUEnableAutomaticChecks") as? Bool ?? true
         autoUpdateCheckbox.state = autoUpdate ? .on : .off
@@ -2205,36 +1997,6 @@ class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSWindowD
 
         downscaleRetinaCheckbox.state = ImageEncoder.downscaleRetina ? .on : .off
         updateQualityVisibility()
-
-        // Recording
-        let recFPS = UserDefaults.standard.integer(forKey: "recordingFPS")
-        let mp4Options = [15, 24, 30, 60, 120]
-        let fpsIdx = mp4Options.firstIndex(of: recFPS) ?? 2
-        recordingFPSPopup.selectItem(at: fpsIdx)
-
-        let onStop = UserDefaults.standard.string(forKey: "recordingOnStop") ?? "editor"
-        switch onStop {
-        case "finder": recordingOnStopPopup.selectItem(at: 1)
-        case "clipboard": recordingOnStopPopup.selectItem(at: 2)
-        default: recordingOnStopPopup.selectItem(at: 0)
-        }
-
-        recSavePathField.stringValue = SaveDirectoryAccess.recordingDisplayPath
-
-        // Webcam
-        let webcamPos = UserDefaults.standard.string(forKey: "webcamPosition") ?? "bottomRight"
-        switch webcamPos {
-        case "bottomRight": webcamPositionPopup.selectItem(at: 0)
-        case "bottomLeft": webcamPositionPopup.selectItem(at: 1)
-        case "topRight": webcamPositionPopup.selectItem(at: 2)
-        case "topLeft": webcamPositionPopup.selectItem(at: 3)
-        default: webcamPositionPopup.selectItem(at: 0)
-        }
-
-        webcamSizeSlider.doubleValue = Double(WebcamSize.savedPoints)
-        updateWebcamSizeLabel()
-
-        webcamShapePopup.selectItem(at: (UserDefaults.standard.string(forKey: "webcamShape") ?? "circle") == "roundedRect" ? 1 : 0)
 
         // Scroll Capture
         let autoScroll = UserDefaults.standard.object(forKey: "scrollAutoScrollEnabled") as? Bool ?? false
@@ -2389,55 +2151,6 @@ class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSWindowD
         let unlimited = UserDefaults.standard.bool(forKey: "historyUnlimited")
         historySizeField.alphaValue = unlimited ? 0.35 : 1.0
         historySizeStepper.isEnabled = !unlimited
-    }
-    @objc private func recordingFPSChanged(_ sender: NSPopUpButton) {
-        let fpsOptions = [15, 24, 30, 60, 120]
-        let fps = fpsOptions[min(sender.indexOfSelectedItem, fpsOptions.count - 1)]
-        UserDefaults.standard.set(fps, forKey: "recordingFPS")
-    }
-    @objc private func recordingOnStopChanged(_ sender: NSPopUpButton) {
-        let values = ["editor", "finder", "clipboard"]
-        UserDefaults.standard.set(values[sender.indexOfSelectedItem], forKey: "recordingOnStop")
-    }
-    @objc private func hideRecordingHUDChanged(_ sender: NSButton) {
-        UserDefaults.standard.set(sender.state == .on, forKey: "hideRecordingHUD")
-    }
-
-    @objc private func webcamPositionChanged(_ sender: NSPopUpButton) {
-        let values = ["bottomRight", "bottomLeft", "topRight", "topLeft"]
-        UserDefaults.standard.set(values[sender.indexOfSelectedItem], forKey: "webcamPosition")
-    }
-
-    @objc private func webcamSizeChanged(_ sender: NSSlider) {
-        WebcamSize.save(points: CGFloat(sender.doubleValue))
-        sender.doubleValue = Double(WebcamSize.savedPoints)
-        updateWebcamSizeLabel()
-    }
-
-    private func updateWebcamSizeLabel() {
-        webcamSizeLabel?.stringValue = "\(Int(WebcamSize.savedPoints)) px"
-    }
-
-    @objc private func webcamShapeChanged(_ sender: NSPopUpButton) {
-        let values = ["circle", "roundedRect"]
-        UserDefaults.standard.set(values[sender.indexOfSelectedItem], forKey: "webcamShape")
-    }
-
-    @objc private func browseRecSavePath(_ sender: NSButton) {
-        let panel = NSOpenPanel()
-        panel.canChooseDirectories = true
-        panel.canChooseFiles = false
-        panel.allowsMultipleSelection = false
-        panel.directoryURL = SaveDirectoryAccess.recordingDirectoryHint()
-        panel.begin { [weak self] response in
-            guard response == .OK, let url = panel.url else { return }
-            SaveDirectoryAccess.saveRecordingDirectory(url: url)
-            self?.recSavePathField.stringValue = url.path
-        }
-    }
-    @objc private func clearRecSavePath(_ sender: NSButton) {
-        SaveDirectoryAccess.clearRecordingDirectory()
-        recSavePathField.stringValue = SaveDirectoryAccess.recordingDisplayPath
     }
     // MARK: - Scroll Capture actions
     @objc private func scrollAutoScrollChanged(_ sender: NSButton) {
@@ -2626,32 +2339,6 @@ class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSWindowD
         preview.stringValue = "\(L("Preview:")) \(base).\(ImageEncoder.fileExtension)"
     }
 
-    @objc private func recordingFilenameTemplateCommitted(_ sender: NSTextField) {
-        let trimmed = sender.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
-        let value = trimmed.isEmpty ? FilenameFormatter.defaultRecordingTemplate : sender.stringValue
-        if trimmed.isEmpty {
-            sender.stringValue = FilenameFormatter.defaultRecordingTemplate
-        }
-        UserDefaults.standard.set(value, forKey: FilenameFormatter.recordingUserDefaultsKey)
-        updateRecordingFilenamePreview()
-    }
-
-    @objc private func recordingFilenameTemplateReset(_ sender: NSButton) {
-        recordingFilenameTemplateField.stringValue = FilenameFormatter.defaultRecordingTemplate
-        UserDefaults.standard.set(FilenameFormatter.defaultRecordingTemplate, forKey: FilenameFormatter.recordingUserDefaultsKey)
-        updateRecordingFilenamePreview()
-    }
-
-    fileprivate func updateRecordingFilenamePreview() {
-        guard let field = recordingFilenameTemplateField, let preview = recordingFilenameTemplatePreview else { return }
-        let raw = field.stringValue
-        let template = raw.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? FilenameFormatter.defaultRecordingTemplate : raw
-        let sampleDate = sampleFilenameDate()
-        let sampleIndex = template.contains("{index}") ? 1 : nil
-        let base = FilenameFormatter.format(template: template, windowTitle: nil, index: sampleIndex, date: sampleDate, fallback: FilenameFormatter.defaultRecordingTemplate)
-        preview.stringValue = "\(L("Preview:")) \(base).mp4"
-    }
-
     private func sampleFilenameDate() -> Date {
         var comps = DateComponents()
         comps.year = 2026; comps.month = 4; comps.day = 17
@@ -2690,9 +2377,6 @@ class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSWindowD
             ("macshot://quick-capture",       L("Quick capture (uses your Enter action)")),
             ("macshot://ocr",                 L("Capture area and read text/QR codes")),
             ("macshot://ocr-translate?target=zh-CN", L("Capture, translate, and overlay the text on the image")),
-            ("macshot://record",              L("Start area recording")),
-            ("macshot://record-fullscreen",   L("Start full-screen recording")),
-            ("macshot://stop-recording",      L("Stop the current recording")),
             ("macshot://scroll-capture",      L("Start scroll capture")),
             ("macshot://history",             L("Open the recent captures overlay")),
             ("macshot://settings",            L("Open this settings window")),
@@ -2857,9 +2541,6 @@ extension SettingsWindowController: NSTextFieldDelegate {
             // the default template at commit time (see controlTextDidEndEditing).
             UserDefaults.standard.set(field.stringValue, forKey: FilenameFormatter.userDefaultsKey)
             updateFilenamePreview()
-        } else if field === recordingFilenameTemplateField {
-            UserDefaults.standard.set(field.stringValue, forKey: FilenameFormatter.recordingUserDefaultsKey)
-            updateRecordingFilenamePreview()
         } else if field === menuBarIconSymbolField {
             applyMenuBarIconSymbol(field.stringValue)
         }
@@ -2874,10 +2555,6 @@ extension SettingsWindowController: NSTextFieldDelegate {
             field.stringValue = FilenameFormatter.defaultTemplate
             UserDefaults.standard.set(FilenameFormatter.defaultTemplate, forKey: FilenameFormatter.userDefaultsKey)
             updateFilenamePreview()
-        } else if field === recordingFilenameTemplateField, trimmed.isEmpty {
-            field.stringValue = FilenameFormatter.defaultRecordingTemplate
-            UserDefaults.standard.set(FilenameFormatter.defaultRecordingTemplate, forKey: FilenameFormatter.recordingUserDefaultsKey)
-            updateRecordingFilenamePreview()
         }
     }
 }

@@ -382,7 +382,7 @@
 "Version %@ (%@)" = "Version %@ (%@)";
 "Made by" = "Made by";
 "Licensed under the GPLv3" = "Licensed under the GPLv3";
-"A free, open-source screenshot & screen recording tool for macOS.\nFully native — built with Swift and AppKit." = "A free, open-source screenshot & screen recording tool for macOS.\nFully native — built with Swift and AppKit.";
+"A free, open-source screenshot tool for macOS.\nFully native — built with Swift and AppKit." = "A free, open-source screenshot tool for macOS.\nFully native — built with Swift and AppKit.";
 
 /* Alerts */
 "No Image on Clipboard" = "No Image on Clipboard";

@@ -25,8 +25,7 @@ enum SaveDirectoryAccess {
     /// Resolve the configured save directory, starting sandbox-scoped access,
     /// but return `nil` when no valid security-scoped bookmark exists. Use this
     /// for writes that must succeed in the sandbox — `nil` means the caller
-    /// should prompt the user to choose a folder. Mirrors
-    /// `resolveRecordingDirectoryIfAccessible()`.
+    /// should prompt the user to choose a folder.
     /// Caller **must** call `stopAccessing(url:)` when done writing.
     static func resolveIfAccessible() -> URL? {
         guard let bookmarkData = UserDefaults.standard.data(forKey: bookmarkKey) else { return nil }
@@ -83,57 +82,5 @@ enum SaveDirectoryAccess {
     /// The display path for the settings UI.
     static var displayPath: String {
         UserDefaults.standard.string(forKey: pathKey) ?? "~/Pictures"
-    }
-
-    // MARK: - Recording save directory (optional, falls back to general)
-
-    private static let recBookmarkKey = "recordingSaveDirectoryBookmark"
-    private static let recPathKey = "recordingSaveDirectory"
-
-    static func saveRecordingDirectory(url: URL) {
-        UserDefaults.standard.set(url.path, forKey: recPathKey)
-        if let bookmark = try? url.bookmarkData(options: .withSecurityScope,
-                                                  includingResourceValuesForKeys: nil,
-                                                  relativeTo: nil) {
-            UserDefaults.standard.set(bookmark, forKey: recBookmarkKey)
-        }
-    }
-
-    static func clearRecordingDirectory() {
-        UserDefaults.standard.removeObject(forKey: recPathKey)
-        UserDefaults.standard.removeObject(forKey: recBookmarkKey)
-    }
-
-    /// Like resolveRecordingDirectory(), but returns nil if no valid security-scoped bookmark exists.
-    /// Use this to decide whether to fall back to a Save As panel.
-    static func resolveRecordingDirectoryIfAccessible() -> URL? {
-        guard let bookmarkData = UserDefaults.standard.data(forKey: recBookmarkKey) else { return nil }
-        var isStale = false
-        guard let url = try? URL(resolvingBookmarkData: bookmarkData,
-                                  options: .withSecurityScope,
-                                  relativeTo: nil,
-                                  bookmarkDataIsStale: &isStale) else { return nil }
-        guard url.startAccessingSecurityScopedResource() else { return nil }
-        // Same ordering requirement as resolveIfAccessible: refreshing a
-        // security-scoped bookmark needs active scoped access.
-        if isStale {
-            if let fresh = try? url.bookmarkData(options: .withSecurityScope,
-                                                  includingResourceValuesForKeys: nil,
-                                                  relativeTo: nil) {
-                UserDefaults.standard.set(fresh, forKey: recBookmarkKey)
-            }
-        }
-        return url
-    }
-
-    static func recordingDirectoryHint() -> URL? {
-        if let path = UserDefaults.standard.string(forKey: recPathKey) {
-            return URL(fileURLWithPath: path)
-        }
-        return directoryHint()
-    }
-
-    static var recordingDisplayPath: String {
-        UserDefaults.standard.string(forKey: recPathKey) ?? L("Same as screenshots")
     }
 }

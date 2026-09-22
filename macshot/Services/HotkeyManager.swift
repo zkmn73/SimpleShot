@@ -12,8 +12,6 @@ class HotkeyManager {
     enum HotkeySlot: Int, CaseIterable {
         case captureArea = 1
         case captureFullScreen = 2
-        case recordArea = 3
-        case recordScreen = 4
         case historyOverlay = 5
         case captureOCR = 6
         case quickCapture = 7
@@ -27,8 +25,6 @@ class HotkeyManager {
             switch self {
             case .captureArea: return "hotkeyKeyCode"
             case .captureFullScreen: return "hotkeyFullScreenKeyCode"
-            case .recordArea: return "hotkeyRecordKeyCode"
-            case .recordScreen: return "hotkeyRecordFullScreenKeyCode"
             case .historyOverlay: return "hotkeyHistoryKeyCode"
             case .captureOCR: return "hotkeyOCRKeyCode"
             case .quickCapture: return "hotkeyQuickCaptureKeyCode"
@@ -44,8 +40,6 @@ class HotkeyManager {
             switch self {
             case .captureArea: return "hotkeyModifiers"
             case .captureFullScreen: return "hotkeyFullScreenModifiers"
-            case .recordArea: return "hotkeyRecordModifiers"
-            case .recordScreen: return "hotkeyRecordFullScreenModifiers"
             case .historyOverlay: return "hotkeyHistoryModifiers"
             case .captureOCR: return "hotkeyOCRModifiers"
             case .quickCapture: return "hotkeyQuickCaptureModifiers"
@@ -65,8 +59,6 @@ class HotkeyManager {
             switch self {
             case .captureArea: return L("Capture Area")
             case .captureFullScreen: return L("Capture Screen")
-            case .recordArea: return L("Record Area")
-            case .recordScreen: return L("Record Screen")
             case .historyOverlay: return L("History")
             case .captureOCR: return L("Capture OCR & QR")
             case .quickCapture: return L("Quick Capture")
@@ -82,8 +74,6 @@ class HotkeyManager {
             switch self {
             case .captureArea: return UInt32(kVK_ANSI_X)
             case .captureFullScreen: return UInt32(kVK_ANSI_F)
-            case .recordArea: return UInt32(kVK_ANSI_R)
-            case .recordScreen: return 0
             case .historyOverlay: return UInt32(kVK_ANSI_H)
             case .captureOCR: return UInt32(kVK_ANSI_T)
             case .quickCapture: return UInt32(kVK_ANSI_S)
@@ -97,7 +87,7 @@ class HotkeyManager {
 
         var defaultModifiers: UInt32 {
             switch self {
-            case .recordScreen, .scrollCapture, .openFromClipboard, .captureLastArea, .pinFromClipboard, .clearHistory: return 0
+            case .scrollCapture, .openFromClipboard, .captureLastArea, .pinFromClipboard, .clearHistory: return 0
             default: return UInt32(cmdKey | shiftKey)
             }
         }
@@ -136,12 +126,10 @@ class HotkeyManager {
     }
 
     /// Register all hotkeys with their callbacks.
-    func registerAll(captureArea: @escaping () -> Void, captureFullScreen: @escaping () -> Void, recordArea: @escaping () -> Void, recordScreen: @escaping () -> Void, historyOverlay: @escaping () -> Void, captureOCR: @escaping () -> Void, quickCapture: @escaping () -> Void, scrollCapture: @escaping () -> Void, openFromClipboard: @escaping () -> Void, captureLastArea: @escaping () -> Void, pinFromClipboard: @escaping () -> Void, clearHistory: @escaping () -> Void) {
+    func registerAll(captureArea: @escaping () -> Void, captureFullScreen: @escaping () -> Void, historyOverlay: @escaping () -> Void, captureOCR: @escaping () -> Void, quickCapture: @escaping () -> Void, scrollCapture: @escaping () -> Void, openFromClipboard: @escaping () -> Void, captureLastArea: @escaping () -> Void, pinFromClipboard: @escaping () -> Void, clearHistory: @escaping () -> Void) {
         unregisterAll()
         register(slot: .captureArea, callback: captureArea)
         register(slot: .captureFullScreen, callback: captureFullScreen)
-        register(slot: .recordArea, callback: recordArea)
-        register(slot: .recordScreen, callback: recordScreen)
         register(slot: .historyOverlay, callback: historyOverlay)
         register(slot: .captureOCR, callback: captureOCR)
         register(slot: .quickCapture, callback: quickCapture)
