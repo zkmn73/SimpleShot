@@ -679,11 +679,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         rebuildStatusBarMenu()
     }
 
-    // User-customizable menu bar icon (see Settings → General → Appearance).
-    // Mode is "default" (bundled StatusBarIcon asset) or "symbol" (a user-chosen SF Symbol).
-    static let statusBarIconModeKey = "statusBarIconMode"
-    static let statusBarIconSymbolNameKey = "statusBarIconSymbolName"
-
     private func applyNormalStatusBarIcon() {
         if let button = statusItem.button {
             applyPreferredIconImage(to: button)
@@ -698,20 +693,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         }
     }
 
-    /// Sets the button image/title from the user's icon preference. "symbol" mode renders
-    /// the chosen SF Symbol as a 22pt template image; anything else — including an empty or
-    /// invalid symbol name — falls back to the bundled icon so the item is never blank.
+    /// Sets the button image/title to the bundled icon; falls back to a text title
+    /// if the asset is somehow missing so the item is never blank.
     private func applyPreferredIconImage(to button: NSStatusBarButton) {
-        let mode = UserDefaults.standard.string(forKey: Self.statusBarIconModeKey) ?? "default"
-        let symbolName = UserDefaults.standard.string(forKey: Self.statusBarIconSymbolNameKey) ?? ""
-
-        if mode == "symbol", !symbolName.isEmpty,
-           let symbol = NSImage(systemSymbolName: symbolName, accessibilityDescription: "macshot") {
-            symbol.isTemplate = true
-            symbol.size = NSSize(width: 22, height: 22)
-            button.image = symbol
-            button.title = ""
-        } else if let img = NSImage(named: "StatusBarIcon") {
+        if let img = NSImage(named: "StatusBarIcon") {
             img.isTemplate = true
             img.size = NSSize(width: 22, height: 22)
             button.image = img
@@ -722,8 +707,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         }
     }
 
-    /// Re-applies the menu bar icon to reflect the user's current preference. Invoked live
-    /// from Settings so changes take effect without a relaunch.
+    /// Re-applies the menu bar icon. Invoked after a settings import so a stale
+    /// preference in the imported file can't leave the item in an inconsistent state.
     func refreshStatusBarIcon() {
         guard let button = statusItem.button else { return }
         applyPreferredIconImage(to: button)
