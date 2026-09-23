@@ -358,8 +358,7 @@ CI triggers on tag push (`v*.*.*` or `v*.*.*-beta.*`) or manual `workflow_dispat
 
 1. **Add a CHANGELOG.md entry** for the new version — CI extracts it for GitHub Release notes.
 2. **Tag and push:** `git tag v3.8.0 && git push origin main --tags`
-3. CI handles the rest: DMG, GitHub Release, appcast update (replaces all items with just the new stable), website version bump, Homebrew cask update.
-4. Make sure tool version in the website page is updated too.
+3. CI handles the rest: DMG, GitHub Release, appcast update (replaces all items with just the new stable), Homebrew cask update.
 
 ### Beta release
 
@@ -370,7 +369,6 @@ CI triggers on tag push (`v*.*.*` or `v*.*.*-beta.*`) or manual `workflow_dispat
    - Preserves the existing stable item in the appcast
    - Marks the GitHub Release as **pre-release**
    - **Skips** Homebrew tap and cask updates
-   - **Skips** website version update
 
 Beta users opt in via Preferences > "Check for beta updates". This sets `allowedChannels(for:)` to `["beta"]` in `SPUUpdaterDelegate`.
 

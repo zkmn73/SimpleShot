@@ -495,7 +495,7 @@ jobs:
           fi
 
       # ── 12. Commit appcasts to main ────────────────────────────────────────
-      - name: Commit appcasts + update website version
+      - name: Commit appcasts
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
@@ -510,10 +510,6 @@ jobs:
           git checkout -f -B main origin/main
           cp /tmp/appcast.xml appcast.xml
           cp /tmp/appcast-offline.xml appcast-offline.xml
-          if [ "$IS_BETA" = "false" ]; then
-            sed -i '' "s/v[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*/v${VERSION}/" website/index.html
-            git add website/index.html
-          fi
           git add appcast.xml appcast-offline.xml
           git diff --cached --quiet && echo "No changes" || {
             git commit -m "ci: update appcasts for v${VERSION}"
