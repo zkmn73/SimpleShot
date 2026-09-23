@@ -15,13 +15,6 @@
   <a href="https://github.com/sw33tLie/macshot/releases/latest">Download</a> · <a href="https://github.com/sw33tLie/macshot/blob/main/CHANGELOG.md">Changelog</a> · <a href="https://github.com/sw33tLie/macshot/blob/main/PRIVACY.md">Privacy</a> · <a href="https://github.com/sw33tLie/macshot/blob/main/SECURITY.md">Security</a>
 </p>
 
-<p align="center">
-  <img src="assets/preview.png" alt="macshot demo" width="700"/>
-</p>
-
-<p align="center">
-  <img src="assets/preview-editor.png" alt="macshot video editor — timeline with cut, speed, freeze, zoom and censor effects" width="700"/>
-</p>
 
 ---
 
@@ -141,50 +134,50 @@ brew install --cask macshot
 
 **Global hotkeys** (configurable in Preferences)
 
-| Shortcut | Action |
-|---|---|
-| `Cmd+Shift+X` | Capture Area |
-| `Cmd+Shift+F` | Capture Full Screen |
-| `Cmd+Shift+S` | Quick Capture (instant save) |
+| Shortcut      | Action                                |
+| ------------- | ------------------------------------- |
+| `Cmd+Shift+X` | Capture Area                          |
+| `Cmd+Shift+F` | Capture Full Screen                   |
+| `Cmd+Shift+S` | Quick Capture (instant save)          |
 | `Cmd+Shift+T` | Capture OCR (instant text extraction) |
-| `Cmd+Shift+R` | Record Area |
-| `Cmd+Shift+H` | Show History Panel |
+| `Cmd+Shift+R` | Record Area                           |
+| `Cmd+Shift+H` | Show History Panel                    |
 
 **General** (during capture)
 
-| Shortcut | Action |
-|---|---|
-| `Enter` | Confirm (save or copy based on preference) |
-| `Cmd+C` | Copy to clipboard |
-| `Cmd+S` | Save to file |
-| `Cmd+Z` / `Cmd+Shift+Z` | Undo / Redo |
-| `Cmd+0` | Reset zoom to 1x |
-| `Esc` | Cancel / close popover |
-| `Delete` | Remove selected annotation |
-| `Tab` | Toggle window snap mode |
-| `F` | Capture full screen (snap mode) |
-| `Shift` (while drawing) | Constrain to straight lines / perfect shapes |
-| `Space` (while drawing) | Reposition shape without changing size |
-| `Right-click` on line/arrow | Add anchor point for multi-point curves |
+| Shortcut                    | Action                                       |
+| --------------------------- | -------------------------------------------- |
+| `Enter`                     | Confirm (save or copy based on preference)   |
+| `Cmd+C`                     | Copy to clipboard                            |
+| `Cmd+S`                     | Save to file                                 |
+| `Cmd+Z` / `Cmd+Shift+Z`     | Undo / Redo                                  |
+| `Cmd+0`                     | Reset zoom to 1x                             |
+| `Esc`                       | Cancel / close popover                       |
+| `Delete`                    | Remove selected annotation                   |
+| `Tab`                       | Toggle window snap mode                      |
+| `F`                         | Capture full screen (snap mode)              |
+| `Shift` (while drawing)     | Constrain to straight lines / perfect shapes |
+| `Space` (while drawing)     | Reposition shape without changing size       |
+| `Right-click` on line/arrow | Add anchor point for multi-point curves      |
 
 **Tool shortcuts** (active after selecting a region — customizable in Preferences > Shortcuts)
 
-| Key | Tool |
-|---|---|
-| `A` | Arrow |
-| `L` | Line |
-| `P` | Pencil |
-| `M` | Marker |
-| `R` | Rectangle |
-| `O` | Ellipse |
-| `T` | Text |
-| `N` | Number |
+| Key | Tool                   |
+| --- | ---------------------- |
+| `A` | Arrow                  |
+| `L` | Line                   |
+| `P` | Pencil                 |
+| `M` | Marker                 |
+| `R` | Rectangle              |
+| `O` | Ellipse                |
+| `T` | Text                   |
+| `N` | Number                 |
 | `B` | Censor (Pixelate/Blur) |
-| `H` | Highlight (spotlight) |
-| `I` | Color Sampler |
-| `G` | Stamp / Emoji |
-| `S` | Select & Edit |
-| `E` | Open in Editor |
+| `H` | Highlight (spotlight)  |
+| `I` | Color Sampler          |
+| `G` | Stamp / Emoji          |
+| `S` | Select & Edit          |
+| `E` | Open in Editor         |
 
 </details>
 
