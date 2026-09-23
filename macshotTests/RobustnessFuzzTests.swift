@@ -172,19 +172,6 @@ final class RobustnessFuzzTests: XCTestCase {
         }
     }
 
-    func testRandomHistoryIndexRowsDecodeOrAreSkipped() {
-        let fragments = ["{\"id\":\"00000000-0000-0000-0000-000000000001\"}", "{}", "null", "[]", "{\"id\":123}",
-                         "{\"id\":\"00000000-0000-0000-0000-000000000002\",\"pixelWidth\":\"wide\"}", "\"string\""]
-        for _ in 0..<300 {
-            let body = (0..<Int.random(in: 1...4, using: &random))
-                .compactMap { _ in fragments.randomElement(using: &random) }
-                .joined(separator: ",")
-            let rows = LenientArrayDecoder.decode(ScreenshotHistory.IndexEntry.self, from: Data("[\(body)]".utf8))
-            for row in rows ?? [] {
-                XCTAssertNotNil(UUID(uuidString: row.id), "a row must name a capture UUID")
-            }
-        }
-    }
 }
 
 /// Deterministic RNG so a failing fuzz run reproduces exactly.

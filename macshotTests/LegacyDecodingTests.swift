@@ -155,35 +155,6 @@ final class LegacyDecodingTests: XCTestCase {
         XCTAssertEqual(overlay.beautifyPadding, 48)
     }
 
-    // MARK: - History index
-
-    func testHistoryIndexRowsSurviveMissingAndCorruptFields() throws {
-        // Row 1: oldest format. Row 2: corrupt. Row 3: current format.
-        let json = """
-        [{"id":"00000000-0000-0000-0000-000000000001","fileExtension":"png","timestamp":0,"pixelWidth":100,"pixelHeight":50},
-         {"nope":true},
-         {"id":"00000000-0000-0000-0000-000000000003","fileExtension":"jpg","timestamp":1000,"pixelWidth":10,"pixelHeight":20,
-          "hasAnnotations":true,"lastEditedAt":2000}]
-        """
-        let rows = try XCTUnwrap(
-            LenientArrayDecoder.decode(ScreenshotHistory.IndexEntry.self, from: Data(json.utf8)),
-            "one bad row must not wipe the user's whole capture history")
-        XCTAssertEqual(rows.map(\.id), ["00000000-0000-0000-0000-000000000001", "00000000-0000-0000-0000-000000000003"])
-        XCTAssertEqual(rows[0].pixelWidth, 100)
-        XCTAssertNil(rows[0].hasAnnotations)
-        XCTAssertEqual(rows[1].hasAnnotations, true)
-        XCTAssertEqual(rows[1].fileExtension, "jpg")
-    }
-
-    func testHistoryRowMissingEverythingButIdStillLoads() throws {
-        let rows = try XCTUnwrap(
-            LenientArrayDecoder.decode(ScreenshotHistory.IndexEntry.self, from: Data("""
-            [{"id":"00000000-0000-0000-0000-000000000004"}]
-            """.utf8)))
-        XCTAssertEqual(rows.count, 1)
-        XCTAssertEqual(rows[0].fileExtension, "png", "a row with no extension falls back to the original format")
-    }
-
     // MARK: - LenientArrayDecoder itself
 
     func testLenientArrayDecoderReturnsNilForNonArrayData() {

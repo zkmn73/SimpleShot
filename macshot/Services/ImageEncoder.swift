@@ -3,6 +3,38 @@ import UniformTypeIdentifiers
 import ImageIO
 import WebP
 
+/// AppKit images never cross an actor boundary as-is. Each image is rasterized
+/// into separately owned pixels before being handed to a background encoder.
+struct RenderedImage: Sendable {
+    nonisolated let pixels: CGImage
+    let pointSize: CGSize
+
+    @MainActor init(_ image: NSImage) throws {
+        let size = image.size
+        guard size.width.isFinite, size.height.isFinite, size.width > 0, size.height > 0,
+              let source = image.cgImage(forProposedRect: nil, context: nil, hints: nil) else {
+            throw CocoaError(.fileWriteUnknown)
+        }
+        pixels = try Self.render(source, width: source.width, height: source.height)
+        pointSize = size
+    }
+
+    nonisolated static func render(_ source: CGImage, width: Int, height: Int) throws -> CGImage {
+        let (stride, overflow) = width.multipliedReportingOverflow(by: 4)
+        let colorSpace = source.colorSpace?.model == .rgb ? source.colorSpace : CGColorSpace(name: CGColorSpace.sRGB)
+        guard width > 0, height > 0, !overflow, let colorSpace,
+              let context = CGContext(data: nil, width: width, height: height, bitsPerComponent: 8,
+                bytesPerRow: stride, space: colorSpace,
+                bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else {
+            throw CocoaError(.fileWriteUnknown)
+        }
+        context.interpolationQuality = .high
+        context.draw(source, in: CGRect(x: 0, y: 0, width: width, height: height))
+        guard let result = context.makeImage() else { throw CocoaError(.fileWriteUnknown) }
+        return result
+    }
+}
+
 /// Shared image encoding with user-configurable format, quality, and resolution.
 enum ImageEncoder {
 
@@ -97,13 +129,13 @@ enum ImageEncoder {
     /// Owns immutable pixels and settings from the instant the user requests
     /// output. AppKit stays on the main actor; encoding can run on a worker.
     struct PreparedImage: Sendable {
-        let image: HistoryImageSnapshot.Image
+        let image: RenderedImage
         let format: Format
         let quality: CGFloat
         let downscaleRetina: Bool
 
         @MainActor init(_ source: NSImage) throws {
-            image = try HistoryImageSnapshot.Image(source)
+            image = try RenderedImage(source)
             format = ImageEncoder.format
             quality = ImageEncoder.quality
             downscaleRetina = ImageEncoder.downscaleRetina
@@ -117,7 +149,7 @@ enum ImageEncoder {
             // trap, overflow a row stride or allocate an enormous bitmap.
             let width = max(1, Int(min(Double(pixels.width), image.pointSize.width)))
             let height = max(1, Int(min(Double(pixels.height), image.pointSize.height)))
-            return try HistoryImageSnapshot.Image.render(pixels, width: width, height: height)
+            return try RenderedImage.render(pixels, width: width, height: height)
         }
 
         nonisolated func encode() -> Data? {

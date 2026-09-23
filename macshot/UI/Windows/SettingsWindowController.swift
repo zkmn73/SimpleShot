@@ -62,8 +62,6 @@ class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSWindowD
     private var thumbnailStackingPopup: NSPopUpButton!
     private var thumbnailCornerPopup: NSPopUpButton!
     private var thumbnailLetterboxCheckbox: NSButton!
-    private var historyUnlimitedCheckbox: NSButton!
-    private var historyOrderByLastEditCheckbox: NSButton!
     private var thumbnailScaleLabel: NSTextField!
     private var launchAtLoginCheckbox: NSButton!
     private var hideMenuBarIconCheckbox: NSButton!
@@ -77,8 +75,6 @@ class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSWindowD
         "viewfinder", "crop", "crop.rotate", "scissors",
         "rectangle.dashed", "square.dashed", "photo", "record.circle",
     ]
-    private var historySizeField: NSTextField!
-    private var historySizeStepper: NSStepper!
     private var snapGuidesCheckbox: NSButton!
     private var boundarySnapCheckbox: NSButton!
     private var browserElementSnapCheckbox: NSButton!
@@ -509,7 +505,7 @@ class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSWindowD
         stack.addArrangedSubview(indented(backupButtonsRow))
         stack.setCustomSpacing(6, after: stack.arrangedSubviews.last!)
 
-        let backupNote = NSTextField(wrappingLabelWithString: L("Export your preferences to a file to move them to another Mac or a clean install. Upload credentials, your save folder, and screenshot history are not included. Settings are stored inside macshot's app container."))
+        let backupNote = NSTextField(wrappingLabelWithString: L("Export your preferences to a file to move them to another Mac or a clean install. Your save folder is not included. Settings are stored inside macshot's app container."))
         backupNote.font = NSFont.systemFont(ofSize: 10)
         backupNote.textColor = .secondaryLabelColor
         stack.addArrangedSubview(indented(backupNote))
@@ -585,7 +581,7 @@ class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSWindowD
 
         let confirm = NSAlert()
         confirm.messageText = L("Replace your current settings?")
-        confirm.informativeText = L("Importing will replace your current preferences with the ones in this file. Your save folder, upload credentials, and screenshot history are kept. This cannot be undone.")
+        confirm.informativeText = L("Importing will replace your current preferences with the ones in this file. Your save folder is kept. This cannot be undone.")
         confirm.addButton(withTitle: L("Import"))
         confirm.addButton(withTitle: L("Cancel"))
         confirm.alertStyle = .warning
@@ -914,43 +910,6 @@ class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSWindowD
         stack.setCustomSpacing(6, after: stack.arrangedSubviews.last!)
 
         // Color profile is always embedded (native display profile) — no toggle needed.
-
-        // History size
-        historySizeField = NSTextField()
-        historySizeField.isEditable = false
-        historySizeField.isSelectable = false
-        historySizeField.alignment = .center
-        historySizeField.widthAnchor.constraint(equalToConstant: 40).isActive = true
-
-        historySizeStepper = NSStepper()
-        historySizeStepper.minValue = 0
-        historySizeStepper.maxValue = 50
-        historySizeStepper.increment = 1
-        historySizeStepper.target = self
-        historySizeStepper.action = #selector(historySizeChanged(_:))
-
-        historyUnlimitedCheckbox = NSButton(checkboxWithTitle: L("Unlimited"), target: self, action: #selector(historyUnlimitedChanged(_:)))
-        historyUnlimitedCheckbox.font = NSFont.systemFont(ofSize: 11)
-
-        let histNote = NSTextField(labelWithString: L("(0 = off)"))
-        histNote.font = NSFont.systemFont(ofSize: 11)
-        histNote.textColor = .secondaryLabelColor
-
-        stack.addArrangedSubview(labeledRow(L("History size:"), controls: [historySizeField, historySizeStepper, histNote, historyUnlimitedCheckbox]))
-        stack.setCustomSpacing(8, after: stack.arrangedSubviews.last!)
-
-        historyOrderByLastEditCheckbox = NSButton(
-            checkboxWithTitle: L("Order history by last edit"),
-            target: self, action: #selector(historyOrderByLastEditChanged(_:)))
-        historyOrderByLastEditCheckbox.state = ScreenshotHistory.orderByLastEdit ? .on : .off
-        stack.addArrangedSubview(indented(historyOrderByLastEditCheckbox))
-        stack.setCustomSpacing(2, after: stack.arrangedSubviews.last!)
-
-        let orderNote = NSTextField(labelWithString: L("Edited screenshots move to the top. Off keeps them in capture order."))
-        orderNote.font = NSFont.systemFont(ofSize: 10)
-        orderNote.textColor = .tertiaryLabelColor
-        stack.addArrangedSubview(indented(orderNote))
-        stack.setCustomSpacing(20, after: stack.arrangedSubviews.last!)
 
         // ── Translation ──────────────────────────────────────
         if TranslationService.appleTranslationAvailable {
@@ -2010,12 +1969,6 @@ class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSWindowD
         iconColorWell.color = ToolbarLayout.iconColor
         bgColorWell.color = ToolbarLayout.bgColor
 
-        let historySize = UserDefaults.standard.object(forKey: "historySize") as? Int ?? 10
-        historySizeField.integerValue = historySize
-        historySizeStepper.integerValue = historySize
-        historyUnlimitedCheckbox.state = UserDefaults.standard.bool(forKey: "historyUnlimited") ? .on : .off
-        updateHistoryControlsEnabled()
-
         // Migrate old bool setting to new int: 0=save, 1=copy, 2=both
         if let oldBool = UserDefaults.standard.object(forKey: "quickModeCopyToClipboard") as? Bool {
             let mode = oldBool ? 1 : 0
@@ -2166,33 +2119,6 @@ class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSWindowD
     }
     @objc private func downscaleRetinaChanged(_ sender: NSButton) {
         UserDefaults.standard.set(sender.state == .on, forKey: "downscaleRetina")
-    }
-    @objc private func historySizeChanged(_ sender: NSStepper) {
-        historySizeField.integerValue = sender.integerValue
-        UserDefaults.standard.set(sender.integerValue, forKey: "historySize")
-        UserDefaults.standard.set(false, forKey: "historyUnlimited")
-        historyUnlimitedCheckbox.state = .off
-        updateHistoryControlsEnabled()
-        ScreenshotHistory.shared.pruneToMax()
-    }
-
-    @objc private func historyUnlimitedChanged(_ sender: NSButton) {
-        let unlimited = sender.state == .on
-        UserDefaults.standard.set(unlimited, forKey: "historyUnlimited")
-        updateHistoryControlsEnabled()
-    }
-
-    @objc private func historyOrderByLastEditChanged(_ sender: NSButton) {
-        UserDefaults.standard.set(sender.state == .on, forKey: "historyOrderByLastEdit")
-        // Re-sort existing entries to reflect the new preference immediately and
-        // persist the new order so it survives a restart.
-        ScreenshotHistory.shared.applyHistoryOrderPreference(persist: true)
-    }
-
-    private func updateHistoryControlsEnabled() {
-        let unlimited = UserDefaults.standard.bool(forKey: "historyUnlimited")
-        historySizeField.alphaValue = unlimited ? 0.35 : 1.0
-        historySizeStepper.isEnabled = !unlimited
     }
     // MARK: - Scroll Capture actions
     @objc private func scrollAutoScrollChanged(_ sender: NSButton) {
@@ -2420,10 +2346,8 @@ class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSWindowD
             ("macshot://ocr",                 L("Capture area and read text/QR codes")),
             ("macshot://ocr-translate?target=zh-CN", L("Capture, translate, and overlay the text on the image")),
             ("macshot://scroll-capture",      L("Start scroll capture")),
-            ("macshot://history",             L("Open the recent captures overlay")),
             ("macshot://settings",            L("Open this settings window")),
             ("macshot://open?file=/path.png", L("Open an image file in the editor")),
-            ("macshot://edit?id=<id>",        L("Open a history entry in the editor (keeps annotations editable)")),
         ]
 
         let title = NSTextField(labelWithString: L("Supported URL Scheme Commands"))

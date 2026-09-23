@@ -193,8 +193,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
     private var pinControllers: [PinWindowController] = []
     private var thumbnailControllers: [FloatingThumbnailController] = []
     private var ocrController: OCRResultController?
-    private var historyMenu: NSMenu?
-    private var historyOverlayController: HistoryOverlayController?
     private var isCapturing = false
     private var delayCountdownWindow: NSWindow?
     private var delayTimer: Timer?
@@ -283,12 +281,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         // legacy clipboard PNGs, share-sheet scratch). Runs off the main
         // thread so it can't delay launch.
         LaunchCleanup.runAll()
-
-        // Force-init the history singleton so its launch-time orphan
-        // prune runs even if the user doesn't take a screenshot this
-        // session. Without this, the prune only fires the first time
-        // something references ScreenshotHistory.shared.
-        _ = ScreenshotHistory.shared
 
         updaterController = SPUStandardUpdaterController(startingUpdater: true, updaterDelegate: self, userDriverDelegate: nil)
         // Disable silent update downloads — updates should only apply
@@ -594,10 +586,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
     }
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
-        terminationCoordinator.request(hasActiveWork: MediaExportCoordinator.shared.hasActiveJobs || ScreenshotHistory.shared.hasPendingWrites,
+        terminationCoordinator.request(hasActiveWork: MediaExportCoordinator.shared.hasActiveJobs,
             drain: {
                 await MediaExportCoordinator.shared.waitUntilIdle()
-                await ScreenshotHistory.shared.waitUntilIdle()
             }, terminate: { sender.terminate(nil) })
     }
 
@@ -804,23 +795,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
 
         menu.addItem(NSMenuItem.separator())
 
-        // Recent Captures submenu
-        let historyItem = NSMenuItem(title: L("Recent Captures"), action: nil, keyEquivalent: "")
-        historyItem.image = NSImage(systemSymbolName: "clock.arrow.circlepath", accessibilityDescription: nil)
-        let historySubmenu = NSMenu()
-        historySubmenu.delegate = self
-        historyItem.submenu = historySubmenu
-        self.historyMenu = historySubmenu
-        menu.addItem(historyItem)
-
-        let historyOverlayItem = NSMenuItem(title: L("Show History Panel"), action: #selector(showHistoryOverlay), keyEquivalent: "")
-        historyOverlayItem.target = self
-        historyOverlayItem.image = NSImage(systemSymbolName: "square.grid.2x2", accessibilityDescription: nil)
-        HotkeyManager.applyMenuShortcut(for: .historyOverlay, to: historyOverlayItem)
-        menu.addItem(historyOverlayItem)
-
-        menu.addItem(NSMenuItem.separator())
-
         let openImageItem = NSMenuItem(title: L("Open Image..."), action: #selector(openImageFromMenu), keyEquivalent: "")
         openImageItem.target = self
         openImageItem.image = NSImage(systemSymbolName: "photo.on.rectangle.angled", accessibilityDescription: nil)
@@ -899,9 +873,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
                 stamp()
                 self?.perform(#selector(AppDelegate.captureFullScreenFromHotkey))
             },
-            historyOverlay: { [weak self] in
-                DispatchQueue.main.async { self?.showHistoryOverlay() }
-            },
             captureOCR: { [weak self] in
                 stamp()
                 self?.perform(#selector(AppDelegate.captureOCRFromHotkey))
@@ -923,9 +894,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
             },
             pinFromClipboard: { [weak self] in
                 DispatchQueue.main.async { self?.pinFromClipboard() }
-            },
-            clearHistory: { [weak self] in
-                DispatchQueue.main.async { self?.clearHistorySilently() }
             }
         )
     }
@@ -1027,20 +995,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         guard canStartCapture else { return }
         pendingFullScreen = true
         startCapture(fromMenu: fromMenu)
-    }
-
-    @objc private func showHistoryOverlay() {
-        if let existing = historyOverlayController {
-            existing.dismiss()
-            historyOverlayController = nil
-            return
-        }
-        let controller = HistoryOverlayController()
-        controller.onDismiss = { [weak self] in
-            self?.historyOverlayController = nil
-        }
-        controller.show()
-        historyOverlayController = controller
     }
 
     @objc private func captureOCR() {
@@ -1684,7 +1638,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         alert.runModal()
     }
 
-    func showFloatingThumbnail(image: NSImage, annotationData: CaptureAnnotationData? = nil, historyEntryID: String? = nil) {
+    func showFloatingThumbnail(image: NSImage, annotationData: CaptureAnnotationData? = nil) {
         let enabled = UserDefaults.standard.object(forKey: "showFloatingThumbnail") as? Bool ?? true
         guard enabled else { return }
 
@@ -1711,7 +1665,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         }
 
         let controller = FloatingThumbnailController(image: image)
-        controller.historyEntryID = historyEntryID
         controller.annotationData = annotationData
         controller.onDismiss = { [weak self] in
             self?.thumbnailControllers.removeAll { $0 === controller }
@@ -1731,56 +1684,24 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         }
         controller.onPin = { [weak self, weak controller] in
             guard let self = self, let controller = controller else { return }
-            let image = controller.image
-            let data = controller.annotationData
-            ScreenshotHistory.shared.add(
-                image: image,
-                rawImage: data?.rawImage,
-                annotations: data?.annotations,
-                editState: data?.editState
-            )
-            self.showPin(image: image)
+            self.showPin(image: controller.image)
         }
         controller.onEdit = { [weak controller] in
             guard let controller else { return }
-            let image = controller.image
-            let id = controller.historyEntryID ?? historyEntryID
             if let data = controller.annotationData {
                 DetachedEditorWindowController.open(
                     image: data.rawImage,
                     annotations: data.annotations,
-                    historyEntryID: id,
                     editState: data.editState
                 )
                 return
             }
-            if let id,
-               let entry = ScreenshotHistory.shared.entries.first(where: { $0.id == id }),
-               let editable = ScreenshotHistory.shared.loadEditableCapture(for: entry) {
-                DetachedEditorWindowController.open(
-                    image: editable.rawImage,
-                    annotations: editable.annotations,
-                    historyEntryID: id,
-                    editState: editable.editState
-                )
-                return
-            }
             // Image already has beautify/effects baked in — disable to avoid double-applying
-            DetachedEditorWindowController.open(image: image, historyEntryID: id, disableBeautify: true)
-        }
-        controller.onTransform = { transformed in
-            if let id = historyEntryID {
-                ScreenshotHistory.shared.updateEntry(id: id, compositedImage: transformed, rawImage: nil, annotations: nil)
-            }
+            DetachedEditorWindowController.open(image: controller.image, disableBeautify: true)
         }
         controller.onOCR = { [weak self, weak controller] in
             guard let image = controller?.image else { return }
             self?.runOCR(on: image)
-        }
-        controller.onDelete = {
-            if let id = historyEntryID {
-                ScreenshotHistory.shared.removeEntry(id: id)
-            }
         }
         controller.onCloseAll = { [weak self] in
             guard let self = self else { return }
@@ -1871,13 +1792,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         padding: CGFloat
     ) -> CGFloat {
         corner.isLeft ? frame.minX + padding : frame.maxX - width - padding
-    }
-
-    /// Update a floating thumbnail's image if it matches the given history entry.
-    func refreshThumbnail(for entryID: String, image: NSImage, annotationData: CaptureAnnotationData? = nil) {
-        for tc in thumbnailControllers where tc.historyEntryID == entryID {
-            tc.updateImage(image, annotationData: annotationData)
-        }
     }
 
     private func playCopySound() {
@@ -2040,29 +1954,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         DetachedEditorWindowController.open(image: image)
     }
 
-    /// Open a history entry in the editor by its id, restoring editable annotations when
-    /// available (falls back to the flattened image, like the history overlay does). Lets
-    /// external tools re-open a specific capture for editing — `macshot://edit?id=<id>` —
-    /// without flattening it, which `open?file=` cannot do.
-    private func openHistoryEntryInEditor(id: String) {
-        guard let entry = ScreenshotHistory.shared.entries.first(where: { $0.id == id }) else { return }
-
-        if entry.hasAnnotations,
-           let editable = ScreenshotHistory.shared.loadEditableCapture(for: entry) {
-            DetachedEditorWindowController.open(
-                image: editable.rawImage,
-                annotations: editable.annotations,
-                historyEntryID: id,
-                editState: editable.editState
-            )
-            return
-        }
-
-        // Fall back to the flattened image — beautify already baked in.
-        guard let image = ScreenshotHistory.shared.loadImage(for: entry) else { return }
-        DetachedEditorWindowController.open(image: image, historyEntryID: id, disableBeautify: true)
-    }
-
     /// Handle files opened via Finder "Open With", drag-to-dock, or command line.
     func application(_ application: NSApplication, open urls: [URL]) {
         guard isReadyForOpenRequests else {
@@ -2120,18 +2011,12 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
                 .trimmingCharacters(in: .whitespacesAndNewlines)
             beginCaptureTranslate(target: (target?.isEmpty == false) ? target : nil, fromMenu: true)
         case "scroll-capture":      scrollCapture()
-        case "history":             showHistoryOverlay()
         case "settings":            openSettings()
         case "capture-last":        captureLastArea()
         case "open":
             if let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
                let path = components.queryItems?.first(where: { $0.name == "file" })?.value {
                 openImageFile(url: URL(fileURLWithPath: path))
-            }
-        case "edit":
-            if let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
-               let id = components.queryItems?.first(where: { $0.name == "id" })?.value {
-                openHistoryEntryInEditor(id: id)
             }
         default: break
         }
@@ -2185,30 +2070,23 @@ extension AppDelegate: OverlayWindowControllerDelegate {
         dismissOverlays()
         captureTimingTrace?.mark("overlayDidConfirm after dismissOverlays")
         if let image = capturedImage {
-            let entryID = ScreenshotHistory.shared.add(
-                image: image,
-                rawImage: annotationData?.rawImage,
-                annotations: annotationData?.annotations,
-                editState: annotationData?.editState)
-            captureTimingTrace?.mark("screenshot added to history")
             // Defer thumbnail to next runloop cycle so overlay teardown completes first
             // and the main thread is free for the next capture trigger
             let annData = annotationData
             DispatchQueue.main.async { [weak self] in
-                self?.showFloatingThumbnail(image: image, annotationData: annData, historyEntryID: entryID)
+                self?.showFloatingThumbnail(image: image, annotationData: annData)
             }
 
-            // "Also open in Editor" preference — open with history entry ID so Done saves back
+            // "Also open in Editor" preference
             if UserDefaults.standard.bool(forKey: "quickCaptureOpenEditor") {
                 if let data = annotationData {
                     DetachedEditorWindowController.open(
                         image: data.rawImage,
                         annotations: data.annotations,
-                        historyEntryID: entryID,
                         editState: data.editState
                     )
                 } else {
-                    DetachedEditorWindowController.open(image: image, historyEntryID: entryID, disableBeautify: true)
+                    DetachedEditorWindowController.open(image: image, disableBeautify: true)
                 }
             }
 
@@ -2280,12 +2158,6 @@ extension AppDelegate: OverlayWindowControllerDelegate {
     }
 
     func overlayDidRequestPin(_ controller: OverlayWindowController, image: NSImage, annotationData: CaptureAnnotationData?) {
-        ScreenshotHistory.shared.add(
-            image: image,
-            rawImage: annotationData?.rawImage,
-            annotations: annotationData?.annotations,
-            editState: annotationData?.editState
-        )
         let appToRefocus = previousApp
         dismissOverlays(refocusPreviousApp: false)
         let pin = PinWindowController(image: image)
@@ -2560,7 +2432,6 @@ extension AppDelegate: OverlayWindowControllerDelegate {
 
         guard let image = finalImage else { return }
 
-        let entryID = ScreenshotHistory.shared.add(image: image)
         // quickCaptureMode: 0=save, 1=copy, 2=both, 3=do nothing (thumbnail only)
         let mode = UserDefaults.standard.object(forKey: "quickCaptureMode") as? Int ?? 1
         if mode == 1 || mode == 2 {
@@ -2573,7 +2444,7 @@ extension AppDelegate: OverlayWindowControllerDelegate {
         showFloatingThumbnail(image: image)
 
         if UserDefaults.standard.bool(forKey: "quickCaptureOpenEditor") {
-            DetachedEditorWindowController.open(image: image, historyEntryID: entryID, disableBeautify: true)
+            DetachedEditorWindowController.open(image: image, disableBeautify: true)
         }
     }
 
@@ -2587,87 +2458,17 @@ extension AppDelegate: PinWindowControllerDelegate {
     }
 }
 
-// MARK: - NSMenuDelegate (status bar menu + Recent Captures submenu)
+// MARK: - NSMenuDelegate (status bar menu)
 
 extension AppDelegate: NSMenuDelegate {
     func menuWillOpen(_ menu: NSMenu) {
-        // Only for the main status-bar menu (the history submenu rebuilds via
-        // menuNeedsUpdate). Dismiss any active modal before the menu shows, and
-        // pre-warm ScreenCaptureKit content while the user browses.
+        // Dismiss any active modal before the menu shows, and pre-warm
+        // ScreenCaptureKit content while the user browses.
         guard menu === statusBarMenu else { return }
         ScreenCaptureManager.prewarm()
         if let modalWin = NSApp.modalWindow {
             NSApp.stopModal()
             modalWin.close()
-        }
-    }
-
-    func menuNeedsUpdate(_ menu: NSMenu) {
-        // Only rebuild the history submenu, not the main status bar menu
-        guard menu === historyMenu else { return }
-
-        menu.removeAllItems()
-
-        let entries = ScreenshotHistory.shared.entries
-        if entries.isEmpty {
-            let emptyItem = NSMenuItem(title: L("No recent captures"), action: nil, keyEquivalent: "")
-            emptyItem.isEnabled = false
-            menu.addItem(emptyItem)
-            return
-        }
-
-        for (i, entry) in entries.enumerated() {
-            let title = "\(entry.pixelWidth) \u{00D7} \(entry.pixelHeight)  —  \(entry.timeAgoString)"
-            let item = NSMenuItem(title: title, action: #selector(copyHistoryEntry(_:)), keyEquivalent: "")
-            item.target = self
-            item.tag = i
-            item.image = ScreenshotHistory.shared.loadThumbnail(for: entry)
-            menu.addItem(item)
-        }
-
-        menu.addItem(NSMenuItem.separator())
-
-        let clearItem = NSMenuItem(title: L("Clear History"), action: #selector(clearHistory), keyEquivalent: "")
-        clearItem.target = self
-        clearItem.tag = 9000
-        menu.addItem(clearItem)
-    }
-
-    @objc private func copyHistoryEntry(_ sender: NSMenuItem) {
-        let index = sender.tag
-        let entries = ScreenshotHistory.shared.entries
-        guard index >= 0, index < entries.count else { return }
-        let entry = entries[index]
-        guard let image = ScreenshotHistory.shared.loadImage(for: entry) else { return }
-
-        ImageEncoder.copyToClipboard(image)
-        showFloatingThumbnail(image: image, historyEntryID: entry.id)
-
-        let soundEnabled = UserDefaults.standard.object(forKey: "playCopySound") as? Bool ?? true
-        if soundEnabled {
-            Self.captureSound?.stop()
-            Self.captureSound?.play()
-        }
-    }
-
-    @objc private func clearHistory() {
-        confirmClearHistory()
-    }
-
-    private func clearHistorySilently() {
-        ScreenshotHistory.shared.clear()
-    }
-
-    /// Show a confirmation dialog before clearing all history. Reused by history panel trash button.
-    func confirmClearHistory() {
-        let alert = NSAlert()
-        alert.messageText = L("Clear History?")
-        alert.informativeText = L("This will permanently delete all screenshots from history.")
-        alert.addButton(withTitle: L("Clear All"))
-        alert.addButton(withTitle: L("Cancel"))
-        alert.alertStyle = .warning
-        if alert.runModal() == .alertFirstButtonReturn {
-            ScreenshotHistory.shared.clear()
         }
     }
 }

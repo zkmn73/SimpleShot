@@ -12,27 +12,23 @@ class HotkeyManager {
     enum HotkeySlot: Int, CaseIterable {
         case captureArea = 1
         case captureFullScreen = 2
-        case historyOverlay = 5
         case captureOCR = 6
         case quickCapture = 7
         case scrollCapture = 8
         case openFromClipboard = 9
         case captureLastArea = 10
         case pinFromClipboard = 11
-        case clearHistory = 12
 
         var keyCodeKey: String {
             switch self {
             case .captureArea: return "hotkeyKeyCode"
             case .captureFullScreen: return "hotkeyFullScreenKeyCode"
-            case .historyOverlay: return "hotkeyHistoryKeyCode"
             case .captureOCR: return "hotkeyOCRKeyCode"
             case .quickCapture: return "hotkeyQuickCaptureKeyCode"
             case .scrollCapture: return "hotkeyScrollCaptureKeyCode"
             case .openFromClipboard: return "hotkeyOpenClipboardKeyCode"
             case .captureLastArea: return "hotkeyCaptureLastAreaKeyCode"
             case .pinFromClipboard: return "hotkeyPinClipboardKeyCode"
-            case .clearHistory: return "hotkeyClearHistoryKeyCode"
             }
         }
 
@@ -40,14 +36,12 @@ class HotkeyManager {
             switch self {
             case .captureArea: return "hotkeyModifiers"
             case .captureFullScreen: return "hotkeyFullScreenModifiers"
-            case .historyOverlay: return "hotkeyHistoryModifiers"
             case .captureOCR: return "hotkeyOCRModifiers"
             case .quickCapture: return "hotkeyQuickCaptureModifiers"
             case .scrollCapture: return "hotkeyScrollCaptureModifiers"
             case .openFromClipboard: return "hotkeyOpenClipboardModifiers"
             case .captureLastArea: return "hotkeyCaptureLastAreaModifiers"
             case .pinFromClipboard: return "hotkeyPinClipboardModifiers"
-            case .clearHistory: return "hotkeyClearHistoryModifiers"
             }
         }
 
@@ -59,14 +53,12 @@ class HotkeyManager {
             switch self {
             case .captureArea: return L("Capture Area")
             case .captureFullScreen: return L("Capture Screen")
-            case .historyOverlay: return L("History")
             case .captureOCR: return L("Capture OCR & QR")
             case .quickCapture: return L("Quick Capture")
             case .scrollCapture: return L("Scroll Capture")
             case .openFromClipboard: return L("Open from Clipboard")
             case .captureLastArea: return L("Capture Last Area")
             case .pinFromClipboard: return L("Pin from Clipboard")
-            case .clearHistory: return L("Clear History")
             }
         }
 
@@ -74,20 +66,18 @@ class HotkeyManager {
             switch self {
             case .captureArea: return UInt32(kVK_ANSI_X)
             case .captureFullScreen: return UInt32(kVK_ANSI_F)
-            case .historyOverlay: return UInt32(kVK_ANSI_H)
             case .captureOCR: return UInt32(kVK_ANSI_T)
             case .quickCapture: return UInt32(kVK_ANSI_S)
             case .scrollCapture: return 0
             case .openFromClipboard: return 0  // no default hotkey
             case .captureLastArea: return 0    // no default hotkey
             case .pinFromClipboard: return 0    // no default hotkey
-            case .clearHistory: return 0        // no default hotkey
             }
         }
 
         var defaultModifiers: UInt32 {
             switch self {
-            case .scrollCapture, .openFromClipboard, .captureLastArea, .pinFromClipboard, .clearHistory: return 0
+            case .scrollCapture, .openFromClipboard, .captureLastArea, .pinFromClipboard: return 0
             default: return UInt32(cmdKey | shiftKey)
             }
         }
@@ -126,18 +116,16 @@ class HotkeyManager {
     }
 
     /// Register all hotkeys with their callbacks.
-    func registerAll(captureArea: @escaping () -> Void, captureFullScreen: @escaping () -> Void, historyOverlay: @escaping () -> Void, captureOCR: @escaping () -> Void, quickCapture: @escaping () -> Void, scrollCapture: @escaping () -> Void, openFromClipboard: @escaping () -> Void, captureLastArea: @escaping () -> Void, pinFromClipboard: @escaping () -> Void, clearHistory: @escaping () -> Void) {
+    func registerAll(captureArea: @escaping () -> Void, captureFullScreen: @escaping () -> Void, captureOCR: @escaping () -> Void, quickCapture: @escaping () -> Void, scrollCapture: @escaping () -> Void, openFromClipboard: @escaping () -> Void, captureLastArea: @escaping () -> Void, pinFromClipboard: @escaping () -> Void) {
         unregisterAll()
         register(slot: .captureArea, callback: captureArea)
         register(slot: .captureFullScreen, callback: captureFullScreen)
-        register(slot: .historyOverlay, callback: historyOverlay)
         register(slot: .captureOCR, callback: captureOCR)
         register(slot: .quickCapture, callback: quickCapture)
         register(slot: .scrollCapture, callback: scrollCapture)
         register(slot: .openFromClipboard, callback: openFromClipboard)
         register(slot: .captureLastArea, callback: captureLastArea)
         register(slot: .pinFromClipboard, callback: pinFromClipboard)
-        register(slot: .clearHistory, callback: clearHistory)
     }
 
     private func installEventHandler() {

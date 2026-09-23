@@ -203,8 +203,6 @@ class FloatingThumbnailController: NSObject, NSDraggingSource, QLPreviewPanelDat
     private(set) var image: NSImage
     private var thumbnailView: ThumbnailView?
     private var corner: FloatingThumbnailCorner = .bottomRight
-    /// History entry ID — used to match and update the thumbnail when the editor saves.
-    var historyEntryID: String?
     /// Editable raw image + annotations for opening the thumbnail back in the editor.
     var annotationData: CaptureAnnotationData?
     /// The intended final frame — used instead of window.frame to avoid reading
