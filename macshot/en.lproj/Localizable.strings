@@ -112,7 +112,6 @@
 "Invert Colors" = "Invert Colors";
 "Record" = "Record";
 "Record screen" = "Record screen";
-"Translate" = "Translate";
 "Auto-Redact sensitive data" = "Auto-Redact sensitive data";
 "Move Selection" = "Move Selection";
 
@@ -414,13 +413,9 @@
 /* OCR Window */
 "Text Recognition" = "Text Recognition";
 "Text & QR Recognition" = "Text & QR Recognition";
-"Translate to:" = "Translate to:";
 "%d chars · %d words" = "%d chars · %d words";
 "Copy  ⌘↩" = "Copy  ⌘↩";
 "AI Search" = "AI Search";
-"Show Original" = "Show Original";
-"Translation Failed" = "Translation Failed";
-"Translation" = "Translation";
 "(No text detected in the selected area)" = "(No text detected in the selected area)";
 "QR Code" = "QR Code";
 "QR Codes" = "QR Codes";
@@ -539,11 +534,6 @@
 "Stop Recording" = "Stop Recording";
 "Pause" = "Pause";
 "Resume" = "Resume";
-"Engine:" = "Engine:";
-"Google Translate" = "Google Translate";
-"Apple (on-device)" = "Apple (on-device)";
-"Apple translation is faster and works offline. Google Translate supports more languages." = "Apple translation is faster and works offline. Google Translate supports more languages.";
-"Download language packs in System Settings…" = "Download language packs in System Settings…";
 "Configure S3 in Settings" = "Configure S3 in Settings";
 "Sign in to Google Drive in Settings" = "Sign in to Google Drive in Settings";
 "Position:" = "Position:";
@@ -670,12 +660,6 @@
 "This file is not a valid macshot settings file." = "This file is not a valid macshot settings file.";
 "This settings file contains no settings." = "This settings file contains no settings.";
 "This settings file was made by a newer version of macshot. Please update macshot first." = "This settings file was made by a newer version of macshot. Please update macshot first.";
-
-/* URL scheme: ocr-translate (issue #283) */
-"Capture, translate, and overlay the text on the image" = "Capture, translate, and overlay the text on the image";
-
-/* URL scheme: edit (PR #272) */
-"Open a history entry in the editor (keeps annotations editable)" = "Open a history entry in the editor (keeps annotations editable)";
 
 /* Measure tool: clamp toggle (#212) */
 "Limit to selection" = "Limit to selection";

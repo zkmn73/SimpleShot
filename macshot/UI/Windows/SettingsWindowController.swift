@@ -911,37 +911,6 @@ class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSWindowD
 
         // Color profile is always embedded (native display profile) — no toggle needed.
 
-        // ── Translation ──────────────────────────────────────
-        if TranslationService.appleTranslationAvailable {
-            stack.addArrangedSubview(sectionHeader(L("Translation")))
-            stack.setCustomSpacing(10, after: stack.arrangedSubviews.last!)
-
-            let translationProviderPopup = NSPopUpButton()
-            translationProviderPopup.addItems(withTitles: [
-                L("Apple (on-device)"),
-                L("Google Translate"),
-            ])
-            translationProviderPopup.selectItem(at: TranslationService.provider == .apple ? 0 : 1)
-            translationProviderPopup.target = self
-            translationProviderPopup.action = #selector(translationProviderChanged(_:))
-            stack.addArrangedSubview(labeledRow(L("Engine:"), controls: [translationProviderPopup]))
-            stack.setCustomSpacing(4, after: stack.arrangedSubviews.last!)
-
-            let providerNote = NSTextField(wrappingLabelWithString: L("Apple translation is faster and works offline. Google Translate supports more languages."))
-            providerNote.font = NSFont.systemFont(ofSize: 10)
-            providerNote.textColor = .secondaryLabelColor
-            stack.addArrangedSubview(indented(providerNote))
-            stack.setCustomSpacing(4, after: stack.arrangedSubviews.last!)
-
-            let downloadLink = NSButton(title: L("Download language packs in System Settings…"), target: self, action: #selector(openTranslationSettings))
-            downloadLink.bezelStyle = .inline
-            downloadLink.isBordered = false
-            downloadLink.contentTintColor = .linkColor
-            downloadLink.font = NSFont.systemFont(ofSize: 10)
-            stack.addArrangedSubview(indented(downloadLink))
-            stack.setCustomSpacing(20, after: stack.arrangedSubviews.last!)
-        }
-
         // ── Menu Bar Order ──────────────────────────────────
         stack.addArrangedSubview(sectionHeader(L("Menu Bar Order")))
         stack.setCustomSpacing(10, after: stack.arrangedSubviews.last!)
@@ -2344,7 +2313,6 @@ class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSWindowD
             ("macshot://capture-last",        L("Re-capture the last selected area")),
             ("macshot://quick-capture",       L("Quick capture (uses your Enter action)")),
             ("macshot://ocr",                 L("Capture area and read text/QR codes")),
-            ("macshot://ocr-translate?target=zh-CN", L("Capture, translate, and overlay the text on the image")),
             ("macshot://scroll-capture",      L("Start scroll capture")),
             ("macshot://settings",            L("Open this settings window")),
             ("macshot://open?file=/path.png", L("Open an image file in the editor")),
@@ -2468,16 +2436,6 @@ class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSWindowD
 
     @objc private func betaUpdateChanged(_ sender: NSButton) {
         UserDefaults.standard.set(sender.state == .on, forKey: "betaUpdatesEnabled")
-    }
-
-    @objc private func translationProviderChanged(_ sender: NSPopUpButton) {
-        TranslationService.provider = sender.indexOfSelectedItem == 0 ? .apple : .google
-    }
-
-    @objc private func openTranslationSettings() {
-        if let url = URL(string: "x-apple.systempreferences:com.apple.Localization.Settings.extension?Translation") {
-            NSWorkspace.shared.open(url)
-        }
     }
 
     func showWindow() {

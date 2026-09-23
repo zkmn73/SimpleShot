@@ -5,21 +5,15 @@ class OCRResultController: NSObject {
     private var window: NSPanel?
     private var textView: ScopedUndoTextView?
     private var charCountLabel: NSTextField?
-    private var translateButton: NSButton?
-    private var langPopup: NSPopUpButton?
     private var copyButton: NSButton?
-    private var spinnerView: NSProgressIndicator?
 
-    private var originalText: String
     private var qrCodes: [QRCodePayload]
-    private var isShowingTranslation = false
 
     /// Invoked once when the window closes (either close button or title-bar
     /// red-X), so the owner can drop its reference to this controller.
     var onClose: (() -> Void)?
 
     init(text: String, image: NSImage?, qrCodes: [QRCodePayload] = []) {
-        self.originalText = text
         self.qrCodes = qrCodes
         super.init()
         buildWindow(text: text, image: image, qrCodes: qrCodes)
@@ -107,47 +101,6 @@ class OCRResultController: NSObject {
         headerRow.spacing = 8
         headerRow.autoresizingMask = [.width]
         header.addSubview(headerRow)
-
-        // Language popup
-        let langLabel = NSTextField(labelWithString: L("Translate to:"))
-        langLabel.font = NSFont.systemFont(ofSize: 12)
-        langLabel.textColor = .secondaryLabelColor
-        langLabel.setContentHuggingPriority(.required, for: .horizontal)
-        headerRow.addArrangedSubview(langLabel)
-
-        let popup = NSPopUpButton(frame: .zero, pullsDown: false)
-        for lang in TranslationService.availableLanguages {
-            popup.addItem(withTitle: lang.name)
-            popup.lastItem?.representedObject = lang.code
-        }
-        // Select saved language
-        let savedCode = TranslationService.targetLanguage
-        if let idx = TranslationService.availableLanguages.firstIndex(where: { $0.code == savedCode }) {
-            popup.selectItem(at: idx)
-        }
-        popup.target = self
-        popup.action = #selector(languageChanged(_:))
-        popup.widthAnchor.constraint(equalToConstant: 150).isActive = true
-        headerRow.addArrangedSubview(popup)
-        self.langPopup = popup
-
-        // Translate button
-        let translateBtn = NSButton(title: L("Translate"), target: self, action: #selector(toggleTranslate))
-        translateBtn.bezelStyle = .rounded
-        translateBtn.widthAnchor.constraint(equalToConstant: 100).isActive = true
-        headerRow.addArrangedSubview(translateBtn)
-        self.translateButton = translateBtn
-
-        // Spinner (hidden)
-        let spinner = NSProgressIndicator(frame: NSRect(x: 0, y: 0, width: 16, height: 16))
-        spinner.style = .spinning
-        spinner.controlSize = .small
-        spinner.isIndeterminate = true
-        spinner.isHidden = true
-        spinner.widthAnchor.constraint(equalToConstant: 16).isActive = true
-        spinner.heightAnchor.constraint(equalToConstant: 16).isActive = true
-        headerRow.addArrangedSubview(spinner)
-        self.spinnerView = spinner
 
         let spacer = NSView()
         spacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
@@ -371,99 +324,6 @@ class OCRResultController: NSObject {
               let url = URL(string: "https://www.google.com/search?q=\(encoded)&csuir=1&udm=50") else { return }
         NSWorkspace.shared.open(url)
         close()
-    }
-
-    @objc private func languageChanged(_ sender: NSPopUpButton) {
-        guard let code = sender.selectedItem?.representedObject as? String else { return }
-        TranslationService.targetLanguage = code
-        // If currently showing translation, re-translate with new language
-        if isShowingTranslation {
-            performTranslation(targetLang: code)
-        }
-    }
-
-    @objc private func toggleTranslate() {
-        if isShowingTranslation {
-            restoreOriginal()
-        } else {
-            let code = (langPopup?.selectedItem?.representedObject as? String)
-                ?? TranslationService.targetLanguage
-            performTranslation(targetLang: code)
-        }
-    }
-
-    @objc private func restoreOriginal() {
-        isShowingTranslation = false
-        setTextViewString(originalText)  // registers undo back to translated state
-        translateButton?.title = L("Translate")
-        updateCharCount(for: originalText)
-    }
-
-    /// Sets the text view string and registers an undo action that restores
-    /// the previous string AND flips isShowingTranslation + button title.
-    private func setTextViewString(_ newText: String) {
-        guard let tv = textView, let um = tv.undoManager else {
-            textView?.string = newText
-            return
-        }
-        let previousText = tv.string
-        let wasShowingTranslation = isShowingTranslation
-        tv.string = newText
-        um.registerUndo(withTarget: self) { [weak self] target in
-            guard let self = self else { return }
-            self.isShowingTranslation = wasShowingTranslation
-            self.setTextViewString(previousText)
-            self.translateButton?.title = wasShowingTranslation ? L("Show Original") : L("Translate")
-            self.updateCharCount(for: previousText)
-        }
-        um.setActionName(L("Translation"))
-    }
-
-    private func performTranslation(targetLang: String) {
-        guard let tv = textView else { return }
-        let sourceText = isShowingTranslation ? originalText : tv.string
-        guard !sourceText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
-              !sourceText.hasPrefix("(No text") else { return }
-
-        translateButton?.isEnabled = false
-        spinnerView?.isHidden = false
-        spinnerView?.startAnimation(nil)
-
-        // Split into lines for per-line translation (preserves layout)
-        let lines = sourceText.components(separatedBy: "\n")
-        let nonEmpty = lines.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-
-        TranslationService.translateBatch(texts: nonEmpty, targetLang: targetLang) { [weak self] result in
-            guard let self = self else { return }
-            self.spinnerView?.stopAnimation(nil)
-            self.spinnerView?.isHidden = true
-            self.translateButton?.isEnabled = true
-
-            switch result {
-            case .failure(let error):
-                let alert = NSAlert()
-                alert.messageText = L("Translation Failed")
-                alert.informativeText = error.localizedDescription
-                alert.alertStyle = .warning
-                if let window = self.window { alert.beginSheetModal(for: window) }
-
-            case .success(let translated):
-                // Restore empty lines to preserve paragraph structure
-                var result: [String] = []
-                for (i, original) in lines.enumerated() {
-                    if original.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                        result.append("")
-                    } else if i < translated.count {
-                        result.append(translated[i])
-                    }
-                }
-                let translatedText = result.joined(separator: "\n")
-                self.isShowingTranslation = true
-                self.setTextViewString(translatedText)
-                self.translateButton?.title = L("Show Original")
-                self.updateCharCount(for: translatedText)
-            }
-        }
     }
 
     private func updateCharCount(for text: String) {

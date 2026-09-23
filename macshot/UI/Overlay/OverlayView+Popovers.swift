@@ -34,76 +34,6 @@ extension OverlayView {
         }
     }
 
-    func showTranslatePopover(anchorRect: NSRect, anchorView: NSView? = nil) {
-        if PopoverHelper.toggleClosedIfOpen() { return }
-        let languages = TranslationService.availableLanguages
-        let currentCode = TranslationService.targetLanguage
-
-        let showPopover: ([String: Bool]?) -> Void = { [weak self] appleAvailability in
-            guard let self = self else { return }
-            // When Apple Translation is active, only show installed languages
-            let filteredLanguages: [(code: String, name: String)]
-            if let avail = appleAvailability {
-                filteredLanguages = languages.filter { avail[$0.code] == true }
-            } else {
-                filteredLanguages = languages
-            }
-            let picker = ListPickerView()
-            let pickerW: CGFloat = 220
-            picker.frame.size.width = pickerW
-            picker.items = filteredLanguages.map { lang in
-                return .init(title: lang.name, isSelected: lang.code == currentCode,
-                             isEnabled: true, subtitle: nil)
-            }
-            picker.onSelect = { [weak self] idx in
-                let newCode = filteredLanguages[idx].code
-                TranslationService.targetLanguage = newCode
-                PopoverHelper.dismiss()
-                if let self = self, self.translateEnabled {
-                    self.performTranslate(targetLang: newCode)
-                }
-                self?.needsDisplay = true
-            }
-
-            let contentH = picker.frame.height
-            let maxH: CGFloat = 350
-            let popoverSize = NSSize(width: pickerW, height: min(maxH, contentH))
-
-            let scrollView = NSScrollView(frame: NSRect(origin: .zero, size: popoverSize))
-            scrollView.hasVerticalScroller = true
-            scrollView.hasHorizontalScroller = false
-            scrollView.autohidesScrollers = false
-            scrollView.scrollerStyle = .overlay
-            scrollView.drawsBackground = false
-            scrollView.borderType = .noBorder
-            scrollView.documentView = picker
-
-            if let anchor = anchorView {
-                PopoverHelper.show(
-                    scrollView, size: popoverSize, relativeTo: anchor.bounds, of: anchor,
-                    preferredEdge: .maxY)
-            } else {
-                PopoverHelper.showAtPoint(
-                    scrollView, size: popoverSize,
-                    at: NSPoint(x: anchorRect.maxX + 4, y: anchorRect.midY),
-                    in: self, preferredEdge: .maxX)
-            }
-
-            DispatchQueue.main.async {
-                picker.scrollToSelected()
-            }
-        }
-
-        // If Apple Translation is selected, check which languages are installed
-        if #available(macOS 15.0, *), TranslationService.provider == .apple {
-            TranslationService.checkAppleLanguageAvailability { availability in
-                showPopover(availability)
-            }
-        } else {
-            showPopover(nil)
-        }
-    }
-
     func showBeautifyGradientPopover(anchorView: NSView? = nil, anchorRect: NSRect = .zero) {
         let picker = GradientPickerView(selectedIndex: beautifyStyleIndex)
         picker.onSelect = { [weak self] idx in
@@ -196,7 +126,7 @@ extension OverlayView {
         }
     }
 
-    // MARK: - Auto-redact & Translate actions
+    // MARK: - Auto-redact actions
 
     func performAutoRedact() {
         guard state == .selected, let screenshot = screenshotImage else { return }
@@ -303,29 +233,4 @@ extension OverlayView {
         }
     }
 
-    func performTranslate(targetLang: String) {
-        guard state == .selected, let screenshot = screenshotImage else { return }
-        annotations.removeAll { $0.tool == .translateOverlay }
-        isTranslating = true
-        needsDisplay = true
-
-        TranslateOverlay.translate(
-            screenshot: screenshot, selectionRect: selectionRect, captureDrawRect: captureDrawRect,
-            targetLang: targetLang,
-            onError: { [weak self] msg in
-                self?.isTranslating = false
-                self?.showOverlayError(msg)
-                self?.needsDisplay = true
-            },
-            completion: { [weak self] anns in
-                guard let self = self else { return }
-                self.isTranslating = false
-                self.annotations.removeAll { $0.tool == .translateOverlay }
-                self.annotations.append(contentsOf: anns)
-                self.undoStack.append(contentsOf: anns.map { .added($0) })
-                self.redoStack.removeAll()
-                self.needsDisplay = true
-            }
-        )
-    }
 }

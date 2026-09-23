@@ -289,21 +289,6 @@ class OverlayWindowController {
         overlayView?.autoOCRMode = true
     }
 
-    /// Set flag so overlay runs OCR + translate + in-place overlay immediately
-    /// after the user makes a selection (macshot://ocr-translate). `targetLang`
-    /// nil uses the saved default language.
-    func setAutoTranslateOverlayMode(targetLang: String?) {
-        overlayView?.autoTranslateOverlayMode = true
-        overlayView?.autoTranslateOverlayLang = targetLang
-    }
-
-    /// Clear the auto-translate flag (e.g. once the user starts a selection on
-    /// another screen, so this overlay won't auto-translate later).
-    func clearAutoTranslateOverlayMode() {
-        overlayView?.autoTranslateOverlayMode = false
-        overlayView?.autoTranslateOverlayLang = nil
-    }
-
     /// Set flag so overlay quick-saves immediately after user makes a selection.
     func setAutoQuickSaveMode() {
         overlayView?.autoQuickSaveMode = true

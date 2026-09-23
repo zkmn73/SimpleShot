@@ -28,7 +28,6 @@ enum ToolbarButtonAction {
     case removeBackground
     case invertColors
     case loupe
-    case translate
     case detach
     case scrollCapture
     case addCapture  // editor only: capture a new region and append to the canvas
@@ -53,7 +52,6 @@ enum ToolbarCustomAction: Int {
     case removeBackground = 1005
     case autoRedact = 1006
     case reserved1007 = 1007
-    case translate = 1008
     case scrollCapture = 1010
     case invertColors = 1011
     case share = 1012
@@ -62,7 +60,7 @@ enum ToolbarCustomAction: Int {
     static var allKnownActions: [ToolbarCustomAction] {
         [
             .pin, .ocr, .beautify, .removeBackground, .autoRedact, .reserved1007,
-            .translate, .scrollCapture, .invertColors, .share, .effects,
+            .scrollCapture, .invertColors, .share, .effects,
         ]
     }
 
@@ -71,7 +69,7 @@ enum ToolbarCustomAction: Int {
     }
 
     static var rightToolbarActions: [ToolbarCustomAction] {
-        [.share, .pin, .ocr, .translate, .scrollCapture]
+        [.share, .pin, .ocr, .scrollCapture]
     }
 
     static var bottomSettingsActions: [ToolbarCustomAction] {
@@ -79,7 +77,7 @@ enum ToolbarCustomAction: Int {
     }
 
     static var rightSettingsActions: [ToolbarCustomAction] {
-        [.pin, .ocr, .autoRedact, .translate, .scrollCapture, .share]
+        [.pin, .ocr, .autoRedact, .scrollCapture, .share]
     }
 
     var settingsLabel: String {
@@ -90,7 +88,6 @@ enum ToolbarCustomAction: Int {
         case .removeBackground: return L("Remove Background")
         case .autoRedact: return L("Auto-Redact sensitive data")
         case .reserved1007: return ""
-        case .translate: return L("Translate")
         case .scrollCapture: return L("Scroll Capture")
         case .invertColors: return L("Invert Colors")
         case .share: return L("Share")
@@ -100,7 +97,6 @@ enum ToolbarCustomAction: Int {
 
     func makeToolbarButton(
         beautifyEnabled: Bool = false,
-        translateEnabled: Bool = false,
         effectsActive: Bool = false,
         isRecording: Bool = false,
         isEditorMode: Bool = false
@@ -129,11 +125,6 @@ enum ToolbarCustomAction: Int {
             return nil
         case .autoRedact, .reserved1007:
             return nil
-        case .translate:
-            var button = ToolbarButton(action: .translate, sfSymbol: "translate", tooltip: L("Translate"))
-            button.isSelected = translateEnabled
-            button.hasContextMenu = true
-            return button
         case .scrollCapture:
             guard !isRecording && !isEditorMode else { return nil }
             return ToolbarButton(action: .scrollCapture, sfSymbol: "scroll", tooltip: L("Scroll Capture"))
@@ -362,7 +353,7 @@ class ToolbarLayout {
     // Right toolbar items (output actions + cancel + delay)
     static func rightButtons(
         beautifyEnabled: Bool = false, beautifyStyleIndex: Int = 0, hasAnnotations: Bool = false,
-        translateEnabled: Bool = false, isRecording: Bool = false,
+        isRecording: Bool = false,
         isEditorMode: Bool = false
     ) -> [ToolbarButton] {
         var buttons: [ToolbarButton] = []
@@ -403,7 +394,6 @@ class ToolbarLayout {
         for action in ToolbarCustomAction.rightToolbarActions {
             guard ToolbarActionPreferences.isEnabled(action, in: enabledActions) else { continue }
             if let button = action.makeToolbarButton(
-                translateEnabled: translateEnabled,
                 isRecording: isRecording,
                 isEditorMode: isEditorMode
             ) {
