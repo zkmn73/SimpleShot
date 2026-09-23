@@ -46,10 +46,6 @@ class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSWindowD
     private var commandShortcutFields: [EditorCommandShortcutManager.Action: NSTextField] = [:]
     private var commandShortcutButtons: [EditorCommandShortcutManager.Action: NSButton] = [:]
     private var recordingCommandAction: EditorCommandShortcutManager.Action?
-    private var toolShortcutFields: [ToolShortcutManager.Action: NSTextField] = [:]
-    private var toolShortcutButtons: [ToolShortcutManager.Action: NSButton] = [:]
-    private var showToolShortcutsInTooltipsCheckbox: NSButton!
-    private var recordingToolAction: ToolShortcutManager.Action?
     private var savePathField: NSTextField!
     private var saveActionPopup: NSPopUpButton!
     private var ocrActionPopup: NSPopUpButton!
@@ -1156,63 +1152,6 @@ class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSWindowD
             stack.setCustomSpacing(8, after: stack.arrangedSubviews.last!)
         }
 
-        // ── Overlay / Editor Tool Shortcuts ──────────────────
-        stack.setCustomSpacing(20, after: stack.arrangedSubviews.last!)
-        stack.addArrangedSubview(sectionHeader(L("Overlay / Editor Shortcuts")))
-        stack.setCustomSpacing(10, after: stack.arrangedSubviews.last!)
-
-        showToolShortcutsInTooltipsCheckbox = NSButton(
-            checkboxWithTitle: L("Show shortcuts in tooltips"),
-            target: self,
-            action: #selector(showToolShortcutsInTooltipsChanged(_:)))
-        stack.addArrangedSubview(indented(showToolShortcutsInTooltipsCheckbox))
-        stack.setCustomSpacing(12, after: stack.arrangedSubviews.last!)
-
-        for action in ToolShortcutManager.Action.allCases {
-            let field = NSTextField()
-            field.isEditable = false
-            field.isSelectable = false
-            field.alignment = .center
-            field.setContentHuggingPriority(.defaultHigh, for: .horizontal)
-            field.widthAnchor.constraint(equalToConstant: 80).isActive = true
-            field.stringValue = ToolShortcutManager.displayString(for: action)
-
-            let btn = NSButton(title: L("Set"), target: self, action: #selector(recordToolShortcut(_:)))
-            btn.bezelStyle = .rounded
-            btn.tag = ToolShortcutManager.Action.allCases.firstIndex(of: action)!
-
-            let clearBtn = NSButton(title: "", target: self, action: #selector(clearToolShortcut(_:)))
-            clearBtn.bezelStyle = .inline
-            clearBtn.isBordered = false
-            clearBtn.image = NSImage(systemSymbolName: "xmark.circle.fill", accessibilityDescription: L("None"))
-            clearBtn.contentTintColor = .secondaryLabelColor
-            clearBtn.imagePosition = .imageOnly
-            clearBtn.tag = ToolShortcutManager.Action.allCases.firstIndex(of: action)!
-            clearBtn.toolTip = L("None")
-            clearBtn.widthAnchor.constraint(equalToConstant: 20).isActive = true
-
-            let resetBtn = NSButton(title: "", target: self, action: #selector(resetToolShortcut(_:)))
-            resetBtn.bezelStyle = .inline
-            resetBtn.isBordered = false
-            resetBtn.image = NSImage(systemSymbolName: "arrow.counterclockwise.circle.fill", accessibilityDescription: L("Reset to default"))
-            resetBtn.contentTintColor = .secondaryLabelColor
-            resetBtn.imagePosition = .imageOnly
-            resetBtn.tag = ToolShortcutManager.Action.allCases.firstIndex(of: action)!
-            resetBtn.toolTip = L("Reset to default")
-            resetBtn.widthAnchor.constraint(equalToConstant: 20).isActive = true
-
-            toolShortcutFields[action] = field
-            toolShortcutButtons[action] = btn
-
-            stack.addArrangedSubview(labeledRow("\(action.label):", controls: [field, btn, clearBtn, resetBtn]))
-            stack.setCustomSpacing(8, after: stack.arrangedSubviews.last!)
-        }
-
-        let toolNote = NSTextField(wrappingLabelWithString: L("Press a single key to assign it as the shortcut for that tool. These work when the overlay or editor is active."))
-        toolNote.font = NSFont.systemFont(ofSize: 10)
-        toolNote.textColor = .secondaryLabelColor
-        stack.addArrangedSubview(indented(toolNote))
-
         // Spacer to push content to top
         let spacer = NSView()
         spacer.translatesAutoresizingMaskIntoConstraints = false
@@ -1243,7 +1182,6 @@ class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSWindowD
         // Stop any previous recording.
         stopShortcutRecording()
         stopCommandShortcutRecording()
-        stopToolShortcutRecording()
 
         recordingSlot = slot
         sender.title = L("Press keys...")
@@ -1309,7 +1247,6 @@ class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSWindowD
 
         stopShortcutRecording()
         stopCommandShortcutRecording()
-        stopToolShortcutRecording()
         recordingCommandAction = action
         sender.title = L("Press keys...")
         commandShortcutFields[action]?.stringValue = L("Waiting...")
@@ -1365,77 +1302,6 @@ class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSWindowD
         }
         recordingCommandAction = nil
         if let monitor = localMonitor { NSEvent.removeMonitor(monitor); localMonitor = nil }
-    }
-
-    // MARK: - Overlay Tool Shortcuts
-
-    @objc private func recordToolShortcut(_ sender: NSButton) {
-        let allActions = ToolShortcutManager.Action.allCases
-        guard sender.tag >= 0, sender.tag < allActions.count else { return }
-        let action = allActions[sender.tag]
-
-        // If already recording this action, stop
-        if recordingToolAction == action {
-            stopToolShortcutRecording()
-            return
-        }
-        // Stop any other recording.
-        stopShortcutRecording()
-        stopCommandShortcutRecording()
-        stopToolShortcutRecording()
-
-        recordingToolAction = action
-        sender.title = L("Press...")
-        toolShortcutFields[action]?.stringValue = "…"
-
-        localMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
-            guard let self = self else { return event }
-            // Only accept single keys without modifiers (or allow Escape to cancel)
-            if event.keyCode == 53 { // Escape — cancel
-                self.stopToolShortcutRecording()
-                return nil
-            }
-            guard !event.modifierFlags.contains(.command),
-                  !event.modifierFlags.contains(.option),
-                  !event.modifierFlags.contains(.control),
-                  let char = KeyboardShortcutMatcher.semanticCharacter(for: event) else { return nil }
-
-            ToolShortcutManager.setKey(char, for: action)
-            self.toolShortcutFields[action]?.stringValue = ToolShortcutManager.displayString(for: action)
-            self.stopToolShortcutRecording()
-            return nil
-        }
-    }
-
-    @objc private func clearToolShortcut(_ sender: NSButton) {
-        let allActions = ToolShortcutManager.Action.allCases
-        guard sender.tag >= 0, sender.tag < allActions.count else { return }
-        let action = allActions[sender.tag]
-        stopToolShortcutRecording()
-        ToolShortcutManager.setKey("", for: action)
-        toolShortcutFields[action]?.stringValue = L("None")
-    }
-
-    @objc private func resetToolShortcut(_ sender: NSButton) {
-        let allActions = ToolShortcutManager.Action.allCases
-        guard sender.tag >= 0, sender.tag < allActions.count else { return }
-        let action = allActions[sender.tag]
-        stopToolShortcutRecording()
-        ToolShortcutManager.setKey(action.defaultKey, for: action)
-        toolShortcutFields[action]?.stringValue = ToolShortcutManager.displayString(for: action)
-    }
-
-    @objc private func showToolShortcutsInTooltipsChanged(_ sender: NSButton) {
-        UserDefaults.standard.set(sender.state == .on, forKey: "showToolShortcutsInTooltips")
-    }
-
-    private func stopToolShortcutRecording() {
-        if let action = recordingToolAction {
-            toolShortcutFields[action]?.stringValue = ToolShortcutManager.displayString(for: action)
-            toolShortcutButtons[action]?.title = L("Set")
-        }
-        recordingToolAction = nil
-        if let m = localMonitor { NSEvent.removeMonitor(m); localMonitor = nil }
     }
 
     // MARK: - Tools Tab
@@ -1866,7 +1732,6 @@ class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSWindowD
         let browserElementSnap = UserDefaults.standard.object(
             forKey: OverlayView.browserElementSnapEnabledKey) as? Bool ?? true
         browserElementSnapCheckbox.state = browserElementSnap ? .on : .off
-        showToolShortcutsInTooltipsCheckbox.state = UserDefaults.standard.bool(forKey: "showToolShortcutsInTooltips") ? .on : .off
 
         captureCursorCheckbox.state = UserDefaults.standard.bool(forKey: "captureCursor") ? .on : .off
         doubleClickToCopyCheckbox.state = (UserDefaults.standard.object(forKey: "doubleClickToCopy") as? Bool ?? true) ? .on : .off
@@ -2359,7 +2224,6 @@ class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSWindowD
     func windowWillClose(_ notification: Notification) {
         stopShortcutRecording()
         stopCommandShortcutRecording()
-        stopToolShortcutRecording()
         (NSApp.delegate as? AppDelegate)?.returnFocusIfNeeded()
     }
 }
