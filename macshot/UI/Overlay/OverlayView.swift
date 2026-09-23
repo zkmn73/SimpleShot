@@ -245,35 +245,7 @@ class OverlayView: NSView {
         ]
         return Dictionary(uniqueKeysWithValues: handlers.map { ($0.tool, $0) })
     }()
-    /// Last tool the user explicitly picked — persisted across app launches.
-    private static var lastUsedTool: AnnotationTool = {
-        if let raw = UserDefaults.standard.object(forKey: "lastUsedTool") as? Int,
-           let tool = AnnotationTool(rawValue: raw) {
-            return tool
-        }
-        return .arrow
-    }()
-    private static var shouldRememberLastTool: Bool {
-        UserDefaults.standard.object(forKey: "rememberLastTool") as? Bool ?? true
-    }
-    private static var initialTool: AnnotationTool {
-        shouldRememberLastTool ? lastUsedTool : .arrow
-    }
-    static func resetRememberedTool() {
-        lastUsedTool = .arrow
-        UserDefaults.standard.removeObject(forKey: "lastUsedTool")
-    }
-    var currentTool: AnnotationTool = {
-        OverlayView.initialTool
-    }() {
-        didSet {
-            // Persist drawing tool choices; skip transient/mode tools
-            if OverlayView.shouldRememberLastTool && currentTool != .select && currentTool != .loupe {
-                OverlayView.lastUsedTool = currentTool
-                UserDefaults.standard.set(currentTool.rawValue, forKey: "lastUsedTool")
-            }
-        }
-    }
+    var currentTool: AnnotationTool = .arrow
     var currentColor: NSColor = {
         if let data = UserDefaults.standard.data(forKey: "lastUsedColor"),
            let color = try? NSKeyedUnarchiver.unarchivedObject(ofClass: NSColor.self, from: data) {
@@ -9487,7 +9459,7 @@ class OverlayView: NSView {
         undoStack.removeAll()
         redoStack.removeAll()
         currentAnnotation = nil
-        currentTool = OverlayView.initialTool
+        currentTool = .arrow
         numberCounter = 0
         showToolbars = false
         dismissResolutionBox()

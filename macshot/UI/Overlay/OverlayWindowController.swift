@@ -393,13 +393,6 @@ class OverlayWindowController {
             NSStringFromRect(screen.frame), forKey: "lastSelectionScreenFrame")
     }
 
-    private func playCopySound() {
-        let soundEnabled = UserDefaults.standard.object(forKey: "playCopySound") as? Bool ?? true
-        guard soundEnabled else { return }
-        AppDelegate.captureSound?.stop()
-        AppDelegate.captureSound?.play()
-    }
-
     private func captureRegion() -> NSImage? {
         return overlayDelegate?.overlayCrossScreenImage(self)
             ?? overlayView?.captureSelectedRegion()
@@ -541,7 +534,6 @@ extension OverlayWindowController: OverlayViewDelegate {
         }
 
         // Dismiss immediately — user is free to continue working
-        playCopySound()
         dismiss()
 
         // Apply post-processing if needed
@@ -574,7 +566,6 @@ extension OverlayWindowController: OverlayViewDelegate {
         guard var image = captureRegion() else { return }
         let annotationData = currentAnnotationDataForHistory()
         image = applyBeautifyIfNeeded(image) ?? image
-        playCopySound()
         dismiss()
         overlayDelegate?.overlayDidRequestPin(self, image: image, annotationData: annotationData)
     }
@@ -590,7 +581,6 @@ extension OverlayWindowController: OverlayViewDelegate {
                 guard let self = self else { return }
                 let capturedImage = image  // capture before dismiss
                 DispatchQueue.main.async {
-                    self.playCopySound()
                     self.dismiss()
                     self.overlayDelegate?.overlayDidRequestOCR(self, result: result, image: capturedImage)
                 }
@@ -634,7 +624,6 @@ extension OverlayWindowController: OverlayViewDelegate {
                 guard let self = self else { return }
                 self.overlayWindow?.level = savedLevel
                 self.shareDelegate = nil
-                self.playCopySound()
                 let img = image
                 self.dismiss()
                 self.overlayDelegate?.overlayDidConfirm(self, capturedImage: img, annotationData: annotationData)
@@ -822,7 +811,6 @@ extension OverlayWindowController: OverlayViewDelegate {
                     if mode == 1 || mode == 2 {
                         self.copyImageToClipboard(finalNSImage)
                     }
-                    self.playCopySound()
                     self.dismiss()
                     self.overlayDelegate?.overlayDidConfirm(self, capturedImage: finalNSImage, annotationData: nil)
                 }
@@ -886,20 +874,18 @@ extension OverlayWindowController: OverlayViewDelegate {
             image = BeautifyRenderer.render(image: beautifyInput, config: beautifyCfg)
         }
 
-        // quickCaptureMode: 0=save, 1=copy, 2=both, 3=do nothing (thumbnail only)
+        // quickCaptureMode: 0=save, 1=copy, 2=both, 3=do nothing
         let mode = UserDefaults.standard.object(forKey: "quickCaptureMode") as? Int ?? 1
 
         if mode == 1 || mode == 2 {
             ImageEncoder.copyToClipboard(image)
         }
-        playCopySound()
 
         overlayDelegate?.overlayDidConfirm(self, capturedImage: image, annotationData: annotationData)
 
         if mode == 0 || mode == 2 {
             ImageSaveService.saveToConfiguredFolder(image, windowTitle: capturedWindowTitle)
         }
-        // mode 3: do nothing — image is passed to delegate which shows the thumbnail
     }
 
     func overlayViewDidRequestFileSave() {
@@ -916,11 +902,7 @@ extension OverlayWindowController: OverlayViewDelegate {
             image,
             windowTitle: capturedWindowTitle,
             panelLevel: NSWindow.Level(258)
-        ) { [weak self] success in
-            if success {
-                self?.playCopySound()
-            }
-        }
+        )
     }
 
     func overlayViewDidRequestSave() {
@@ -942,7 +924,6 @@ extension OverlayWindowController: OverlayViewDelegate {
         ) { [weak self] success in
             guard let self = self else { return }
             if success {
-                self.playCopySound()
                 self.dismiss()
                 self.overlayDelegate?.overlayDidConfirm(self, capturedImage: nil, annotationData: nil)
             } else {

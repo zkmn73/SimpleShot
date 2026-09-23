@@ -49,16 +49,7 @@ class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSWindowD
     private var savePathField: NSTextField!
     private var saveActionPopup: NSPopUpButton!
     private var ocrActionPopup: NSPopUpButton!
-    private var copySoundCheckbox: NSButton!
     // rememberSelectionCheckbox removed — selection is always saved for "Capture Last Area"
-    private var rememberToolCheckbox: NSButton!
-    private var thumbnailCheckbox: NSButton!
-    private var thumbnailAutoDismissStepper: NSStepper!
-    private var thumbnailAutoDismissField: NSTextField!
-    private var thumbnailStackingPopup: NSPopUpButton!
-    private var thumbnailCornerPopup: NSPopUpButton!
-    private var thumbnailLetterboxCheckbox: NSButton!
-    private var thumbnailScaleLabel: NSTextField!
     private var launchAtLoginCheckbox: NSButton!
     private var hideMenuBarIconCheckbox: NSButton!
     private var snapGuidesCheckbox: NSButton!
@@ -647,9 +638,6 @@ class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSWindowD
         stack.setCustomSpacing(12, after: stack.arrangedSubviews.last!)
 
         // Checkboxes
-        copySoundCheckbox = NSButton(checkboxWithTitle: L("Play sound on capture"), target: self, action: #selector(copySoundChanged(_:)))
-        rememberToolCheckbox = NSButton(checkboxWithTitle: L("Remember last selected tool"), target: self, action: #selector(rememberToolChanged(_:)))
-        thumbnailCheckbox = NSButton(checkboxWithTitle: L("Show floating thumbnail after capture"), target: self, action: #selector(thumbnailChanged(_:)))
         snapGuidesCheckbox = NSButton(checkboxWithTitle: L("Show snap alignment guides"), target: self, action: #selector(snapGuidesChanged(_:)))
         boundarySnapCheckbox = NSButton(checkboxWithTitle: L("Snap selection edges to image boundaries"), target: self, action: #selector(boundarySnapChanged(_:)))
         browserElementSnapCheckbox = NSButton(
@@ -673,66 +661,6 @@ class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSWindowD
         filenameTemplatePreview.font = NSFont.systemFont(ofSize: 10)
         filenameTemplatePreview.textColor = .secondaryLabelColor
         filenameTemplatePreview.lineBreakMode = .byTruncatingMiddle
-
-        for cb in [copySoundCheckbox!, rememberToolCheckbox!, thumbnailCheckbox!] {
-            stack.addArrangedSubview(indented(cb))
-            stack.setCustomSpacing(6, after: stack.arrangedSubviews.last!)
-        }
-
-        // Thumbnail auto-dismiss stepper
-        thumbnailAutoDismissField = NSTextField()
-        thumbnailAutoDismissField.isEditable = false
-        thumbnailAutoDismissField.isSelectable = false
-        thumbnailAutoDismissField.alignment = .center
-        thumbnailAutoDismissField.widthAnchor.constraint(equalToConstant: 40).isActive = true
-
-        thumbnailAutoDismissStepper = NSStepper()
-        thumbnailAutoDismissStepper.minValue = 0
-        thumbnailAutoDismissStepper.maxValue = 60
-        thumbnailAutoDismissStepper.increment = 1
-        thumbnailAutoDismissStepper.target = self
-        thumbnailAutoDismissStepper.action = #selector(thumbnailAutoDismissChanged(_:))
-
-        let dismissNote = NSTextField(labelWithString: L("sec (0 = never)"))
-        dismissNote.font = NSFont.systemFont(ofSize: 11)
-        dismissNote.textColor = .secondaryLabelColor
-
-        stack.addArrangedSubview(indented(labeledRow(L("  Dismiss after:"), controls: [thumbnailAutoDismissField!, thumbnailAutoDismissStepper!, dismissNote])))
-        stack.setCustomSpacing(6, after: stack.arrangedSubviews.last!)
-
-        // Thumbnail stacking popup
-        thumbnailStackingPopup = NSPopUpButton()
-        thumbnailStackingPopup.addItems(withTitles: [L("Stack (keep all)"), L("Replace (show only latest)")])
-        thumbnailStackingPopup.target = self
-        thumbnailStackingPopup.action = #selector(thumbnailStackingChanged(_:))
-
-        stack.addArrangedSubview(indented(labeledRow(L("  Multiple previews:"), controls: [thumbnailStackingPopup!])))
-        stack.setCustomSpacing(8, after: stack.arrangedSubviews.last!)
-
-        thumbnailCornerPopup = NSPopUpButton()
-        thumbnailCornerPopup.addItems(withTitles: [L("Bottom Right"), L("Bottom Left"), L("Top Right"), L("Top Left")])
-        thumbnailCornerPopup.target = self
-        thumbnailCornerPopup.action = #selector(thumbnailCornerChanged(_:))
-        stack.addArrangedSubview(indented(labeledRow(L("  Position:"), controls: [thumbnailCornerPopup!])))
-        stack.setCustomSpacing(8, after: stack.arrangedSubviews.last!)
-
-        let sizeSlider = NSSlider(value: UserDefaults.standard.object(forKey: "thumbnailScale") as? Double ?? 1.0,
-                                   minValue: 0.5, maxValue: 2.0, target: self, action: #selector(thumbnailScaleChanged(_:)))
-        sizeSlider.controlSize = .small
-        sizeSlider.widthAnchor.constraint(equalToConstant: 120).isActive = true
-        thumbnailScaleLabel = NSTextField(labelWithString: scalePercentString(sizeSlider.doubleValue))
-        thumbnailScaleLabel.font = .monospacedDigitSystemFont(ofSize: 11, weight: .regular)
-        thumbnailScaleLabel.textColor = .secondaryLabelColor
-        stack.addArrangedSubview(indented(labeledRow(L("  Preview size:"), controls: [sizeSlider, thumbnailScaleLabel])))
-        stack.setCustomSpacing(8, after: stack.arrangedSubviews.last!)
-
-        thumbnailLetterboxCheckbox = NSButton(
-            checkboxWithTitle: L("Fit image in preview (letterbox)"),
-            target: self,
-            action: #selector(thumbnailLetterboxChanged(_:))
-        )
-        stack.addArrangedSubview(indented(thumbnailLetterboxCheckbox))
-        stack.setCustomSpacing(8, after: stack.arrangedSubviews.last!)
 
         stack.addArrangedSubview(indented(snapGuidesCheckbox))
         stack.setCustomSpacing(6, after: stack.arrangedSubviews.last!)
@@ -1693,32 +1621,7 @@ class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSWindowD
         captureMenuOrder = CaptureMenuItemID.orderedItems()
         rebuildCaptureMenuOrderRows()
 
-        let copySound = UserDefaults.standard.object(forKey: "playCopySound") as? Bool ?? true
-        copySoundCheckbox.state = copySound ? .on : .off
-
         // rememberSelectionCheckbox removed
-
-        let rememberTool = UserDefaults.standard.object(forKey: "rememberLastTool") as? Bool ?? true
-        rememberToolCheckbox.state = rememberTool ? .on : .off
-
-        let thumbnail = UserDefaults.standard.object(forKey: "showFloatingThumbnail") as? Bool ?? true
-        thumbnailCheckbox.state = thumbnail ? .on : .off
-        thumbnailLetterboxCheckbox.state = UserDefaults.standard.bool(forKey: "thumbnailLetterbox") ? .on : .off
-
-        let autoDismiss = UserDefaults.standard.object(forKey: "thumbnailAutoDismiss") as? Int ?? 5
-        thumbnailAutoDismissField.integerValue = autoDismiss
-        thumbnailAutoDismissStepper.integerValue = autoDismiss
-
-        let stacking = UserDefaults.standard.object(forKey: "thumbnailStacking") as? Bool ?? true
-        thumbnailStackingPopup.selectItem(at: stacking ? 0 : 1)
-
-        let thumbnailCorner = UserDefaults.standard.string(forKey: "thumbnailCorner") ?? "bottomRight"
-        switch thumbnailCorner {
-        case "bottomLeft": thumbnailCornerPopup.selectItem(at: 1)
-        case "topRight": thumbnailCornerPopup.selectItem(at: 2)
-        case "topLeft": thumbnailCornerPopup.selectItem(at: 3)
-        default: thumbnailCornerPopup.selectItem(at: 0)
-        }
 
         let launchAtLogin = UserDefaults.standard.bool(forKey: "launchAtLogin")
         launchAtLoginCheckbox.state = launchAtLogin ? .on : .off
@@ -1836,42 +1739,6 @@ class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSWindowD
         guard let raw = sender.selectedItem?.representedObject as? Int,
               let action = SaveActionPreference(rawValue: raw) else { return }
         SaveActionPreference.current = action
-    }
-    @objc private func copySoundChanged(_ sender: NSButton) {
-        UserDefaults.standard.set(sender.state == .on, forKey: "playCopySound")
-    }
-    @objc private func rememberToolChanged(_ sender: NSButton) {
-        let enabled = sender.state == .on
-        UserDefaults.standard.set(enabled, forKey: "rememberLastTool")
-        if !enabled {
-            OverlayView.resetRememberedTool()
-        }
-    }
-    @objc private func thumbnailChanged(_ sender: NSButton) {
-        UserDefaults.standard.set(sender.state == .on, forKey: "showFloatingThumbnail")
-    }
-    @objc private func thumbnailAutoDismissChanged(_ sender: NSStepper) {
-        thumbnailAutoDismissField.integerValue = sender.integerValue
-        UserDefaults.standard.set(sender.integerValue, forKey: "thumbnailAutoDismiss")
-    }
-    @objc private func thumbnailScaleChanged(_ sender: NSSlider) {
-        UserDefaults.standard.set(sender.doubleValue, forKey: "thumbnailScale")
-        thumbnailScaleLabel?.stringValue = scalePercentString(sender.doubleValue)
-    }
-    @objc private func thumbnailLetterboxChanged(_ sender: NSButton) {
-        UserDefaults.standard.set(sender.state == .on, forKey: "thumbnailLetterbox")
-    }
-
-    private func scalePercentString(_ scale: Double) -> String {
-        "\(Int(round(scale * 100)))%"
-    }
-
-    @objc private func thumbnailStackingChanged(_ sender: NSPopUpButton) {
-        UserDefaults.standard.set(sender.indexOfSelectedItem == 0, forKey: "thumbnailStacking")
-    }
-    @objc private func thumbnailCornerChanged(_ sender: NSPopUpButton) {
-        let values = ["bottomRight", "bottomLeft", "topRight", "topLeft"]
-        UserDefaults.standard.set(values[sender.indexOfSelectedItem], forKey: "thumbnailCorner")
     }
     @objc private func quickModeChanged(_ sender: NSPopUpButton) {
         UserDefaults.standard.set(sender.indexOfSelectedItem, forKey: "quickCaptureMode")

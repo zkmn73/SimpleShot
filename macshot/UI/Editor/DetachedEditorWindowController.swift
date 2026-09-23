@@ -381,12 +381,10 @@ extension DetachedEditorWindowController: OverlayViewDelegate {
     func overlayViewDidConfirm() {
         guard let save = captureSnapshot() else { return }
         ImageEncoder.copyToClipboard(save.image)
-        playCopySound()
         screenshotNeverOutput = false
         if UserDefaults.standard.bool(forKey: "closeEditorAfterCopy") {
             window?.close()
         }
-        (NSApp.delegate as? AppDelegate)?.showFloatingThumbnail(image: save.image, annotationData: save.annotationData)
     }
 
     func overlayViewDidRequestSave() {
@@ -402,7 +400,6 @@ extension DetachedEditorWindowController: OverlayViewDelegate {
         guard let save = captureSnapshot() else { return }
         ImageSaveService.showSavePanel(for: save.image, sheetWindow: window) { [weak self] success in
             if success {
-                self?.playCopySound()
                 self?.screenshotNeverOutput = false
             }
         }
@@ -410,7 +407,6 @@ extension DetachedEditorWindowController: OverlayViewDelegate {
 
     func overlayViewDidRequestPin() {
         guard let save = captureSnapshot() else { return }
-        playCopySound()
         (NSApp.delegate as? AppDelegate)?.showPin(image: save.image)
         screenshotNeverOutput = false
     }
@@ -448,7 +444,7 @@ extension DetachedEditorWindowController: OverlayViewDelegate {
     func overlayViewDidRequestQuickSave() {
         guard let save = captureSnapshot() else { return }
 
-        // quickCaptureMode: 0=save, 1=copy, 2=both, 3=do nothing (thumbnail only)
+        // quickCaptureMode: 0=save, 1=copy, 2=both, 3=do nothing
         let mode = UserDefaults.standard.object(forKey: "quickCaptureMode") as? Int ?? 1
 
         if mode == 1 || mode == 2 {
@@ -457,16 +453,13 @@ extension DetachedEditorWindowController: OverlayViewDelegate {
         if mode == 0 || mode == 2 {
             ImageSaveService.saveToConfiguredFolder(save.image, sheetWindow: window)
         }
-        playCopySound()
         screenshotNeverOutput = false
-        (NSApp.delegate as? AppDelegate)?.showFloatingThumbnail(image: save.image, annotationData: save.annotationData)
     }
 
     func overlayViewDidRequestFileSave() {
         guard let save = captureSnapshot() else { return }
         ImageSaveService.saveToConfiguredFolder(save.image, sheetWindow: window) { [weak self] success in
             if success {
-                self?.playCopySound()
                 self?.screenshotNeverOutput = false
             }
         }
@@ -507,8 +500,6 @@ extension DetachedEditorWindowController: OverlayViewDelegate {
                 DispatchQueue.main.async {
                     let finalImage = NSImage(cgImage: cg, size: image.size)
                     ImageEncoder.copyToClipboard(finalImage)
-                    self.playCopySound()
-                    (NSApp.delegate as? AppDelegate)?.showFloatingThumbnail(image: finalImage)
                 }
             } catch {}
         }
@@ -580,12 +571,6 @@ extension DetachedEditorWindowController: OverlayViewDelegate {
         window?.makeFirstResponder(view)
     }
 
-    private func playCopySound() {
-        let enabled = UserDefaults.standard.object(forKey: "playCopySound") as? Bool ?? true
-        guard enabled else { return }
-        AppDelegate.captureSound?.stop()
-        AppDelegate.captureSound?.play()
-    }
 }
 
 // MARK: - Add Capture Overlay Handler

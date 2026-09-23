@@ -39,8 +39,6 @@
 /* History Panel */
 "Copy" = "Copy";
 "Open in Editor" = "Open in Editor";
-"Pin to Screen" = "Pin to Screen";
-"Quick Look" = "Quick Look";
 "Delete" = "Delete";
 "All" = "All";
 "Screenshots" = "Screenshots";
@@ -48,8 +46,6 @@
 "Click to copy · Drag to app" = "Click to copy · Drag to app";
 "No captures yet" = "No captures yet";
 
-/* Floating Thumbnail */
-"Close All" = "Close All";
 "Save Recording" = "Save Recording";
 "Save" = "Save";
 
@@ -99,7 +95,6 @@
 "OCR Text" = "OCR Text";
 "OCR (extract text)" = "OCR (extract text)";
 "OCR & QR" = "OCR & QR";
-"Run OCR & QR" = "Run OCR & QR";
 "Upload" = "Upload";
 "Share" = "Share";
 "Undo" = "Undo";
@@ -126,10 +121,6 @@
 "macshot needs camera permission for the webcam overlay. Open System Settings to grant access." = "macshot needs camera permission for the webcam overlay. Open System Settings to grant access.";
 "Recording Settings" = "Recording Settings";
 "Webcam" = "Webcam";
-"Bottom Right" = "Bottom Right";
-"Bottom Left" = "Bottom Left";
-"Top Right" = "Top Right";
-"Top Left" = "Top Left";
 "Small" = "Small";
 "Large" = "Large";
 "Webcam Size Small" = "Small";
@@ -213,9 +204,6 @@
 "Language:" = "Language:";
 "Restart the app to fully apply the new language." = "Restart the app to fully apply the new language.";
 "Capture" = "Capture";
-"Play sound on capture" = "Play sound on capture";
-"Remember last selected tool" = "Remember last selected tool";
-"Show floating thumbnail after capture" = "Show floating thumbnail after capture";
 "Launch at login" = "Launch at login";
 "Show snap alignment guides" = "Show snap alignment guides";
 "Snap selection edges to image boundaries" = "Snap selection edges to image boundaries";
@@ -230,13 +218,6 @@
 "Hotkeys still work. To show the icon again, re-launch macshot." = "Hotkeys still work. To show the icon again, re-launch macshot.";
 "Check for updates automatically" = "Check for updates automatically";
 "Check for beta updates" = "Check for beta updates";
-"Thumbnail" = "Thumbnail";
-"  Dismiss after:" = "  Dismiss after:";
-"seconds before auto-dismiss (0 = never)" = "seconds before auto-dismiss (0 = never)";
-"  Multiple previews:" = "  Multiple previews:";
-"  Position:" = "  Position:";
-"Stack (keep all)" = "Stack (keep all)";
-"Replace (show only latest)" = "Replace (show only latest)";
 "Menu Bar Order" = "Menu Bar Order";
 "Choose the order of capture actions in the macshot menu bar menu." = "Choose the order of capture actions in the macshot menu bar menu.";
 "Move up" = "Move up";
@@ -269,11 +250,6 @@
 "Units" = "Units";
 "Hold Space to move. Release to annotate and edit" = "Hold Space to move. Release to annotate and edit";
 "Hold Space to move. Release to finish" = "Hold Space to move. Release to finish";
-"Rotate Left" = "Rotate Left";
-"Rotate Right" = "Rotate Right";
-"Open With" = "Open With";
-"No Apps Available" = "No Apps Available";
-"No Share Services" = "No Share Services";
 "Accent color:" = "Accent color:";
 "Icon color:" = "Icon color:";
 "Background color:" = "Background color:";
@@ -445,7 +421,6 @@
 /* Save Panel */
 "Save As..." = "Save As...";
 "Choose a folder" = "Choose a folder";
-"Save All to Folder…" = "Save All to Folder…";
 
 /* Scroll Capture HUD */
 "Auto Scroll" = "Auto Scroll";
@@ -532,8 +507,6 @@
 "Size:" = "Size:";
 "Shape:" = "Shape:";
 "Same as screenshots" = "Same as screenshots";
-"  Preview size:" = "  Preview size:";
-"Fit image in preview (letterbox)" = "Fit image in preview (letterbox)";
 "(0 = off)" = "(0 = off)";
 "Clear All" = "Clear All";
 "Clear History?" = "Clear History?";
@@ -626,7 +599,6 @@
 "The file extension is appended automatically. Slashes and colons in {window} become dashes." = "The file extension is appended automatically. Slashes and colons in {window} become dashes.";
 "Trigger macshot from Raycast, Alfred, Shortcuts, or any tool that opens URLs." = "Trigger macshot from Raycast, Alfred, Shortcuts, or any tool that opens URLs.";
 "URL scheme info" = "URL scheme info";
-"sec (0 = never)" = "sec (0 = never)";
 "Settings" = "Settings";
 "Offline build: upload and cloud storage integrations are removed. Update checks may still connect to MacShot's update server. Screenshots and recordings stay local unless you share or save them yourself." = "Offline build: upload and cloud storage integrations are removed. Update checks may still connect to MacShot's update server. Screenshots and recordings stay local unless you share or save them yourself.";
 

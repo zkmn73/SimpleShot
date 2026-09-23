@@ -191,7 +191,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
     private var settingsController: SettingsWindowController?
     private var onboardingController: PermissionOnboardingController?
     private var pinControllers: [PinWindowController] = []
-    private var thumbnailControllers: [FloatingThumbnailController] = []
     private var ocrController: OCRResultController?
     private var isCapturing = false
     private var delayCountdownWindow: NSWindow?
@@ -225,12 +224,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
     /// `.userInitiated` creates a `PreventUserIdleSystemSleep` assertion and
     /// keeps Macs awake indefinitely.
     private var appNapAssertion: NSObjectProtocol?
-
-    /// Shared capture sound — loaded once, reused everywhere.
-    static let captureSound: NSSound? = {
-        let path = "/System/Library/Components/CoreAudio.component/Contents/SharedSupport/SystemSounds/system/Screen Capture.aif"
-        return NSSound(contentsOfFile: path, byReference: true) ?? NSSound(named: "Tink")
-    }()
 
     func applicationDidFinishLaunching(_ aNotification: Notification) {
         // Prevent multiple instances — if already running, activate the existing one and quit
@@ -298,13 +291,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
             setMenuBarIconVisible(false)
         }
         registerHotkey()
-        // Pre-warm CoreAudio so the first capture sound doesn't stall ~1s.
-        if let sound = Self.captureSound {
-            sound.volume = 0
-            sound.play()
-            sound.stop()
-            sound.volume = 1
-        }
 
         // Listen for duplicate-launch notification to restore icon
         DistributedNotificationCenter.default().addObserver(
@@ -902,11 +888,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
     private var backgroundWindowRestoreObserver: NSObjectProtocol?
     private var stashedWindowCloseObserver: NSObjectProtocol?
 
-    /// True when floating thumbnails or pin windows are visible.
-    var hasVisibleFloatingPanels: Bool {
-        !thumbnailControllers.isEmpty || !pinControllers.isEmpty
-    }
-
     /// Call when a macshot window closes. If no titled windows remain,
     /// switches to accessory activation policy and returns focus to
     /// the previous app (or the next regular app in line).
@@ -1078,19 +1059,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         let focusedWindowPID = previousApp?.processIdentifier
         resolveFocusedWindowTitleAsync(for: focusedWindowPID, sessionID: sessionID)
 
-        // When "remember last tool" is off, clear persisted effects/beautify
-        // so new OverlayView instances start clean.
-        let rememberTool = UserDefaults.standard.object(forKey: "rememberLastTool") as? Bool ?? true
-        if !rememberTool {
-            OverlayView.resetRememberedTool()
-            UserDefaults.standard.removeObject(forKey: "effectsPreset")
-            UserDefaults.standard.removeObject(forKey: "effectsBrightness")
-            UserDefaults.standard.removeObject(forKey: "effectsContrast")
-            UserDefaults.standard.removeObject(forKey: "effectsSaturation")
-            UserDefaults.standard.removeObject(forKey: "effectsSharpness")
-            UserDefaults.standard.set(false, forKey: "beautifyEnabled")
-        }
-
         // Clean up stale overlays without consuming previousApp — we just set it.
         measureCaptureTiming("dismiss stale overlays") {
             dismissOverlays(refocusPreviousApp: false)
@@ -1101,11 +1069,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         // Restored in dismissOverlays once capture is over.
         measureCaptureTiming("stash background windows") {
             stashBackgroundWindows()
-        }
-
-        // Hide floating thumbnails so they don't appear in the captured image.
-        measureCaptureTiming("hide thumbnails before capture") {
-            for tc in thumbnailControllers { tc.hideWindow() }
         }
 
         let delay = UserDefaults.standard.integer(forKey: "captureDelaySeconds")
@@ -1431,10 +1394,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         }
         captureTimingTrace?.mark("overlay controllers dismissed")
         isCapturing = false
-        // Restore hidden thumbnails
-        measureCaptureTiming("restore thumbnails") {
-            for tc in thumbnailControllers { tc.showWindow() }
-        }
         if refocusPreviousApp {
             // Restore AFTER another app takes focus so the stashed windows
             // come back behind it instead of on top. See
@@ -1606,168 +1565,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         alert.runModal()
     }
 
-    func showFloatingThumbnail(image: NSImage, annotationData: CaptureAnnotationData? = nil) {
-        let enabled = UserDefaults.standard.object(forKey: "showFloatingThumbnail") as? Bool ?? true
-        guard enabled else { return }
-
-        let stacking = UserDefaults.standard.object(forKey: "thumbnailStacking") as? Bool ?? true
-        if !stacking {
-            // Replace mode: dismiss all existing thumbnails
-            thumbnailControllers.forEach { $0.dismiss() }
-            thumbnailControllers.removeAll()
-        }
-
-        guard let screen = NSScreen.preferred else { return }
-        let screenFrame = screen.visibleFrame
-        let padding: CGFloat = 16
-        let gap: CGFloat = 8
-        let corner = thumbnailCorner()
-        let thumbSize = FloatingThumbnailController.currentThumbnailSize()
-        let xOrigin = thumbnailX(for: thumbSize.width, in: screenFrame, corner: corner, padding: padding)
-
-        // Compute Y: bottom corners stack upward, top corners stack downward.
-        var yOrigin = corner.isTop ? screenFrame.maxY - thumbSize.height - padding : screenFrame.minY + padding
-        if let topController = thumbnailControllers.last {
-            let topFrame = topController.windowFrame
-            yOrigin = corner.isTop ? topFrame.minY - thumbSize.height - gap : topFrame.maxY + gap
-        }
-
-        let controller = FloatingThumbnailController(image: image)
-        controller.annotationData = annotationData
-        controller.onDismiss = { [weak self] in
-            self?.thumbnailControllers.removeAll { $0 === controller }
-            self?.reflowThumbnails()
-        }
-        controller.onCopy = { [weak controller] in
-            guard let image = controller?.image else { return }
-            ImageEncoder.copyToClipboard(image)
-        }
-        controller.onSave = { [weak self, weak controller] in
-            guard let self = self, let image = controller?.image else { return }
-            self.saveThumbnailImage(image)
-        }
-        controller.onSaveAs = { [weak self, weak controller] in
-            guard let self = self, let image = controller?.image else { return }
-            self.saveThumbnailImageAs(image)
-        }
-        controller.onPin = { [weak self, weak controller] in
-            guard let self = self, let controller = controller else { return }
-            self.showPin(image: controller.image)
-        }
-        controller.onEdit = { [weak controller] in
-            guard let controller else { return }
-            if let data = controller.annotationData {
-                DetachedEditorWindowController.open(
-                    image: data.rawImage,
-                    annotations: data.annotations,
-                    editState: data.editState
-                )
-                return
-            }
-            // Image already has beautify/effects baked in — disable to avoid double-applying
-            DetachedEditorWindowController.open(image: controller.image, disableBeautify: true)
-        }
-        controller.onOCR = { [weak self, weak controller] in
-            guard let image = controller?.image else { return }
-            self?.runOCR(on: image)
-        }
-        controller.onCloseAll = { [weak self] in
-            guard let self = self else { return }
-            let all = self.thumbnailControllers
-            self.thumbnailControllers.removeAll()
-            for c in all { c.dismiss() }
-        }
-        controller.onSaveAll = { [weak self] in
-            self?.saveAllThumbnailsToFolder()
-        }
-        thumbnailControllers.append(controller)
-        controller.show(at: NSPoint(x: xOrigin, y: yOrigin), corner: corner)
-    }
-
-    private func saveAllThumbnailsToFolder() {
-        let images = thumbnailControllers.map { $0.image }
-        guard !images.isEmpty else { return }
-
-        let panel = NSOpenPanel()
-        panel.canChooseFiles = false
-        panel.canChooseDirectories = true
-        panel.canCreateDirectories = true
-        panel.prompt = "Save Here"
-        panel.message = "Choose a folder to save \(images.count) screenshot\(images.count == 1 ? "" : "s")"
-        panel.level = .floating
-
-        NSApp.activate(ignoringOtherApps: true)
-        DispatchQueue.main.async {
-            panel.begin { [weak self] response in
-                guard response == .OK, let dirURL = panel.url else { return }
-                let rawTemplate = UserDefaults.standard.string(forKey: FilenameFormatter.userDefaultsKey) ?? FilenameFormatter.defaultTemplate
-                // Ensure batch writes don't collide when the template lacks {index}.
-                let template = rawTemplate.contains("{index}") ? rawTemplate : "\(rawTemplate)-{index}"
-                let batchDate = Date()
-
-                DispatchQueue.global(qos: .userInitiated).async {
-                    for (i, image) in images.enumerated() {
-                        guard let data = ImageEncoder.encode(image) else { continue }
-                        let base = FilenameFormatter.format(template: template, index: i + 1, date: batchDate)
-                        let filename = "\(base).\(ImageEncoder.fileExtension)"
-                        let fileURL = dirURL.appendingPathComponent(filename)
-                        try? data.write(to: fileURL)
-                    }
-                    DispatchQueue.main.async {
-                        self?.playCopySound()
-                        let all = self?.thumbnailControllers ?? []
-                        self?.thumbnailControllers.removeAll()
-                        for c in all { c.dismiss() }
-                    }
-                }
-            }
-        }
-    }
-
-    private func reflowThumbnails() {
-        // Thumbnails reflow from a timer, which can fire while displays sleep.
-        guard let screen = NSScreen.preferred else { return }
-        let padding: CGFloat = 16
-        let gap: CGFloat = 8
-        let frame = screen.visibleFrame
-        let corner = thumbnailCorner()
-        var y = corner.isTop ? frame.maxY - padding : frame.minY + padding
-        for c in thumbnailControllers {
-            let size = c.windowFrame.size
-            let x = thumbnailX(for: size.width, in: frame, corner: corner, padding: padding)
-            let yOrigin: CGFloat
-            if corner.isTop {
-                y -= size.height
-                yOrigin = y
-                y -= gap
-            } else {
-                yOrigin = y
-                y += size.height + gap
-            }
-            c.moveTo(origin: NSPoint(x: x, y: yOrigin))
-        }
-    }
-
-    private func thumbnailCorner() -> FloatingThumbnailCorner {
-        let rawValue = UserDefaults.standard.string(forKey: "thumbnailCorner") ?? FloatingThumbnailCorner.bottomRight.rawValue
-        return FloatingThumbnailCorner(rawValue: rawValue) ?? .bottomRight
-    }
-
-    private func thumbnailX(
-        for width: CGFloat,
-        in frame: NSRect,
-        corner: FloatingThumbnailCorner,
-        padding: CGFloat
-    ) -> CGFloat {
-        corner.isLeft ? frame.minX + padding : frame.maxX - width - padding
-    }
-
-    private func playCopySound() {
-        let soundEnabled = UserDefaults.standard.object(forKey: "playCopySound") as? Bool ?? true
-        guard soundEnabled else { return }
-        Self.captureSound?.stop()
-        Self.captureSound?.play()
-    }
 
     func runOCR(on image: NSImage) {
         guard let cgImage = image.cgImage(forProposedRect: nil, context: nil, hints: nil) else { return }
@@ -1798,22 +1595,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
                         ocr.show()
                     }
                 }
-            }
-        }
-    }
-
-    private func saveThumbnailImage(_ image: NSImage) {
-        ImageSaveService.save(image, panelLevel: .floating, activateApp: true) { [weak self] success in
-            if success {
-                self?.playCopySound()
-            }
-        }
-    }
-
-    private func saveThumbnailImageAs(_ image: NSImage) {
-        ImageSaveService.showSavePanel(for: image, panelLevel: .floating, activateApp: true) { [weak self] success in
-            if success {
-                self?.playCopySound()
             }
         }
     }
@@ -2032,13 +1813,6 @@ extension AppDelegate: OverlayWindowControllerDelegate {
         dismissOverlays()
         captureTimingTrace?.mark("overlayDidConfirm after dismissOverlays")
         if let image = capturedImage {
-            // Defer thumbnail to next runloop cycle so overlay teardown completes first
-            // and the main thread is free for the next capture trigger
-            let annData = annotationData
-            DispatchQueue.main.async { [weak self] in
-                self?.showFloatingThumbnail(image: image, annotationData: annData)
-            }
-
             // "Also open in Editor" preference
             if UserDefaults.standard.bool(forKey: "quickCaptureOpenEditor") {
                 if let data = annotationData {
@@ -2388,7 +2162,7 @@ extension AppDelegate: OverlayWindowControllerDelegate {
 
         guard let image = finalImage else { return }
 
-        // quickCaptureMode: 0=save, 1=copy, 2=both, 3=do nothing (thumbnail only)
+        // quickCaptureMode: 0=save, 1=copy, 2=both, 3=do nothing
         let mode = UserDefaults.standard.object(forKey: "quickCaptureMode") as? Int ?? 1
         if mode == 1 || mode == 2 {
             ImageEncoder.copyToClipboard(image)
@@ -2396,8 +2170,6 @@ extension AppDelegate: OverlayWindowControllerDelegate {
         if mode == 0 || mode == 2 {
             saveImageToConfiguredFolder(image)
         }
-        playCopySound()
-        showFloatingThumbnail(image: image)
 
         if UserDefaults.standard.bool(forKey: "quickCaptureOpenEditor") {
             DetachedEditorWindowController.open(image: image, disableBeautify: true)
