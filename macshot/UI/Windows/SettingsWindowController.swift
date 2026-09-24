@@ -61,11 +61,6 @@ class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSWindowD
     private var filenameTemplateField: NSTextField!
     private var filenameTemplatePreview: NSTextField!
     private var autoUpdateCheckbox: NSButton!
-    private var betaUpdateCheckbox: NSButton!
-    private var accentColorWell: NSColorWell!
-    private var iconColorWell: NSColorWell!
-    private var bgColorWell: NSColorWell!
-    private var themePresetPopup: NSPopUpButton!
     private var quickModePopup: NSPopUpButton!
     private var quickCaptureOpenEditorCheckbox: NSButton!
     private var closeEditorAfterCopyCheckbox: NSButton!
@@ -330,56 +325,7 @@ class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSWindowD
 
         autoUpdateCheckbox = NSButton(checkboxWithTitle: L("Check for updates automatically"), target: self, action: #selector(autoUpdateChanged(_:)))
         stack.addArrangedSubview(indented(autoUpdateCheckbox))
-        stack.setCustomSpacing(4, after: stack.arrangedSubviews.last!)
-
-        betaUpdateCheckbox = NSButton(checkboxWithTitle: L("Check for beta updates"), target: self, action: #selector(betaUpdateChanged(_:)))
-        stack.addArrangedSubview(indented(betaUpdateCheckbox))
         stack.setCustomSpacing(20, after: stack.arrangedSubviews.last!)
-
-        // ── Appearance ───────────────────────────────────────
-        stack.addArrangedSubview(sectionHeader(L("Appearance")))
-        stack.setCustomSpacing(10, after: stack.arrangedSubviews.last!)
-
-        // Theme preset dropdown
-        themePresetPopup = NSPopUpButton()
-        for preset in ThemePreset.all {
-            themePresetPopup.addItem(withTitle: L(preset.name))
-        }
-        themePresetPopup.addItem(withTitle: L("Custom"))
-        themePresetPopup.target = self
-        themePresetPopup.action = #selector(themePresetChanged(_:))
-        stack.addArrangedSubview(indented(labeledRow(L("Theme:"), controls: [themePresetPopup])))
-        stack.setCustomSpacing(12, after: stack.arrangedSubviews.last!)
-
-        // Three color wells in a single row with labels underneath
-        accentColorWell = NSColorWell(frame: NSRect(x: 0, y: 0, width: 44, height: 32))
-        accentColorWell.color = ToolbarLayout.accentColor
-        accentColorWell.target = self
-        accentColorWell.action = #selector(accentColorChanged(_:))
-
-        iconColorWell = NSColorWell(frame: NSRect(x: 0, y: 0, width: 44, height: 32))
-        iconColorWell.color = ToolbarLayout.iconColor
-        iconColorWell.target = self
-        iconColorWell.action = #selector(iconColorChanged(_:))
-
-        bgColorWell = NSColorWell(frame: NSRect(x: 0, y: 0, width: 44, height: 32))
-        bgColorWell.color = ToolbarLayout.bgColor
-        bgColorWell.target = self
-        bgColorWell.action = #selector(bgColorChanged(_:))
-
-        let accentCol = makeColorColumn(well: accentColorWell, caption: L("Accent"))
-        let iconCol   = makeColorColumn(well: iconColorWell,   caption: L("Icon"))
-        let bgCol     = makeColorColumn(well: bgColorWell,     caption: L("Background"))
-
-        let colorsRow = NSStackView(views: [accentCol, iconCol, bgCol])
-        colorsRow.orientation = .horizontal
-        colorsRow.alignment = .top
-        colorsRow.spacing = 20
-        stack.addArrangedSubview(indented(colorsRow))
-        stack.setCustomSpacing(20, after: stack.arrangedSubviews.last!)
-
-        // Sync preset popup to current colors
-        updateThemePresetSelection()
 
         // ── Settings Backup ──────────────────────────────────
         stack.setCustomSpacing(20, after: stack.arrangedSubviews.last!)
@@ -1112,81 +1058,7 @@ class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSWindowD
         stack.addArrangedSubview(license)
         stack.setCustomSpacing(20, after: license)
 
-        // Screen Info (debug) — gathers display & capture metadata, copies to clipboard
-        let screenInfoBtn = NSButton(title: L("Copy Screen Info"), target: self, action: #selector(copyScreenInfo))
-        screenInfoBtn.bezelStyle = .rounded
-        screenInfoBtn.font = NSFont.systemFont(ofSize: 11)
-        screenInfoBtn.tag = 9999  // tag for lookup in action handler
-        stack.addArrangedSubview(screenInfoBtn)
-
-        let screenInfoHint = NSTextField(labelWithString: L("Copies display and capture diagnostics to clipboard"))
-        screenInfoHint.font = NSFont.systemFont(ofSize: 10)
-        screenInfoHint.textColor = .tertiaryLabelColor
-        stack.addArrangedSubview(screenInfoHint)
-
         return container
-    }
-
-    @objc private func copyScreenInfo() {
-        if #available(macOS 14.0, *) {
-            Task { @MainActor in
-                var lines: [String] = []
-                let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?"
-                let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "?"
-                lines.append("macshot \(version) (\(build))")
-                lines.append("macOS \(ProcessInfo.processInfo.operatingSystemVersionString)")
-                lines.append("")
-                lines.append("=== NSScreen Info ===")
-                for (i, screen) in NSScreen.screens.enumerated() {
-                    let id = screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? UInt32 ?? 0
-                    let cs = screen.colorSpace?.cgColorSpace
-                    // CGDisplayCopyColorSpace reads the display ICC profile directly,
-                    // bypassing NSScreen — helps diagnose DisplayLink/driver issues.
-                    let cgCS = CGDisplayCopyColorSpace(id)
-                    lines.append("Screen \(i): \(screen.localizedName) (ID: \(id))")
-                    lines.append("  frame: \(screen.frame)")
-                    lines.append("  backingScale: \(screen.backingScaleFactor)")
-                    lines.append("  NSScreen.colorSpace: \(cs?.name as String? ?? "nil")")
-                    lines.append("  CGDisplayCopyColorSpace: \(cgCS.name as String? ?? "nil")")
-                    lines.append("  cs model: \(cs?.model.rawValue ?? -1)")
-                    lines.append("")
-                }
-                do {
-                    let content = try await SCShareableContent.excludingDesktopWindows(true, onScreenWindowsOnly: true)
-                    lines.append("=== ScreenCaptureKit Capture Info ===")
-                    for display in content.displays {
-                        let filter = SCContentFilter(display: display, excludingWindows: [])
-                        let config = SCStreamConfiguration()
-                        config.width = display.width
-                        config.height = display.height
-                        config.captureResolution = .best
-                        config.colorSpaceName = CGColorSpace.sRGB as CFString
-                        if let img = try? await SCScreenshotManager.captureImage(contentFilter: filter, configuration: config) {
-                            lines.append("Display \(display.displayID) (\(display.width)x\(display.height)):")
-                            lines.append("  CGImage size: \(img.width)x\(img.height)")
-                            lines.append("  bitsPerComponent: \(img.bitsPerComponent)")
-                            lines.append("  bitsPerPixel: \(img.bitsPerPixel)")
-                            lines.append("  bytesPerRow: \(img.bytesPerRow)")
-                            lines.append("  bitmapInfo: \(img.bitmapInfo.rawValue)")
-                            lines.append("  alphaInfo: \(img.alphaInfo.rawValue)")
-                            lines.append("  colorSpace: \(img.colorSpace?.name as String? ?? "nil")")
-                            lines.append("  cs model: \(img.colorSpace?.model.rawValue ?? -1)")
-                            lines.append("")
-                        }
-                    }
-                } catch {
-                    lines.append("Capture error: \(error.localizedDescription)")
-                }
-                let result = lines.joined(separator: "\n")
-                NSPasteboard.general.clearContents()
-                NSPasteboard.general.setString(result, forType: .string)
-                // Flash the button title to confirm
-                if let btn = self.window?.contentView?.viewWithTag(9999) as? NSButton {
-                    btn.title = L("Copied!")
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { btn.title = L("Copy Screen Info") }
-                }
-            }
-        }
     }
 
     // MARK: - Layout helpers
@@ -1285,12 +1157,6 @@ class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSWindowD
 
         let autoUpdate = UserDefaults.standard.object(forKey: "SUEnableAutomaticChecks") as? Bool ?? true
         autoUpdateCheckbox.state = autoUpdate ? .on : .off
-
-        betaUpdateCheckbox.state = UserDefaults.standard.bool(forKey: "betaUpdatesEnabled") ? .on : .off
-
-        accentColorWell.color = ToolbarLayout.accentColor
-        iconColorWell.color = ToolbarLayout.iconColor
-        bgColorWell.color = ToolbarLayout.bgColor
 
         // Migrate old bool setting to new int: 0=save, 1=copy, 2=both
         if let oldBool = UserDefaults.standard.object(forKey: "quickModeCopyToClipboard") as? Bool {
@@ -1420,116 +1286,6 @@ class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSWindowD
     }
     @objc private func scrollFrozenDetectionChanged(_ sender: NSButton) {
         UserDefaults.standard.set(sender.state == .on, forKey: "scrollFrozenDetection")
-    }
-    @objc private func accentColorChanged(_ sender: NSColorWell) {
-        ToolbarLayout.saveAccentColor(sender.color)
-        notifyToolbarColorChange()
-        updateThemePresetSelection()
-    }
-    @objc private func iconColorChanged(_ sender: NSColorWell) {
-        ToolbarLayout.saveIconColor(sender.color)
-        notifyToolbarColorChange()
-        updateThemePresetSelection()
-    }
-    @objc private func bgColorChanged(_ sender: NSColorWell) {
-        ToolbarLayout.saveBgColor(sender.color)
-        notifyToolbarColorChange()
-        updateThemePresetSelection()
-    }
-    // MARK: - Theme presets
-
-    private struct ThemePreset {
-        let name: String
-        let accent: NSColor
-        let icon: NSColor
-        let bg: NSColor
-
-        static let all: [ThemePreset] = [
-            ThemePreset(name: "Default",
-                        accent: ToolbarLayout.defaultAccentColor,
-                        icon:   ToolbarLayout.defaultIconColor,
-                        bg:     ToolbarLayout.defaultBgColor),
-            ThemePreset(name: "Classic",
-                        accent: NSColor(calibratedRed: 0.00, green: 0.48, blue: 1.00, alpha: 1.0),
-                        icon:   .white,
-                        bg:     NSColor(white: 0.12, alpha: 1.0)),
-            ThemePreset(name: "Ocean",
-                        accent: NSColor(calibratedRed: 0.20, green: 0.70, blue: 0.75, alpha: 1.0),
-                        icon:   .white,
-                        bg:     NSColor(calibratedRed: 0.08, green: 0.12, blue: 0.18, alpha: 1.0)),
-            ThemePreset(name: "Sunset",
-                        accent: NSColor(calibratedRed: 1.00, green: 0.55, blue: 0.20, alpha: 1.0),
-                        icon:   .white,
-                        bg:     NSColor(calibratedRed: 0.15, green: 0.10, blue: 0.12, alpha: 1.0)),
-            ThemePreset(name: "Forest",
-                        accent: NSColor(calibratedRed: 0.30, green: 0.75, blue: 0.45, alpha: 1.0),
-                        icon:   .white,
-                        bg:     NSColor(calibratedRed: 0.08, green: 0.14, blue: 0.10, alpha: 1.0)),
-            ThemePreset(name: "Mono",
-                        accent: NSColor(white: 0.30, alpha: 1.0),
-                        icon:   .white,
-                        bg:     NSColor(white: 0.10, alpha: 1.0)),
-        ]
-    }
-
-    private func makeColorColumn(well: NSColorWell, caption: String) -> NSView {
-        let label = NSTextField(labelWithString: caption)
-        label.font = NSFont.systemFont(ofSize: 11)
-        label.textColor = .secondaryLabelColor
-        label.alignment = .center
-
-        let col = NSStackView(views: [well, label])
-        col.orientation = .vertical
-        col.alignment = .centerX
-        col.spacing = 4
-        col.translatesAutoresizingMaskIntoConstraints = false
-        return col
-    }
-
-    @objc private func themePresetChanged(_ sender: NSPopUpButton) {
-        let idx = sender.indexOfSelectedItem
-        // indexOfSelectedItem is -1 with no selection, which passes "< count".
-        guard idx >= 0, idx < ThemePreset.all.count else { return } // "Custom" — no-op
-        applyThemePreset(ThemePreset.all[idx])
-    }
-
-    private func applyThemePreset(_ preset: ThemePreset) {
-        ToolbarLayout.saveAccentColor(preset.accent)
-        ToolbarLayout.saveIconColor(preset.icon)
-        ToolbarLayout.saveBgColor(preset.bg)
-        accentColorWell.color = preset.accent
-        iconColorWell.color = preset.icon
-        bgColorWell.color = preset.bg
-        notifyToolbarColorChange()
-        updateThemePresetSelection()
-    }
-
-    private func updateThemePresetSelection() {
-        guard let popup = themePresetPopup else { return }
-        let current = (ToolbarLayout.accentColor, ToolbarLayout.iconColor, ToolbarLayout.bgColor)
-        for (i, preset) in ThemePreset.all.enumerated() {
-            if colorsClose(current.0, preset.accent) &&
-               colorsClose(current.1, preset.icon) &&
-               colorsClose(current.2, preset.bg) {
-                popup.selectItem(at: i)
-                return
-            }
-        }
-        // No match — select "Custom" (the last item)
-        popup.selectItem(at: ThemePreset.all.count)
-    }
-
-    /// Compare two NSColors in sRGB with a small tolerance (color picker rounding).
-    private func colorsClose(_ a: NSColor, _ b: NSColor) -> Bool {
-        guard let x = a.usingColorSpace(.sRGB), let y = b.usingColorSpace(.sRGB) else { return false }
-        let tol: CGFloat = 0.01
-        return abs(x.redComponent - y.redComponent) < tol
-            && abs(x.greenComponent - y.greenComponent) < tol
-            && abs(x.blueComponent - y.blueComponent) < tol
-            && abs(x.alphaComponent - y.alphaComponent) < tol
-    }
-    private func notifyToolbarColorChange() {
-        NotificationCenter.default.post(name: .toolbarColorsDidChange, object: nil)
     }
     @objc private func snapGuidesChanged(_ sender: NSButton) {
         UserDefaults.standard.set(sender.state == .on, forKey: "snapGuidesEnabled")
@@ -1701,10 +1457,6 @@ class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSWindowD
 
     @objc private func autoUpdateChanged(_ sender: NSButton) {
         UserDefaults.standard.set(sender.state == .on, forKey: "SUEnableAutomaticChecks")
-    }
-
-    @objc private func betaUpdateChanged(_ sender: NSButton) {
-        UserDefaults.standard.set(sender.state == .on, forKey: "betaUpdatesEnabled")
     }
 
     func showWindow() {

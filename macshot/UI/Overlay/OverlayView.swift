@@ -899,23 +899,6 @@ class OverlayView: NSView {
         if !isEditorMode {
             windowSnapCooldown = true
         }
-
-        NotificationCenter.default.addObserver(
-            self, selector: #selector(handleToolbarColorsChanged),
-            name: .toolbarColorsDidChange, object: nil)
-    }
-
-    @objc private func handleToolbarColorsChanged() {
-        // Rebuild toolbars and options row with new colors.
-        if let row = toolOptionsRowView {
-            row.layer?.backgroundColor = ToolbarLayout.bgColor.cgColor
-        }
-        toolOptionsRowView?.appearance = ToolbarLayout.appearance
-        rebuildToolbarLayout()
-        if let tool = toolOptionsRowView?.currentTool {
-            toolOptionsRowView?.rebuild(for: tool)
-        }
-        needsDisplay = true
     }
 
     /// Invalidate only the rect around a cursor preview (old + new position) instead of the whole view.

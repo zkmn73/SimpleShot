@@ -1712,12 +1712,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
     @objc private func quitApp() {
         NSApp.terminate(nil)
     }
-
-    // MARK: - SPUUpdaterDelegate
-
-    func allowedChannels(for updater: SPUUpdater) -> Set<String> {
-        UserDefaults.standard.bool(forKey: "betaUpdatesEnabled") ? ["beta"] : []
-    }
 }
 
 // MARK: - OverlayWindowControllerDelegate

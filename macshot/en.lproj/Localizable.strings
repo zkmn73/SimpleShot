@@ -199,7 +199,6 @@
 "Hide menu bar icon" = "Hide menu bar icon";
 "Hotkeys still work. To show the icon again, re-launch macshot." = "Hotkeys still work. To show the icon again, re-launch macshot.";
 "Check for updates automatically" = "Check for updates automatically";
-"Check for beta updates" = "Check for beta updates";
 "Output" = "Output";
 "Image format:" = "Image format:";
 "Quality:" = "Quality:";
@@ -217,7 +216,6 @@
 "Save Directory" = "Save Directory";
 "Save folder:" = "Save folder:";
 "Browse…" = "Browse…";
-"Appearance" = "Appearance";
 "Freeform" = "Freeform";
 "Custom · %@" = "Custom · %@";
 "Space" = "Space";
@@ -515,20 +513,10 @@
 "High" = "High";
 "Low" = "Low";
 "Not enough room here" = "Not enough room here";
-"Copied!" = "Copied!";
 "Converting to GIF…" = "Converting to GIF…";
 "GIF conversion failed" = "GIF conversion failed";
 "No video track found" = "No video track found";
 "Preview:" = "Preview:";
-"Copy Screen Info" = "Copy Screen Info";
-"Copies display and capture diagnostics to clipboard" = "Copies display and capture diagnostics to clipboard";
-
-/* Appearance / Settings */
-"Accent" = "Accent";
-"Icon" = "Icon";
-"Background" = "Background";
-"Custom" = "Custom";
-"Theme:" = "Theme:";
 
 /* Settings — shortcuts help text */
 "Application" = "Application";

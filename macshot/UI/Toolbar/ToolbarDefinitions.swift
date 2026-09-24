@@ -1,9 +1,5 @@
 import Cocoa
 
-extension Notification.Name {
-    static let toolbarColorsDidChange = Notification.Name("toolbarColorsDidChange")
-}
-
 // Toolbar buttons drawn directly in the OverlayView (not a separate window).
 // This avoids window-level z-order issues and matches Flameshot's look.
 
@@ -64,49 +60,16 @@ enum ToolbarCustomAction: Int {
 
 class ToolbarLayout {
 
-    // Default theme colors (Flameshot purple style)
+    // Fixed theme colors (Flameshot purple style) — not user-customizable.
     static let defaultAccentColor = NSColor(calibratedRed: 0.55, green: 0.30, blue: 0.85, alpha: 1.0)
     static let defaultIconColor = NSColor.white
     static let defaultBgColor = NSColor(white: 0.12, alpha: 1.0)
 
-    // User-customizable colors — read from UserDefaults with defaults matching the original look
-    static var accentColor: NSColor {
-        if let data = UserDefaults.standard.data(forKey: "toolbarAccentColor"),
-           let color = try? NSKeyedUnarchiver.unarchivedObject(ofClass: NSColor.self, from: data) {
-            return color
-        }
-        return defaultAccentColor
-    }
-    static var iconColor: NSColor {
-        if let data = UserDefaults.standard.data(forKey: "toolbarIconColor"),
-           let color = try? NSKeyedUnarchiver.unarchivedObject(ofClass: NSColor.self, from: data) {
-            return color
-        }
-        return defaultIconColor
-    }
-    static var bgColor: NSColor {
-        if let data = UserDefaults.standard.data(forKey: "toolbarBgColor"),
-           let color = try? NSKeyedUnarchiver.unarchivedObject(ofClass: NSColor.self, from: data) {
-            return color
-        }
-        return defaultBgColor
-    }
+    static var accentColor: NSColor { defaultAccentColor }
+    static var iconColor: NSColor { defaultIconColor }
+    static var bgColor: NSColor { defaultBgColor }
     static var handleColor: NSColor { accentColor }
     static let cornerRadius: CGFloat = 6
-
-    /// Save accent color to UserDefaults.
-    static func saveAccentColor(_ color: NSColor) {
-        if let data = try? NSKeyedArchiver.archivedData(withRootObject: color, requiringSecureCoding: false) {
-            UserDefaults.standard.set(data, forKey: "toolbarAccentColor")
-        }
-    }
-
-    /// Save icon color to UserDefaults.
-    static func saveIconColor(_ color: NSColor) {
-        if let data = try? NSKeyedArchiver.archivedData(withRootObject: color, requiringSecureCoding: false) {
-            UserDefaults.standard.set(data, forKey: "toolbarIconColor")
-        }
-    }
 
     /// Appearance matching the toolbar background brightness.
     /// Dark background → `.darkAqua`, light background → `.aqua`.
@@ -115,20 +78,6 @@ class ToolbarLayout {
         var brightness: CGFloat = 0
         color.getHue(nil, saturation: nil, brightness: &brightness, alpha: nil)
         return NSAppearance(named: brightness > 0.5 ? .aqua : .darkAqua)
-    }
-
-    /// Save background color to UserDefaults.
-    static func saveBgColor(_ color: NSColor) {
-        if let data = try? NSKeyedArchiver.archivedData(withRootObject: color, requiringSecureCoding: false) {
-            UserDefaults.standard.set(data, forKey: "toolbarBgColor")
-        }
-    }
-
-    /// Reset all colors to defaults.
-    static func resetColors() {
-        UserDefaults.standard.removeObject(forKey: "toolbarAccentColor")
-        UserDefaults.standard.removeObject(forKey: "toolbarIconColor")
-        UserDefaults.standard.removeObject(forKey: "toolbarBgColor")
     }
 
     // Bottom toolbar items (drawing tools + colors + undo/redo)
