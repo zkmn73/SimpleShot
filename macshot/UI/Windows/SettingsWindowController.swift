@@ -295,13 +295,13 @@ class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSWindowD
         stack.addArrangedSubview(indented(hideMenuBarIconCheckbox))
         stack.setCustomSpacing(4, after: stack.arrangedSubviews.last!)
 
-        let hideNote = NSTextField(wrappingLabelWithString: L("Hotkeys still work. To show the icon again, re-launch macshot."))
+        let hideNote = NSTextField(wrappingLabelWithString: L("Hotkeys still work. To show the icon again, re-launch SimpleShot."))
         hideNote.font = NSFont.systemFont(ofSize: 10)
         hideNote.textColor = .secondaryLabelColor
         stack.addArrangedSubview(indented(hideNote))
         stack.setCustomSpacing(10, after: stack.arrangedSubviews.last!)
 
-        let urlSchemeCheckbox = NSButton(checkboxWithTitle: L("Enable macshot:// URL scheme"), target: self, action: #selector(urlSchemeChanged(_:)))
+        let urlSchemeCheckbox = NSButton(checkboxWithTitle: L("Enable simpleshot:// URL scheme"), target: self, action: #selector(urlSchemeChanged(_:)))
         urlSchemeCheckbox.state = (UserDefaults.standard.object(forKey: "urlSchemeEnabled") as? Bool ?? true) ? .on : .off
 
         let urlSchemeInfoIcon = HoverPopoverIconView(
@@ -344,7 +344,7 @@ class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSWindowD
         stack.addArrangedSubview(indented(backupButtonsRow))
         stack.setCustomSpacing(6, after: stack.arrangedSubviews.last!)
 
-        let backupNote = NSTextField(wrappingLabelWithString: L("Export your preferences to a file to move them to another Mac or a clean install. Your save folder is not included. Settings are stored inside macshot's app container."))
+        let backupNote = NSTextField(wrappingLabelWithString: L("Export your preferences to a file to move them to another Mac or a clean install. Your save folder is not included. Settings are stored inside SimpleShot's app container."))
         backupNote.font = NSFont.systemFont(ofSize: 10)
         backupNote.textColor = .secondaryLabelColor
         stack.addArrangedSubview(indented(backupNote))
@@ -442,7 +442,7 @@ class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSWindowD
 
         let alert = NSAlert()
         alert.messageText = L("Settings imported")
-        alert.informativeText = String(format: L("%d settings were applied. Relaunch macshot to apply all changes."), result.appliedCount)
+        alert.informativeText = String(format: L("%d settings were applied. Relaunch SimpleShot to apply all changes."), result.appliedCount)
         alert.addButton(withTitle: L("Relaunch Now"))
         alert.addButton(withTitle: L("Later"))
         guard let window = window else { return }
@@ -465,7 +465,7 @@ class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSWindowD
     @objc private func revealSettingsFileClicked(_ sender: NSButton) {
         let prefsDir = FileManager.default.urls(for: .libraryDirectory, in: .userDomainMask).first!
             .appendingPathComponent("Preferences", isDirectory: true)
-        let bundleID = Bundle.main.bundleIdentifier ?? "com.sw33tlie.macshot.macshot"
+        let bundleID = Bundle.main.bundleIdentifier ?? "com.zkmn73.simpleshot"
         let plist = prefsDir.appendingPathComponent("\(bundleID).plist")
         if FileManager.default.fileExists(atPath: plist.path) {
             NSWorkspace.shared.activateFileViewerSelecting([plist])
@@ -1043,7 +1043,7 @@ class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSWindowD
         stack.setCustomSpacing(20, after: desc)
 
         #if OFFLINE
-        let offlineNote = NSTextField(wrappingLabelWithString: L("Offline build: upload and cloud storage integrations are removed. Update checks may still connect to MacShot's update server. Screenshots and recordings stay local unless you share or save them yourself."))
+        let offlineNote = NSTextField(wrappingLabelWithString: L("Offline build: upload and cloud storage integrations are removed. Update checks may still connect to SimpleShot's update server. Screenshots and recordings stay local unless you share or save them yourself."))
         offlineNote.font = NSFont.systemFont(ofSize: 12)
         offlineNote.textColor = .secondaryLabelColor
         offlineNote.alignment = .center
@@ -1369,21 +1369,21 @@ class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSWindowD
         if let existing = urlSchemeInfoPopover, existing.isShown { return }
 
         let commands: [(String, String)] = [
-            ("macshot://capture",             L("Start area capture")),
-            ("macshot://capture-fullscreen",  L("Capture the full screen")),
-            ("macshot://capture-last",        L("Re-capture the last selected area")),
-            ("macshot://quick-capture",       L("Quick capture (uses your Enter action)")),
-            ("macshot://ocr",                 L("Capture area and read text/QR codes")),
-            ("macshot://scroll-capture",      L("Start scroll capture")),
-            ("macshot://settings",            L("Open this settings window")),
-            ("macshot://open?file=/path.png", L("Open an image file in the editor")),
+            ("simpleshot://capture",             L("Start area capture")),
+            ("simpleshot://capture-fullscreen",  L("Capture the full screen")),
+            ("simpleshot://capture-last",        L("Re-capture the last selected area")),
+            ("simpleshot://quick-capture",       L("Quick capture (uses your Enter action)")),
+            ("simpleshot://ocr",                 L("Capture area and read text/QR codes")),
+            ("simpleshot://scroll-capture",      L("Start scroll capture")),
+            ("simpleshot://settings",            L("Open this settings window")),
+            ("simpleshot://open?file=/path.png", L("Open an image file in the editor")),
         ]
 
         let title = NSTextField(labelWithString: L("Supported URL Scheme Commands"))
         title.font = NSFont.systemFont(ofSize: 13, weight: .semibold)
         title.translatesAutoresizingMaskIntoConstraints = false
 
-        let subtitle = NSTextField(wrappingLabelWithString: L("Trigger macshot from Raycast, Alfred, Shortcuts, or any tool that opens URLs."))
+        let subtitle = NSTextField(wrappingLabelWithString: L("Trigger SimpleShot from Raycast, Alfred, Shortcuts, or any tool that opens URLs."))
         subtitle.font = NSFont.systemFont(ofSize: 11)
         subtitle.textColor = .secondaryLabelColor
         subtitle.preferredMaxLayoutWidth = 440

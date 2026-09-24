@@ -271,7 +271,7 @@ private struct LegacyClipboardBackingDirectoryCleaner: LaunchCleaner {
             return DirectorySweeper.Result()
         }
         let dir = appSupport
-            .appendingPathComponent("com.sw33tlie.macshot", isDirectory: true)
+            .appendingPathComponent("com.zkmn73.simpleshot", isDirectory: true)
             .appendingPathComponent("clipboard", isDirectory: true)
         let result = DirectorySweeper.sweep(
             directory: dir,

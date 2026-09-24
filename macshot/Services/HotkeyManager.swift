@@ -2,7 +2,7 @@ import Cocoa
 import Carbon
 import os.log
 
-private let hotkeyLog = OSLog(subsystem: "com.sw33tlie.macshot.macshot", category: "hotkey-timing")
+private let hotkeyLog = OSLog(subsystem: "com.zkmn73.simpleshot", category: "hotkey-timing")
 
 class HotkeyManager {
 

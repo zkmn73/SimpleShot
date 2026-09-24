@@ -246,7 +246,7 @@
 					"-weak_framework",
 					ScreenCaptureKit,
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.sw33tlie.macshot.macshotTests;
+				PRODUCT_BUNDLE_IDENTIFIER = com.zkmn73.simpleshotTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = NO;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
@@ -280,7 +280,7 @@
 					"-weak_framework",
 					ScreenCaptureKit,
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.sw33tlie.macshot.macshotTests;
+				PRODUCT_BUNDLE_IDENTIFIER = com.zkmn73.simpleshotTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = NO;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
@@ -435,8 +435,8 @@
 					"-weak_framework",
 					ScreenCaptureKit,
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.sw33tlie.macshot.macshot;
-				PRODUCT_NAME = "$(TARGET_NAME)";
+				PRODUCT_BUNDLE_IDENTIFIER = com.zkmn73.simpleshot;
+				PRODUCT_NAME = SimpleShot;
 				REGISTER_APP_GROUPS = YES;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
@@ -473,8 +473,8 @@
 					"-weak_framework",
 					ScreenCaptureKit,
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.sw33tlie.macshot.macshot;
-				PRODUCT_NAME = "$(TARGET_NAME)";
+				PRODUCT_BUNDLE_IDENTIFIER = com.zkmn73.simpleshot;
+				PRODUCT_NAME = SimpleShot;
 				REGISTER_APP_GROUPS = YES;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;

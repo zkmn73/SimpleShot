@@ -8024,7 +8024,7 @@ class OverlayView: NSView {
 
     // MARK: - Annotation Copy/Paste
 
-    private static let annotationPasteboardType = NSPasteboard.PasteboardType("com.sw33tlie.macshot.annotations")
+    private static let annotationPasteboardType = NSPasteboard.PasteboardType("com.zkmn73.simpleshot.annotations")
 
     /// Copy selected annotations to the pasteboard.
     func copySelectedAnnotations() {

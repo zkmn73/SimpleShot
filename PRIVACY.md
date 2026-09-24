@@ -18,9 +18,9 @@ macshot is a free, open-source screenshot and screen recording tool for macOS. I
 macshot stores the following data locally on your Mac:
 
 - **Screenshots and recordings** — saved to your chosen folder (default: Pictures).
-- **Screenshot history** — recent captures stored in `~/Library/Application Support/com.sw33tlie.macshot/history/`. You control the history size in Preferences (set to 0 to disable).
+- **Screenshot history** — recent captures stored in `~/Library/Application Support/com.zkmn73.simpleshot/history/`. You control the history size in Preferences (set to 0 to disable).
 - **Preferences** — settings stored in macOS UserDefaults.
-- **Google Drive OAuth tokens** — if you sign in to Google Drive, authentication tokens are stored in `~/Library/Application Support/com.sw33tlie.macshot/gdrive_tokens.json` with owner-only permissions (0600). Tokens are used solely to upload files to your own Google Drive. You can sign out at any time in Preferences, which deletes the token file.
+- **Google Drive OAuth tokens** — if you sign in to Google Drive, authentication tokens are stored in `~/Library/Application Support/com.zkmn73.simpleshot/gdrive_tokens.json` with owner-only permissions (0600). Tokens are used solely to upload files to your own Google Drive. You can sign out at any time in Preferences, which deletes the token file.
 
 ## Third-party services
 

@@ -6,10 +6,10 @@
 	<array>
 		<dict>
 			<key>CFBundleURLName</key>
-			<string>macshot Actions</string>
+			<string>SimpleShot Actions</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
-				<string>macshot</string>
+				<string>simpleshot</string>
 			</array>
 		</dict>
 	</array>
@@ -36,7 +36,7 @@
 		</dict>
 	</array>
 	<key>Privacy - Screen Capture Usage Description</key>
-	<string>macshot needs screen recording permission to capture screenshots.</string>
+	<string>SimpleShot needs screen recording permission to capture screenshots.</string>
 	<key>SUFeedURL</key>
 	<string>https://raw.githubusercontent.com/sw33tLie/macshot/main/appcast.xml</string>
 	<key>SUPublicEDKey</key>

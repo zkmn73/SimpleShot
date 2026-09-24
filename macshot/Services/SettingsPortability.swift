@@ -31,12 +31,12 @@ enum SettingsPortability {
     static let fileType = "macshot-settings"
     static let schemaVersion = 1
 
-    /// A dated, human-friendly default filename, e.g. `macshot-settings-2026-07-08.json`.
+    /// A dated, human-friendly default filename, e.g. `simpleshot-settings-2026-07-08.json`.
     /// The payload is plain JSON, so a `.json` extension is honest and previewable in Finder.
     static func suggestedExportFilename() -> String {
         let fmt = DateFormatter()
         fmt.dateFormat = "yyyy-MM-dd"
-        return "macshot-settings-\(fmt.string(from: Date())).json"
+        return "simpleshot-settings-\(fmt.string(from: Date())).json"
     }
 
     /// Size cap for a single Data blob (2 MB). Larger blobs (e.g. a big custom beautify
@@ -218,9 +218,9 @@ enum SettingsPortability {
         var errorDescription: String? {
             switch self {
             case .notJSON, .wrongFileType:
-                return L("This file is not a valid macshot settings file.")
+                return L("This file is not a valid SimpleShot settings file.")
             case .newerSchema:
-                return L("This settings file was made by a newer version of macshot. Please update macshot first.")
+                return L("This settings file was made by a newer version of SimpleShot. Please update SimpleShot first.")
             case .missingSettings:
                 return L("This settings file contains no settings.")
             }

@@ -1,17 +1,17 @@
-/* English (Base) — macshot localization
+/* English (Base) — SimpleShot localization
  *
  * To add a new language:
- * 1. Create a new folder: macshot/<lang-code>.lproj/
+ * 1. Create a new folder: SimpleShot/<lang-code>.lproj/
  * 2. Copy this file into that folder
  * 3. Translate all values (right side of = sign)
  * 4. Add the language to LanguageManager.availableLanguages in Services/LanguageManager.swift
- * 5. Add the language code to knownRegions in macshot.xcodeproj/project.pbxproj
+ * 5. Add the language code to knownRegions in SimpleShot.xcodeproj/project.pbxproj
  * 6. Submit a pull request!
  *
  * Keys use the English text. Values should be the translation.
  * Format strings use %@ for strings, %d for integers.
  * Keep keyboard shortcuts (like ⌘C) untranslated.
- * Keep brand names (macshot, Google Drive, imgbb, S3) untranslated.
+ * Keep brand names (SimpleShot, Google Drive, imgbb, S3) untranslated.
  */
 
 /* Menu Bar */
@@ -31,7 +31,7 @@
 "Open Image..." = "Open Image...";
 "Open from Clipboard" = "Open from Clipboard";
 "Check for Updates..." = "Check for Updates...";
-"Quit macshot" = "Quit macshot";
+"Quit SimpleShot" = "Quit SimpleShot";
 "No recent captures" = "No recent captures";
 "Clear History" = "Clear History";
 
@@ -104,7 +104,7 @@
 "Record Microphone" = "Record Microphone";
 "Webcam Overlay" = "Webcam Overlay";
 "Camera Access Required" = "Camera Access Required";
-"macshot needs camera permission for the webcam overlay. Open System Settings to grant access." = "macshot needs camera permission for the webcam overlay. Open System Settings to grant access.";
+"SimpleShot needs camera permission for the webcam overlay. Open System Settings to grant access." = "SimpleShot needs camera permission for the webcam overlay. Open System Settings to grant access.";
 "Recording Settings" = "Recording Settings";
 "Webcam" = "Webcam";
 "Small" = "Small";
@@ -176,7 +176,7 @@
 "Copy to clipboard" = "Copy to clipboard";
 
 /* Preferences - General */
-"macshot Preferences" = "macshot Preferences";
+"SimpleShot Preferences" = "SimpleShot Preferences";
 "General" = "General";
 "Recording" = "Recording";
 "About" = "About";
@@ -197,7 +197,7 @@
 "Disable shadow outside selection" = "Disable shadow outside selection";
 "Use window title in saved filename" = "Use window title in saved filename";
 "Hide menu bar icon" = "Hide menu bar icon";
-"Hotkeys still work. To show the icon again, re-launch macshot." = "Hotkeys still work. To show the icon again, re-launch macshot.";
+"Hotkeys still work. To show the icon again, re-launch SimpleShot." = "Hotkeys still work. To show the icon again, re-launch SimpleShot.";
 "Check for updates automatically" = "Check for updates automatically";
 "Output" = "Output";
 "Image format:" = "Image format:";
@@ -207,7 +207,7 @@
 "Halves dimensions on Retina displays, ~4x smaller files" = "Halves dimensions on Retina displays, ~4x smaller files";
 "Embed sRGB color profile" = "Embed sRGB color profile";
 "Ensures consistent colors across different displays" = "Ensures consistent colors across different displays";
-"Enable macshot:// URL scheme" = "Enable macshot:// URL scheme";
+"Enable simpleshot:// URL scheme" = "Enable simpleshot:// URL scheme";
 "Screenshot History" = "Screenshot History";
 "History size:" = "History size:";
 "screenshots kept on disk (0 = off)" = "screenshots kept on disk (0 = off)";
@@ -315,7 +315,7 @@
 "Video upload requires Google Drive or S3" = "Video upload requires Google Drive or S3";
 
 /* Preferences - About */
-"macshot" = "macshot";
+"SimpleShot" = "SimpleShot";
 "Version %@ (%@)" = "Version %@ (%@)";
 "Licensed under the GPLv3" = "Licensed under the GPLv3";
 "A free, open-source screenshot tool for macOS.\nFully native — built with Swift and AppKit." = "A free, open-source screenshot tool for macOS.\nFully native — built with Swift and AppKit.";
@@ -325,23 +325,23 @@
 "Copy an image to the clipboard first, then try again." = "Copy an image to the clipboard first, then try again.";
 "OK" = "OK";
 "Accessibility Access Required" = "Accessibility Access Required";
-"macshot needs Accessibility permission to auto-scroll other apps. Please grant access in System Settings, then try again." = "macshot needs Accessibility permission to auto-scroll other apps. Please grant access in System Settings, then try again.";
-"macshot needs Accessibility permission for scroll capture. Please grant access in System Settings, then try again." = "macshot needs Accessibility permission for scroll capture. Please grant access in System Settings, then try again.";
+"SimpleShot needs Accessibility permission to auto-scroll other apps. Please grant access in System Settings, then try again." = "SimpleShot needs Accessibility permission to auto-scroll other apps. Please grant access in System Settings, then try again.";
+"SimpleShot needs Accessibility permission for scroll capture. Please grant access in System Settings, then try again." = "SimpleShot needs Accessibility permission for scroll capture. Please grant access in System Settings, then try again.";
 "Open Settings" = "Open Settings";
 "Cancel" = "Cancel";
 "Microphone Access Required" = "Microphone Access Required";
-"macshot needs microphone permission to record voice audio. Open System Settings to grant access." = "macshot needs microphone permission to record voice audio. Open System Settings to grant access.";
+"SimpleShot needs microphone permission to record voice audio. Open System Settings to grant access." = "SimpleShot needs microphone permission to record voice audio. Open System Settings to grant access.";
 "Upload to Google Drive?" = "Upload to Google Drive?";
 "Upload to S3?" = "Upload to S3?";
 "Upload to imgbb.com?" = "Upload to imgbb.com?";
 "Your screenshot will be uploaded." = "Your screenshot will be uploaded.";
 
 /* Permission Onboarding */
-"Welcome to macshot" = "Welcome to macshot";
-"macshot needs one permission" = "macshot needs one permission";
+"Welcome to SimpleShot" = "Welcome to SimpleShot";
+"SimpleShot needs one permission" = "SimpleShot needs one permission";
 "Screen Recording not yet granted" = "Screen Recording not yet granted";
 "Screen Recording granted!" = "Screen Recording granted!";
-"Enable macshot, then try taking a screenshot" = "Enable macshot, then try taking a screenshot";
+"Enable SimpleShot, then try taking a screenshot" = "Enable SimpleShot, then try taking a screenshot";
 "Open Screen Recording Settings" = "Open Screen Recording Settings";
 "Continue" = "Continue";
 
@@ -371,7 +371,7 @@
 "Path copied!" = "Path copied!";
 
 /* Video Editor */
-"macshot Video Editor" = "macshot Video Editor";
+"SimpleShot Video Editor" = "SimpleShot Video Editor";
 "%@ selected" = "%@ selected";
 "Exporting..." = "Exporting...";
 "Export failed" = "Export failed";
@@ -409,8 +409,8 @@
 
 /* Recording — Input Monitoring Permission */
 "Input Monitoring Required" = "Input Monitoring Required";
-"macshot needs Input Monitoring permission to highlight mouse clicks or show keystrokes during recording. Please grant access in System Settings, then try again." = "macshot needs Input Monitoring permission to highlight mouse clicks or show keystrokes during recording. Please grant access in System Settings, then try again.";
-"macshot needs Accessibility permission to snap to individual interface elements. Please grant access in System Settings, then try again." = "macshot needs Accessibility permission to snap to individual interface elements. Please grant access in System Settings, then try again.";
+"SimpleShot needs Input Monitoring permission to highlight mouse clicks or show keystrokes during recording. Please grant access in System Settings, then try again." = "SimpleShot needs Input Monitoring permission to highlight mouse clicks or show keystrokes during recording. Please grant access in System Settings, then try again.";
+"SimpleShot needs Accessibility permission to snap to individual interface elements. Please grant access in System Settings, then try again." = "SimpleShot needs Accessibility permission to snap to individual interface elements. Please grant access in System Settings, then try again.";
 
 /* Recording — Keystroke Overlay */
 "Show Keystrokes" = "Show Keystrokes";
@@ -425,7 +425,7 @@
 
 /* Recently added strings */
 "Settings..." = "Settings...";
-"macshot Settings" = "macshot Settings";
+"SimpleShot Settings" = "SimpleShot Settings";
 "Also open in Editor" = "Also open in Editor";
 "Close editor after copying" = "Close editor after copying";
 "Hide controls" = "Hide controls";
@@ -468,13 +468,13 @@
 "Clear History?" = "Clear History?";
 "This will permanently delete all screenshots from history." = "This will permanently delete all screenshots from history.";
 "Click \"Set\" and press a key combination with at least one modifier (⌘, ⌥, ⌃, ⇧) to set a shortcut." = "Click \"Set\" and press a key combination with at least one modifier (⌘, ⌥, ⌃, ⇧) to set a shortcut.";
-"Files are uploaded to this folder in your Google Drive. Leave empty to use \"macshot\". macshot can only use folders it created itself, so a folder you made in Drive with the same name won't be reused — a new one is created instead. Everything stays private — nothing is shared publicly." = "Files are uploaded to this folder in your Google Drive. Leave empty to use \"macshot\". macshot can only use folders it created itself, so a folder you made in Drive with the same name won't be reused — a new one is created instead. Everything stays private — nothing is shared publicly.";
+"Files are uploaded to this folder in your Google Drive. Leave empty to use \"SimpleShot\". SimpleShot can only use folders it created itself, so a folder you made in Drive with the same name won't be reused — a new one is created instead. Everything stays private — nothing is shared publicly." = "Files are uploaded to this folder in your Google Drive. Leave empty to use \"SimpleShot\". SimpleShot can only use folders it created itself, so a folder you made in Drive with the same name won't be reused — a new one is created instead. Everything stays private — nothing is shared publicly.";
 
 "Pressure" = "Pressure";
 
 /* Added for v4.1.0-beta.3 — video editor, effects, open-video, shortcuts help */
 "Open Video..." = "Open Video...";
-"Choose a video to open in macshot editor" = "Choose a video to open in macshot editor";
+"Choose a video to open in SimpleShot editor" = "Choose a video to open in SimpleShot editor";
 "Click to add effects" = "Click to add effects";
 "Add Zoom" = "Add Zoom";
 "Add Censor" = "Add Censor";
@@ -543,17 +543,17 @@
 "Stop the current recording" = "Stop the current recording";
 "Supported URL Scheme Commands" = "Supported URL Scheme Commands";
 "The file extension is appended automatically. Slashes and colons in {window} become dashes." = "The file extension is appended automatically. Slashes and colons in {window} become dashes.";
-"Trigger macshot from Raycast, Alfred, Shortcuts, or any tool that opens URLs." = "Trigger macshot from Raycast, Alfred, Shortcuts, or any tool that opens URLs.";
+"Trigger SimpleShot from Raycast, Alfred, Shortcuts, or any tool that opens URLs." = "Trigger SimpleShot from Raycast, Alfred, Shortcuts, or any tool that opens URLs.";
 "URL scheme info" = "URL scheme info";
 "Settings" = "Settings";
-"Offline build: upload and cloud storage integrations are removed. Update checks may still connect to MacShot's update server. Screenshots and recordings stay local unless you share or save them yourself." = "Offline build: upload and cloud storage integrations are removed. Update checks may still connect to MacShot's update server. Screenshots and recordings stay local unless you share or save them yourself.";
+"Offline build: upload and cloud storage integrations are removed. Update checks may still connect to SimpleShot's update server. Screenshots and recordings stay local unless you share or save them yourself." = "Offline build: upload and cloud storage integrations are removed. Update checks may still connect to SimpleShot's update server. Screenshots and recordings stay local unless you share or save them yourself.";
 
 /* Settings import/export (issues #265, #280) */
 "Settings Backup" = "Settings Backup";
 "Export Settings…" = "Export Settings…";
 "Import Settings…" = "Import Settings…";
 "Reveal Settings File in Finder" = "Reveal Settings File in Finder";
-"Export your preferences to a file to move them to another Mac or a clean install. Your save folder is not included. Settings are stored inside macshot's app container." = "Export your preferences to a file to move them to another Mac or a clean install. Your save folder is not included. Settings are stored inside macshot's app container.";
+"Export your preferences to a file to move them to another Mac or a clean install. Your save folder is not included. Settings are stored inside SimpleShot's app container." = "Export your preferences to a file to move them to another Mac or a clean install. Your save folder is not included. Settings are stored inside SimpleShot's app container.";
 "Export Settings" = "Export Settings";
 "Import Settings" = "Import Settings";
 "Import failed" = "Import failed";
@@ -564,11 +564,11 @@
 "Relaunch Now" = "Relaunch Now";
 "Replace your current settings?" = "Replace your current settings?";
 "Importing will replace your current preferences with the ones in this file. Your save folder is kept. This cannot be undone." = "Importing will replace your current preferences with the ones in this file. Your save folder is kept. This cannot be undone.";
-"%d settings were applied. Relaunch macshot to apply all changes." = "%d settings were applied. Relaunch macshot to apply all changes.";
+"%d settings were applied. Relaunch SimpleShot to apply all changes." = "%d settings were applied. Relaunch SimpleShot to apply all changes.";
 "A few large items were too big to include. Everything else was saved." = "A few large items were too big to include. Everything else was saved.";
-"This file is not a valid macshot settings file." = "This file is not a valid macshot settings file.";
+"This file is not a valid SimpleShot settings file." = "This file is not a valid SimpleShot settings file.";
 "This settings file contains no settings." = "This settings file contains no settings.";
-"This settings file was made by a newer version of macshot. Please update macshot first." = "This settings file was made by a newer version of macshot. Please update macshot first.";
+"This settings file was made by a newer version of SimpleShot. Please update SimpleShot first." = "This settings file was made by a newer version of SimpleShot. Please update SimpleShot first.";
 
 /* Measure tool: clamp toggle (#212) */
 "Limit to selection" = "Limit to selection";

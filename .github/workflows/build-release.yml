@@ -124,7 +124,7 @@ jobs:
             MARKETING_VERSION="$VERSION" \
             CURRENT_PROJECT_VERSION="$BUILD_NUMBER" \
             SWIFT_ACTIVE_COMPILATION_CONDITIONS="OFFLINE" \
-            PRODUCT_BUNDLE_IDENTIFIER="com.sw33tlie.macshot.offline" \
+            PRODUCT_BUNDLE_IDENTIFIER="com.zkmn73.simpleshot.offline" \
             PRODUCT_NAME="macshot Offline" \
             INFOPLIST_KEY_CFBundleDisplayName="macshot Offline" \
             INFOPLIST_KEY_CFBundleName="macshot Offline" \
@@ -137,7 +137,7 @@ jobs:
 
           plist_path = Path("build-offline/Build/Products/Release/macshot Offline.app/Contents/Info.plist")
           plist = plistlib.loads(plist_path.read_bytes())
-          expected_bundle_id = "com.sw33tlie.macshot.offline"
+          expected_bundle_id = "com.zkmn73.simpleshot.offline"
           expected_feed_url = "https://raw.githubusercontent.com/sw33tLie/macshot/main/appcast-offline.xml"
           plist["SUFeedURL"] = expected_feed_url
           plist["CFBundleURLTypes"] = [
@@ -162,8 +162,8 @@ jobs:
 
           entitlements = plistlib.loads(Path("macshot/macshot.entitlements").read_bytes())
           entitlements["com.apple.security.temporary-exception.mach-lookup.global-name"] = [
-              "com.sw33tlie.macshot.offline-spks",
-              "com.sw33tlie.macshot.offline-spki",
+              "com.zkmn73.simpleshot.offline-spks",
+              "com.zkmn73.simpleshot.offline-spki",
           ]
           Path("/tmp/macshot-offline.entitlements").write_bytes(plistlib.dumps(entitlements))
           PYEOF
@@ -552,12 +552,12 @@ jobs:
 
             app "macshot Offline.app"
 
-            uninstall quit: "com.sw33tlie.macshot.offline"
+            uninstall quit: "com.zkmn73.simpleshot.offline"
 
             zap trash: [
-              "~/Library/Application Scripts/com.sw33tlie.macshot.offline",
-              "~/Library/Containers/com.sw33tlie.macshot.offline",
-              "~/Library/Preferences/com.sw33tlie.macshot.offline.plist",
+              "~/Library/Application Scripts/com.zkmn73.simpleshot.offline",
+              "~/Library/Containers/com.zkmn73.simpleshot.offline",
+              "~/Library/Preferences/com.zkmn73.simpleshot.offline.plist",
             ]
           end
           EOF

@@ -82,7 +82,7 @@ class DetachedEditorWindowController: NSObject, NSWindowDelegate {
         // in the Dock menu, Window menu, and Mission Control.
         let dateFmt = DateFormatter()
         dateFmt.dateFormat = "HH:mm:ss"
-        win.title = "macshot Editor — \(dateFmt.string(from: Date()))"
+        win.title = "SimpleShot Editor — \(dateFmt.string(from: Date()))"
         win.minSize = NSSize(width: minW, height: minH)
         win.maxSize = NSSize(width: screenFrame.width, height: screenFrame.height)
         win.isReleasedWhenClosed = false

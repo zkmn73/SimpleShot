@@ -61,7 +61,7 @@ enum CaptureMenuItemID: String, CaseIterable {
 
 import os.log
 
-private let timingLog = OSLog(subsystem: "com.sw33tlie.macshot.macshot", category: "capture-timing")
+private let timingLog = OSLog(subsystem: "com.zkmn73.simpleshot", category: "capture-timing")
 
 // MARK: - Signal-safe diagnostic logging
 
@@ -203,12 +203,12 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
 
     func applicationDidFinishLaunching(_ aNotification: Notification) {
         // Prevent multiple instances — if already running, activate the existing one and quit
-        let bundleID = Bundle.main.bundleIdentifier ?? "com.sw33tlie.macshot.macshot"
+        let bundleID = Bundle.main.bundleIdentifier ?? "com.zkmn73.simpleshot"
         let running = NSRunningApplication.runningApplications(withBundleIdentifier: bundleID)
         if running.count > 1 {
             // Tell the existing instance to show its icon and open Settings
             DistributedNotificationCenter.default().postNotificationName(
-                .init("com.sw33tlie.macshot.showAndOpenPrefs"),
+                .init("com.zkmn73.simpleshot.showAndOpenPrefs"),
                 object: nil, userInfo: nil, deliverImmediately: true
             )
             NSApp.terminate(nil)
@@ -267,7 +267,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         // Listen for duplicate-launch notification to restore icon
         DistributedNotificationCenter.default().addObserver(
             self, selector: #selector(handleShowAndOpenPrefs),
-            name: .init("com.sw33tlie.macshot.showAndOpenPrefs"), object: nil
+            name: .init("com.zkmn73.simpleshot.showAndOpenPrefs"), object: nil
         )
 
         // Dismiss overlays when the user switches spaces
@@ -532,7 +532,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         } catch {
             let errAlert = NSAlert()
             errAlert.messageText = "Could not move to Applications"
-            errAlert.informativeText = "Please drag macshot to your Applications folder manually.\n\n\(error.localizedDescription)"
+            errAlert.informativeText = "Please drag SimpleShot to your Applications folder manually.\n\n\(error.localizedDescription)"
             errAlert.runModal()
         }
     }
@@ -586,9 +586,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         mainMenu.addItem(appMenuItem)
 
         let appMenu = NSMenu()
-        appMenu.addItem(withTitle: "About macshot", action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)), keyEquivalent: "")
+        appMenu.addItem(withTitle: "About SimpleShot", action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)), keyEquivalent: "")
         appMenu.addItem(NSMenuItem.separator())
-        appMenu.addItem(withTitle: "Quit macshot", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        appMenu.addItem(withTitle: "Quit SimpleShot", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         appMenuItem.submenu = appMenu
 
         let fileMenuItem = NSMenuItem()
@@ -655,7 +655,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
             button.title = ""
         } else {
             button.image = nil
-            button.title = "macshot"
+            button.title = "SimpleShot"
         }
     }
 
@@ -757,7 +757,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
 
         menu.addItem(NSMenuItem.separator())
 
-        let quitItem = NSMenuItem(title: L("Quit macshot"), action: #selector(quitApp), keyEquivalent: "q")
+        let quitItem = NSMenuItem(title: L("Quit SimpleShot"), action: #selector(quitApp), keyEquivalent: "q")
         quitItem.target = self
         menu.addItem(quitItem)
 
@@ -1373,7 +1373,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
 
     /// Path to the rolling timing log inside the sandbox container.
     /// Real path on disk:
-    ///   ~/Library/Containers/com.sw33tlie.macshot.macshot/Data/Library/Application Support/macshot/timing.log
+    ///   ~/Library/Containers/com.zkmn73.simpleshot/Data/Library/Application Support/macshot/timing.log
     static let timingLogURL: URL = {
         let fm = FileManager.default
         let support = fm.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
@@ -1599,7 +1599,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         panel.canChooseDirectories = false
         panel.allowsMultipleSelection = true
         panel.allowedContentTypes = [.png, .jpeg, .tiff, .bmp, .gif, .heic, .webP, .image]
-        panel.message = "Choose an image to open in macshot editor"
+        panel.message = "Choose an image to open in SimpleShot editor"
 
         NSApp.activate(ignoringOtherApps: true)
         panel.begin { response in
@@ -1636,7 +1636,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
     private func handleOpenURLs(_ urls: [URL]) {
         let imageExtensions: Set<String> = ["png", "jpg", "jpeg", "tiff", "tif", "bmp", "gif", "heic", "heif", "webp", "icns"]
         for url in urls {
-            if url.scheme == "macshot" {
+            if url.scheme == "simpleshot" {
                 let urlSchemeEnabled = UserDefaults.standard.object(forKey: "urlSchemeEnabled") as? Bool ?? true
                 guard urlSchemeEnabled else { continue }
                 if Self.screenCaptureURLActions.contains(url.host ?? "") {
@@ -1660,8 +1660,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         }
     }
 
-    /// Handle macshot:// URL scheme actions from external tools (Raycast, Alfred, etc.).
-    /// Usage: `open macshot://capture`, `open macshot://ocr`, etc.
+    /// Handle simpleshot:// URL scheme actions from external tools (Raycast, Alfred, etc.).
+    /// Usage: `open simpleshot://capture`, `open simpleshot://ocr`, etc.
     private static let screenCaptureURLActions: Set<String> = [
         "capture", "capture-fullscreen", "capture-last", "quick-capture",
         "ocr", "scroll-capture",
@@ -1837,7 +1837,7 @@ extension AppDelegate: OverlayWindowControllerDelegate {
             AXIsProcessTrustedWithOptions(opts)
             let alert = NSAlert()
             alert.messageText = L("Accessibility Access Required")
-            alert.informativeText = L("macshot needs Accessibility permission for scroll capture. Please grant access in System Settings, then try again.")
+            alert.informativeText = L("SimpleShot needs Accessibility permission for scroll capture. Please grant access in System Settings, then try again.")
             alert.alertStyle = .warning
             alert.addButton(withTitle: L("Open Settings"))
             alert.addButton(withTitle: L("Cancel"))
@@ -1922,7 +1922,7 @@ extension AppDelegate: OverlayWindowControllerDelegate {
         AXIsProcessTrustedWithOptions(opts)
         let alert = NSAlert()
         alert.messageText = L("Accessibility Access Required")
-        alert.informativeText = L("macshot needs Accessibility permission to snap to individual interface elements. Please grant access in System Settings, then try again.")
+        alert.informativeText = L("SimpleShot needs Accessibility permission to snap to individual interface elements. Please grant access in System Settings, then try again.")
         alert.alertStyle = .warning
         alert.addButton(withTitle: L("Open Settings"))
         alert.addButton(withTitle: L("Cancel"))
@@ -1953,7 +1953,7 @@ extension AppDelegate: OverlayWindowControllerDelegate {
                 AXIsProcessTrustedWithOptions(opts)
                 let alert = NSAlert()
                 alert.messageText = L("Accessibility Access Required")
-                alert.informativeText = L("macshot needs Accessibility permission to auto-scroll other apps. Please grant access in System Settings, then try again.")
+                alert.informativeText = L("SimpleShot needs Accessibility permission to auto-scroll other apps. Please grant access in System Settings, then try again.")
                 alert.alertStyle = .warning
                 alert.addButton(withTitle: L("Open Settings"))
                 alert.addButton(withTitle: L("Cancel"))
