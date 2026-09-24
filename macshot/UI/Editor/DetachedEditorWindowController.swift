@@ -1,6 +1,4 @@
 import Cocoa
-import Vision
-import CoreImage
 
 /// Editor window that intercepts Cmd+Q to close itself instead of quitting the app.
 /// Uses performClose so windowShouldClose is called (triggers unsaved changes warning).
@@ -32,21 +30,11 @@ class DetachedEditorWindowController: NSObject, NSWindowDelegate {
     private var lastSavedUndoState: UUID?
     private var contentRevision: UInt64 = 0
     private var newestSaveRevision: UInt64 = 0
-    /// Snapshot of the post-processing (beautify/effects) state when last saved.
-    /// Compared by value (Equatable) rather than via re-serialized bytes — the old
-    /// string signature re-encoded PNGs / float JSON, which was unstable and caused
-    /// spurious "Save changes?" prompts on close with no edits.
-    private var lastSavedEditState: CaptureEditState = CaptureEditState()
     /// True if the image has never been output (copied, saved, etc.) — closing would lose the capture.
     /// Set to false on first output action. Editors opened from files start false.
     private var screenshotNeverOutput: Bool = true
-    /// When true, force beautify off on open (image already has beautify baked in).
-    private var disableBeautifyOnOpen: Bool = false
-    private var initialEditState: CaptureEditState?
 
     /// Open an editor window with the given image (typically from captureSelectedRegion).
-    /// When `disableBeautify` is true, beautify starts off regardless of UserDefaults
-    /// (used when the image already has beautify baked in).
     ///
     /// `tool`, `color`, and `strokeWidth` are nil by default — when nil, the new
     /// EditorView keeps whatever its property initializers loaded from
@@ -55,10 +43,8 @@ class DetachedEditorWindowController: NSObject, NSWindowDelegate {
     /// here: writing `view.currentTool = .arrow` triggers the didSet that
     /// persists "arrow" globally, wiping the user's last-tool memory across
     /// the whole app.
-    static func open(image: NSImage, tool: AnnotationTool? = nil, color: NSColor? = nil, strokeWidth: CGFloat? = nil, annotations: [Annotation] = [], fromCapture: Bool = false, disableBeautify: Bool = false, editState: CaptureEditState? = nil) {
+    static func open(image: NSImage, tool: AnnotationTool? = nil, color: NSColor? = nil, strokeWidth: CGFloat? = nil, annotations: [Annotation] = [], fromCapture: Bool = false) {
         let controller = DetachedEditorWindowController()
-        controller.disableBeautifyOnOpen = disableBeautify
-        controller.initialEditState = editState
         // Only warn about unsaved capture if the image came from a live capture (not a file on disk)
         controller.screenshotNeverOutput = fromCapture
         controller.show(image: image, tool: tool, color: color, strokeWidth: strokeWidth, annotations: annotations)
@@ -115,9 +101,6 @@ class DetachedEditorWindowController: NSObject, NSWindowDelegate {
         if let tool = tool { view.currentTool = tool }
         if let color = color { view.currentColor = color }
         if let strokeWidth = strokeWidth { view.currentStrokeWidth = strokeWidth }
-        if disableBeautifyOnOpen {
-            view.beautifyEnabled = false
-        }
 
         // NSScrollView for native zoom/pan/centering.
         // The scroll view is inset from the top by the top bar height (32pt) so the
@@ -181,15 +164,6 @@ class DetachedEditorWindowController: NSObject, NSWindowDelegate {
 
         view.applySelection(NSRect(origin: .zero, size: imgSize))
         if !annotations.isEmpty { view.setAnnotations(annotations) }
-        if let editState = initialEditState {
-            view.applyCaptureEditState(editState)
-        }
-
-        // Settle any deferred state before snapshotting the clean baseline, so a
-        // later draw can't mutate it and trigger a spurious "Save changes?" on
-        // close. (The custom beautify background used to lazy-load inside the
-        // beautifyConfig getter on first draw.)
-        view.ensureCustomBeautifyBackgroundLoaded()
 
         // Snapshot the clean baseline for unsaved-changes detection.
         captureCleanBaseline(view)
@@ -235,14 +209,12 @@ class DetachedEditorWindowController: NSObject, NSWindowDelegate {
     /// prompts (or doesn't). Call after open and after every save.
     private func captureCleanBaseline(_ view: OverlayView) {
         lastSavedUndoState = view.undoStateIdentity
-        lastSavedEditState = view.captureEditState()
     }
 
     /// True if the user has edited anything since the clean baseline.
     private func isDirty() -> Bool {
         guard let view = overlayView else { return false }
         return screenshotNeverOutput || view.undoStateIdentity != lastSavedUndoState
-            || view.captureEditState() != lastSavedEditState
     }
 
     // MARK: - NSWindowDelegate
@@ -255,11 +227,8 @@ class DetachedEditorWindowController: NSObject, NSWindowDelegate {
         guard let view = overlayView else { return true }
 
         // Only warn when the user actually changed something since the editor's
-        // clean baseline (captured at open, after existing annotations + edit
-        // state were applied). Annotation/image edits change the undo identity; beautify
-        // and effects changes show up in the edit state, compared by value. We do
-        // NOT byte-compare re-serialized state — that was unstable (re-encoded
-        // PNGs / float JSON) and nagged on a pristine close.
+        // clean baseline (captured at open, after existing annotations were
+        // applied). Annotation/image edits change the undo identity.
         let hasChanges = isDirty()
 
         guard hasChanges else { return true }
@@ -312,14 +281,13 @@ class DetachedEditorWindowController: NSObject, NSWindowDelegate {
         let image: NSImage
         let annotationData: CaptureAnnotationData?
         let undoState: UUID
-        let editState: CaptureEditState
         let revision: UInt64
     }
 
     private func captureSnapshot() -> EditorSnapshot? {
         guard let view = overlayView, let composited = view.captureSelectedRegion() else { return nil }
-        return EditorSnapshot(image: applyPostProcessing(composited), annotationData: currentAnnotationData(),
-            undoState: view.undoStateIdentity, editState: view.captureEditState(), revision: contentRevision)
+        return EditorSnapshot(image: composited, annotationData: currentAnnotationData(),
+            undoState: view.undoStateIdentity, revision: contentRevision)
     }
 
     /// Save current editor state to disk via the normal save flow (without closing).
@@ -332,11 +300,9 @@ class DetachedEditorWindowController: NSObject, NSWindowDelegate {
         ImageSaveService.save(snapshot.image, sheetWindow: window) { [weak self] success in
             guard let self else { completion?(success); return }
             let unchanged = self.overlayView?.undoStateIdentity == snapshot.undoState
-                && self.overlayView?.captureEditState() == snapshot.editState
             if success {
                 self.screenshotNeverOutput = false
                 self.lastSavedUndoState = snapshot.undoState
-                self.lastSavedEditState = snapshot.editState
             }
             completion?(success && unchanged)
         }
@@ -345,26 +311,9 @@ class DetachedEditorWindowController: NSObject, NSWindowDelegate {
     private func currentAnnotationData() -> CaptureAnnotationData? {
         guard let view = overlayView else { return nil }
         let annotations = view.annotations.filter { $0.isMovable }.map { $0.clone() }
-        let editState = view.captureEditState()
-        guard !annotations.isEmpty || editState.hasPostProcessing,
+        guard !annotations.isEmpty,
               let rawImage = view.captureSelectedRegionRaw() else { return nil }
-        return CaptureAnnotationData(
-            rawImage: rawImage,
-            annotations: annotations,
-            editState: editState.hasPostProcessing ? editState : nil
-        )
-    }
-
-    /// Apply image effects and beautify to the captured image.
-    private func applyPostProcessing(_ image: NSImage) -> NSImage {
-        var result = image
-        if let view = overlayView, view.effectsActive {
-            result = ImageEffects.apply(to: result, config: view.effectsConfig)
-        }
-        if let view = overlayView, view.beautifyEnabled {
-            result = BeautifyRenderer.render(image: result, config: view.beautifyConfig)
-        }
-        return result
+        return CaptureAnnotationData(rawImage: rawImage, annotations: annotations)
     }
 }
 
@@ -477,32 +426,6 @@ extension DetachedEditorWindowController: OverlayViewDelegate {
             picker.show(relativeTo: .zero, of: view, preferredEdge: .minY)
         }
         screenshotNeverOutput = false
-    }
-
-    @available(macOS 14.0, *)
-    func overlayViewDidRequestRemoveBackground() {
-        guard let image = overlayView?.captureSelectedRegion(),
-              let cgImage = image.cgImage(forProposedRect: nil, context: nil, hints: nil) else { return }
-        let request = VNGenerateForegroundInstanceMaskRequest()
-        let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])
-        DispatchQueue.global(qos: .userInitiated).async {
-            do {
-                try handler.perform([request])
-                guard let result = request.results?.first else { return }
-                let mask = try result.generateScaledMaskForImage(forInstances: result.allInstances, from: handler)
-                let orig = CIImage(cgImage: cgImage)
-                guard let filter = CIFilter(name: "CIBlendWithMask") else { return }
-                filter.setValue(orig, forKey: kCIInputImageKey)
-                filter.setValue(CIImage(cvPixelBuffer: mask), forKey: kCIInputMaskImageKey)
-                filter.setValue(CIImage(color: .clear).cropped(to: orig.extent), forKey: kCIInputBackgroundImageKey)
-                guard let out = filter.outputImage,
-                      let cg = CIContext().createCGImage(out, from: out.extent) else { return }
-                DispatchQueue.main.async {
-                    let finalImage = NSImage(cgImage: cg, size: image.size)
-                    ImageEncoder.copyToClipboard(finalImage)
-                }
-            } catch {}
-        }
     }
 
     func overlayViewDidRequestDetach() {}

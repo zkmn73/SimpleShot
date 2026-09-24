@@ -125,62 +125,28 @@ final class DisplayPreviewImageTests: XCTestCase {
     }
 }
 
-/// Beautify's shadow curves drive how the framed screenshot looks. They're
-/// pure numbers, and all five have to stay in a sane range for any radius the
-/// slider can produce.
-final class BeautifyShadowCurveTests: XCTestCase {
+/// Flipping must leave an independently-captured snapped-window image alone —
+/// only Invert (now removed) touched it; a flip's undo must not clear it.
+@MainActor
+final class WindowSnapFlipTests: XCTestCase {
 
-    private let radii: [CGFloat] = [0, 0.5, 1, 10, 20, 50, 100, 500, 10_000]
-
-    func testNoShadowAtZeroRadius() {
-        XCTAssertEqual(BeautifyRenderer.shadowAlpha(for: 0), 0)
-        XCTAssertEqual(BeautifyRenderer.contactShadowAlpha(for: 0), 0)
-        XCTAssertEqual(BeautifyRenderer.shadowOffset(for: 0), 0)
-        XCTAssertEqual(BeautifyRenderer.contactShadowOffset(for: 0), 0)
-        XCTAssertEqual(BeautifyRenderer.contactShadowBlur(for: 0), 0)
+    private func makeOverlay() -> OverlayView {
+        let view = OverlayView()
+        view.frame = NSRect(x: 0, y: 0, width: 200, height: 160)
+        view.screenshotImage = ImageProbe.solidImage(
+            width: 200, height: 160, color: CGColor(srgbRed: 0.8, green: 0.2, blue: 0.1, alpha: 1))
+        view.applySelection(NSRect(x: 20, y: 20, width: 100, height: 80))
+        return view
     }
 
-    func testNegativeRadiusIsTreatedAsNoShadow() {
-        for radius in [-1, -100] as [CGFloat] {
-            XCTAssertEqual(BeautifyRenderer.shadowAlpha(for: radius), 0)
-            XCTAssertEqual(BeautifyRenderer.shadowOffset(for: radius), 0)
-        }
-    }
+    func testFlippingDoesNotDisturbTheSnappedWindowImage() throws {
+        let overlay = makeOverlay()
+        let snap = ImageProbe.solidImage(width: 100, height: 80)
+        overlay.snappedWindowImage = snap
 
-    func testAlphasStayWithinAValidRange() {
-        for radius in radii {
-            XCTAssertTrue((0...1).contains(BeautifyRenderer.shadowAlpha(for: radius)),
-                          "alpha out of range at radius \(radius)")
-            XCTAssertTrue((0...1).contains(BeautifyRenderer.contactShadowAlpha(for: radius)))
-        }
-    }
-
-    func testOffsetsAndBlurAreCapped() {
-        for radius in radii {
-            XCTAssertLessThanOrEqual(BeautifyRenderer.shadowOffset(for: radius), 18)
-            XCTAssertLessThanOrEqual(BeautifyRenderer.contactShadowOffset(for: radius), 10)
-            XCTAssertLessThanOrEqual(BeautifyRenderer.contactShadowBlur(for: radius), 16)
-        }
-    }
-
-    func testABiggerRadiusNeverProducesASmallerShadow() {
-        var previousAlpha: CGFloat = -1
-        var previousOffset: CGFloat = -1
-        for radius in radii.sorted() {
-            let alpha = BeautifyRenderer.shadowAlpha(for: radius)
-            let offset = BeautifyRenderer.shadowOffset(for: radius)
-            XCTAssertGreaterThanOrEqual(alpha, previousAlpha, "alpha dipped at radius \(radius)")
-            XCTAssertGreaterThanOrEqual(offset, previousOffset, "offset dipped at radius \(radius)")
-            previousAlpha = alpha
-            previousOffset = offset
-        }
-    }
-
-    func testTheContactShadowStaysTighterThanTheMainOne() {
-        for radius in radii where radius > 0 {
-            XCTAssertLessThan(BeautifyRenderer.contactShadowOffset(for: radius),
-                              BeautifyRenderer.shadowOffset(for: radius),
-                              "the contact shadow is the tight one under the window")
-        }
+        overlay.flipImageHorizontally()
+        XCTAssertTrue(overlay.snappedWindowImage === snap)
+        overlay.undo()
+        XCTAssertTrue(overlay.snappedWindowImage === snap, "undoing a flip must not clear the window capture")
     }
 }

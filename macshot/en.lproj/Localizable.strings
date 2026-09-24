@@ -100,11 +100,6 @@
 "Undo" = "Undo";
 "Redo" = "Redo";
 "Close" = "Close";
-"Remove Background" = "Remove Background";
-"Beautify" = "Beautify";
-"Adjust" = "Adjust";
-"Adjust (Image Effects)" = "Adjust (Image Effects)";
-"Invert Colors" = "Invert Colors";
 "Record" = "Record";
 "Record screen" = "Record screen";
 "Auto-Redact sensitive data" = "Auto-Redact sensitive data";
@@ -145,7 +140,6 @@
 "Outline" = "Outline";
 "More Emojis" = "More Emojis";
 "Load Image" = "Load Image";
-"Gradient Style" = "Gradient Style";
 "On" = "On";
 "Text Only" = "Text Only";
 "All Text" = "All Text";
@@ -157,8 +151,6 @@
 "Smooth" = "Smooth";
 "Refined" = "Refined";
 "Smart" = "Smart";
-"Padding" = "Padding";
-"Shadow" = "Shadow";
 "Right-click to add points" = "Right-click to add points";
 "Hold 1 auto-vertical  ·  Hold 2 auto-horizontal" = "Hold 1 auto-vertical  ·  Hold 2 auto-horizontal";
 
@@ -278,8 +270,6 @@
 "Annotation Tools" = "Annotation Tools";
 "Hidden tools are removed from the bottom toolbar." = "Hidden tools are removed from the bottom toolbar.";
 "Capture Actions" = "Capture Actions";
-"Bottom Toolbar Actions" = "Bottom Toolbar Actions";
-"Hidden actions are removed from the bottom toolbar." = "Hidden actions are removed from the bottom toolbar.";
 "Editor Actions" = "Editor Actions";
 "Right Toolbar Actions" = "Right Toolbar Actions";
 "Hidden actions are removed from the right toolbar." = "Hidden actions are removed from the right toolbar.";
@@ -426,14 +416,7 @@
 "Auto Scroll" = "Auto Scroll";
 "Stop" = "Stop";
 "Scrolling..." = "Scrolling...";
-
-/* Effects Picker (Adjust popover) */
 "Presets" = "Presets";
-"Adjustments" = "Adjustments";
-"Brightness" = "Brightness";
-"Contrast" = "Contrast";
-"Saturation" = "Saturation";
-"Sharpness" = "Sharpness";
 
 /* Time Ago */
 "just now" = "just now";
@@ -620,7 +603,6 @@
 "Importing will replace your current preferences with the ones in this file. Your save folder is kept. This cannot be undone." = "Importing will replace your current preferences with the ones in this file. Your save folder is kept. This cannot be undone.";
 "%d settings were applied. Relaunch macshot to apply all changes." = "%d settings were applied. Relaunch macshot to apply all changes.";
 "A few large items were too big to include. Everything else was saved." = "A few large items were too big to include. Everything else was saved.";
-"Your custom Beautify background image was too large to include. Everything else was saved." = "Your custom Beautify background image was too large to include. Everything else was saved.";
 "This file is not a valid macshot settings file." = "This file is not a valid macshot settings file.";
 "This settings file contains no settings." = "This settings file contains no settings.";
 "This settings file was made by a newer version of macshot. Please update macshot first." = "This settings file was made by a newer version of macshot. Please update macshot first.";

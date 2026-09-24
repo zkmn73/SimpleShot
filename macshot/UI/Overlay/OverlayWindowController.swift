@@ -7,12 +7,10 @@ import Vision
 struct CaptureAnnotationData {
     let rawImage: NSImage       // screenshot without annotations
     let annotations: [Annotation]
-    let editState: CaptureEditState?
 
-    init(rawImage: NSImage, annotations: [Annotation], editState: CaptureEditState? = nil) {
+    init(rawImage: NSImage, annotations: [Annotation]) {
         self.rawImage = rawImage
         self.annotations = annotations
-        self.editState = editState
     }
 }
 
@@ -399,12 +397,11 @@ class OverlayWindowController {
     }
 
     /// Snapshot editable history data, using a pre-captured raw image.
-    /// Returns nil if there are no movable annotations or post-processing edits.
+    /// Returns nil if there are no movable annotations.
     private func snapshotAnnotationData(rawImage: NSImage) -> CaptureAnnotationData? {
         guard let view = overlayView else { return nil }
         let annotations = view.annotations.filter { $0.isMovable }
-        let editState = view.captureEditState()
-        guard !annotations.isEmpty || editState.hasPostProcessing else { return nil }
+        guard !annotations.isEmpty else { return nil }
 
         let sel = view.selectionRect
         let shifted = annotations.map { ann -> Annotation in
@@ -412,61 +409,18 @@ class OverlayWindowController {
             c.move(dx: -sel.origin.x, dy: -sel.origin.y)
             return c
         }
-        return CaptureAnnotationData(
-            rawImage: rawImage,
-            annotations: shifted,
-            editState: editState.hasPostProcessing ? editState : nil
-        )
+        return CaptureAnnotationData(rawImage: rawImage, annotations: shifted)
     }
 
     private func currentAnnotationDataForHistory() -> CaptureAnnotationData? {
         guard let view = overlayView else { return nil }
-        let editState = view.captureEditState()
         let snapWindowImg = view.snappedWindowImage
         let hasAnnotations = view.annotations.contains(where: { $0.isMovable })
-        guard hasAnnotations || editState.hasPostProcessing else { return nil }
-        let rawImage: NSImage? = (editState.beautifyIsWindowSnap && snapWindowImg != nil)
+        guard hasAnnotations else { return nil }
+        let rawImage: NSImage? = (view.selectionIsWindowSnap && snapWindowImg != nil)
             ? snapWindowImg : view.captureSelectedRegionRaw()
         guard let rawImage else { return nil }
         return snapshotAnnotationData(rawImage: rawImage)
-    }
-
-    /// Composite annotations onto the snapped window image (preserving transparency).
-    private func compositeAnnotationsOnSnappedWindow(_ windowImage: NSImage, annotations: [Annotation], selectionRect: NSRect) -> NSImage {
-        guard !annotations.isEmpty else { return windowImage }
-        let sel = selectionRect
-        let size = windowImage.size
-        let result = NSImage(size: size, flipped: false) { _ in
-            windowImage.draw(in: NSRect(origin: .zero, size: size), from: .zero, operation: .copy, fraction: 1.0)
-            guard let ctx = NSGraphicsContext.current else { return true }
-            // Translate so annotation coords (relative to selectionRect) map to image coords
-            ctx.cgContext.translateBy(x: -sel.origin.x, y: -sel.origin.y)
-            // Match the live order: censor, then the spotlight dim (union of
-            // highlight rects, clipped to the selection), then shapes on top.
-            for annotation in annotations where annotation.tool == .pixelate {
-                annotation.draw(in: ctx)
-            }
-            Annotation.drawHighlightDim(for: annotations, in: sel)
-            for annotation in annotations where annotation.tool != .pixelate {
-                annotation.draw(in: ctx)
-            }
-            return true
-        }
-        return result
-    }
-
-    private func applyBeautifyIfNeeded(_ image: NSImage?) -> NSImage? {
-        guard let image = image, let view = overlayView else { return image }
-        var result = image
-        // Apply image effects first (non-destructive CIFilter adjustments)
-        if view.effectsActive {
-            result = ImageEffects.apply(to: result, config: view.effectsConfig)
-        }
-        // Apply beautify second (gradient background wrapping)
-        if view.beautifyEnabled {
-            result = BeautifyRenderer.render(image: result, config: view.beautifyConfig)
-        }
-        return result
     }
 
     private func copyImageToClipboard(_ image: NSImage) {
@@ -497,11 +451,6 @@ extension OverlayWindowController: OverlayViewDelegate {
     }
 
     func overlayViewDidConfirm() {
-        // Snapshot post-processing config before dismissing (view will be torn down)
-        let hasEffects = overlayView?.effectsActive ?? false
-        let effectsCfg = overlayView?.effectsConfig ?? ImageEffectsConfig()
-        let hasBeautify = overlayView?.beautifyEnabled ?? false
-        let beautifyCfg = overlayView?.beautifyConfig ?? BeautifyConfig()
         let snapWindowImg = overlayView?.snappedWindowImage
 
         // Capture the composited image (screenshot + annotations baked in).
@@ -512,17 +461,13 @@ extension OverlayWindowController: OverlayViewDelegate {
             return
         }
 
-        // Snapshot annotations + selection rect before dismiss (view will be torn down)
-        let snapshotAnnotations = overlayView?.annotations ?? []
-        let snapshotSelRect = overlayView?.selectionRect ?? .zero
-
         // Snapshot annotation data using the raw screenshot (without annotations).
         // For window snaps, use the independently captured window image (transparent corners)
         // so the editor shows clean corners when re-editing.
         let hasAnnotations = overlayView?.annotations.contains(where: { $0.isMovable }) ?? false
         let annotationData: CaptureAnnotationData?
-        if hasAnnotations || hasEffects || hasBeautify {
-            let rawImage: NSImage? = (beautifyCfg.isWindowSnap && snapWindowImg != nil)
+        if hasAnnotations {
+            let rawImage: NSImage? = (overlayView?.selectionIsWindowSnap == true && snapWindowImg != nil)
                 ? snapWindowImg : overlayView?.captureSelectedRegionRaw()
             if let raw = rawImage {
                 annotationData = snapshotAnnotationData(rawImage: raw)
@@ -536,36 +481,15 @@ extension OverlayWindowController: OverlayViewDelegate {
         // Dismiss immediately — user is free to continue working
         dismiss()
 
-        // Apply post-processing if needed
-        var finalImage = compositedImage
-        if hasEffects {
-            finalImage = ImageEffects.apply(to: finalImage, config: effectsCfg)
-        }
-        if hasBeautify {
-            // For snapped windows, use the independently captured window image (transparent corners)
-            // with annotations composited on top (using pre-dismiss snapshot)
-            var beautifyInput = finalImage
-            if beautifyCfg.isWindowSnap, let snapWindowImg {
-                // The snapped window is its own capture, so the effects applied
-                // to `finalImage` above have to be applied to it as well —
-                // otherwise turning on beautify silently discarded them.
-                let snapped = compositeAnnotationsOnSnappedWindow(
-                    snapWindowImg, annotations: snapshotAnnotations, selectionRect: snapshotSelRect)
-                beautifyInput = hasEffects ? ImageEffects.apply(to: snapped, config: effectsCfg) : snapped
-            }
-            finalImage = BeautifyRenderer.render(image: beautifyInput, config: beautifyCfg)
-        }
-
         // Copy button / Cmd+C always copies to clipboard
-        ImageEncoder.copyToClipboard(finalImage)
+        ImageEncoder.copyToClipboard(compositedImage)
 
-        overlayDelegate?.overlayDidConfirm(self, capturedImage: finalImage, annotationData: annotationData)
+        overlayDelegate?.overlayDidConfirm(self, capturedImage: compositedImage, annotationData: annotationData)
     }
 
     func overlayViewDidRequestPin() {
-        guard var image = captureRegion() else { return }
+        guard let image = captureRegion() else { return }
         let annotationData = currentAnnotationDataForHistory()
-        image = applyBeautifyIfNeeded(image) ?? image
         dismiss()
         overlayDelegate?.overlayDidRequestPin(self, image: image, annotationData: annotationData)
     }
@@ -595,8 +519,7 @@ extension OverlayWindowController: OverlayViewDelegate {
             return
         }
 
-        guard var image = captureRegion() else { return }
-        image = applyBeautifyIfNeeded(image) ?? image
+        guard let image = captureRegion() else { return }
         let annotationData = currentAnnotationDataForHistory()
         guard let imageData = ImageEncoder.encode(image) else { return }
         let tempURL = TmpScratchDirectory.makeURL(
@@ -748,107 +671,28 @@ extension OverlayWindowController: OverlayViewDelegate {
         let tool = view.currentTool
         let color = view.currentColor
         let stroke = view.currentStrokeWidth
-        let editState = view.captureEditState()
 
         dismiss()
         overlayDelegate?.overlayDidCancel(self)
         DetachedEditorWindowController.open(
             image: image, tool: tool, color: color, strokeWidth: stroke,
-            annotations: shiftedAnnotations, fromCapture: true,
-            editState: editState.hasPostProcessing ? editState : nil)
-    }
-
-    @available(macOS 14.0, *)
-    func overlayViewDidRequestRemoveBackground() {
-        guard var image = captureRegion() else { return }
-        image = applyBeautifyIfNeeded(image) ?? image
-
-        guard let cgImage = image.cgImage(forProposedRect: nil, context: nil, hints: nil) else {
-            return
-        }
-
-        let request = VNGenerateForegroundInstanceMaskRequest()
-        let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])
-
-        DispatchQueue.global(qos: .userInitiated).async {
-            do {
-                try handler.perform([request])
-                guard let result = request.results?.first else {
-                    throw NSError(domain: "Macshot", code: 1)
-                }
-
-                let maskPixelBuffer = try result.generateScaledMaskForImage(
-                    forInstances: result.allInstances, from: handler)
-
-                let originalCIImage = CIImage(cgImage: cgImage)
-                let maskCIImage = CIImage(cvPixelBuffer: maskPixelBuffer)
-
-                // Blend original with mask
-                guard let filter = CIFilter(name: "CIBlendWithMask") else {
-                    throw NSError(domain: "Macshot", code: 2)
-                }
-                filter.setValue(originalCIImage, forKey: kCIInputImageKey)
-                filter.setValue(maskCIImage, forKey: kCIInputMaskImageKey)
-                filter.setValue(
-                    CIImage(color: .clear).cropped(to: originalCIImage.extent),
-                    forKey: kCIInputBackgroundImageKey)
-
-                guard let outputCIImage = filter.outputImage else {
-                    throw NSError(domain: "Macshot", code: 3)
-                }
-
-                let context = CIContext()
-                guard
-                    let finalCGImage = context.createCGImage(
-                        outputCIImage, from: outputCIImage.extent)
-                else { throw NSError(domain: "Macshot", code: 4) }
-
-                let finalNSImage = NSImage(cgImage: finalCGImage, size: image.size)
-
-                DispatchQueue.main.async {
-                    // quickCaptureMode: 0=save, 1=copy, 2=both, 3=do nothing
-                    let mode = UserDefaults.standard.object(forKey: "quickCaptureMode") as? Int ?? 1
-                    if mode == 1 || mode == 2 {
-                        self.copyImageToClipboard(finalNSImage)
-                    }
-                    self.dismiss()
-                    self.overlayDelegate?.overlayDidConfirm(self, capturedImage: finalNSImage, annotationData: nil)
-                }
-            } catch {
-                #if DEBUG
-                    print("Vision background removal error: \(error.localizedDescription)")
-                #endif
-                DispatchQueue.main.async {
-                    self.overlayView?.showOverlayError(
-                        "Background removal failed — no clear subject found.")
-                }
-            }
-        }
+            annotations: shiftedAnnotations, fromCapture: true)
     }
 
     func overlayViewDidRequestQuickSave() {
-        // Snapshot post-processing config before dismissing
-        let hasEffects = overlayView?.effectsActive ?? false
-        let effectsCfg = overlayView?.effectsConfig ?? ImageEffectsConfig()
-        let hasBeautify = overlayView?.beautifyEnabled ?? false
-        let beautifyCfg = overlayView?.beautifyConfig ?? BeautifyConfig()
         let snapWindowImg = overlayView?.snappedWindowImage
 
-        guard let compositedImage = captureRegion() else {
+        guard let image = captureRegion() else {
             dismiss()
             overlayDelegate?.overlayDidCancel(self)
             return
         }
 
-        // Snapshot annotations + selection rect before dismiss
-        let snapshotAnns = overlayView?.annotations ?? []
-        let snapshotSel = overlayView?.selectionRect ?? .zero
-
         // Snapshot annotation data — use snapped window image for clean corners
         let hasAnnotations = overlayView?.annotations.contains(where: { $0.isMovable }) ?? false
         let annotationData: CaptureAnnotationData?
-        if hasAnnotations || hasEffects || hasBeautify {
-            let rawImage: NSImage? = (beautifyCfg.isWindowSnap && snapWindowImg != nil)
+        if hasAnnotations {
+            let rawImage: NSImage? = (overlayView?.selectionIsWindowSnap == true && snapWindowImg != nil)
                 ? snapWindowImg : overlayView?.captureSelectedRegionRaw()
             if let raw = rawImage {
                 annotationData = snapshotAnnotationData(rawImage: raw)
@@ -860,19 +704,6 @@ extension OverlayWindowController: OverlayViewDelegate {
         }
 
         dismiss()
-
-        // Apply post-processing
-        var image = compositedImage
-        if hasEffects { image = ImageEffects.apply(to: image, config: effectsCfg) }
-        if hasBeautify {
-            var beautifyInput = image
-            if beautifyCfg.isWindowSnap, let snapWindowImg {
-                let snapped = compositeAnnotationsOnSnappedWindow(
-                    snapWindowImg, annotations: snapshotAnns, selectionRect: snapshotSel)
-                beautifyInput = hasEffects ? ImageEffects.apply(to: snapped, config: effectsCfg) : snapped
-            }
-            image = BeautifyRenderer.render(image: beautifyInput, config: beautifyCfg)
-        }
 
         // quickCaptureMode: 0=save, 1=copy, 2=both, 3=do nothing
         let mode = UserDefaults.standard.object(forKey: "quickCaptureMode") as? Int ?? 1
@@ -938,28 +769,7 @@ extension OverlayWindowController: OverlayViewDelegate {
     }
 
     private func captureImageForSave() -> NSImage? {
-        let hasEffects = overlayView?.effectsActive ?? false
-        let effectsCfg = overlayView?.effectsConfig ?? ImageEffectsConfig()
-        let hasBeautify = overlayView?.beautifyEnabled ?? false
-        let beautifyCfg = overlayView?.beautifyConfig ?? BeautifyConfig()
-        let snapWindowImg = overlayView?.snappedWindowImage
-        let snapshotAnns = overlayView?.annotations ?? []
-        let snapshotSel = overlayView?.selectionRect ?? .zero
-
-        guard var image = captureRegion() else { return nil }
-        if hasEffects {
-            image = ImageEffects.apply(to: image, config: effectsCfg)
-        }
-        if hasBeautify {
-            var beautifyInput = image
-            if beautifyCfg.isWindowSnap, let snapWindowImg {
-                let snapped = compositeAnnotationsOnSnappedWindow(
-                    snapWindowImg, annotations: snapshotAnns, selectionRect: snapshotSel)
-                beautifyInput = hasEffects ? ImageEffects.apply(to: snapped, config: effectsCfg) : snapped
-            }
-            image = BeautifyRenderer.render(image: beautifyInput, config: beautifyCfg)
-        }
-        return image
+        captureRegion()
     }
 }
 

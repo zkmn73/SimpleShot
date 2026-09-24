@@ -480,12 +480,7 @@ class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSWindowD
             do {
                 try result.data.write(to: url)
                 if !result.skippedLargeKeys.isEmpty {
-                    let message: String
-                    if result.skippedLargeKeys == ["beautifyCustomBgImageData"] {
-                        message = L("Your custom Beautify background image was too large to include. Everything else was saved.")
-                    } else {
-                        message = L("A few large items were too big to include. Everything else was saved.")
-                    }
+                    let message = L("A few large items were too big to include. Everything else was saved.")
                     self?.presentBackupInfo(title: L("Settings exported"), message: message)
                 }
             } catch {
@@ -1274,26 +1269,6 @@ class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSWindowD
         toolsGrid.widthAnchor.constraint(equalTo: stack.widthAnchor, constant: -40).isActive = true
         stack.setCustomSpacing(20, after: stack.arrangedSubviews.last!)
 
-        // ── Bottom Toolbar Actions ───────────────────────────
-        stack.addArrangedSubview(sectionHeader(L("Bottom Toolbar Actions")))
-        stack.setCustomSpacing(4, after: stack.arrangedSubviews.last!)
-
-        let noteB = NSTextField(labelWithString: L("Hidden actions are removed from the bottom toolbar."))
-        noteB.font = NSFont.systemFont(ofSize: 11)
-        noteB.textColor = .secondaryLabelColor
-        stack.addArrangedSubview(noteB)
-        stack.setCustomSpacing(10, after: stack.arrangedSubviews.last!)
-
-        let bottomActionItems = ToolbarCustomAction.bottomSettingsActions.map {
-            (tag: $0.rawValue, label: $0.settingsLabel)
-        }
-        let enabledActions = UserDefaults.standard.array(forKey: "enabledActions") as? [Int]
-        let bottomActionsGrid = makeToggleGrid(items: bottomActionItems,
-                                               defaultsKey: "enabledActions", enabledValues: enabledActions)
-        stack.addArrangedSubview(bottomActionsGrid)
-        bottomActionsGrid.widthAnchor.constraint(equalTo: stack.widthAnchor, constant: -40).isActive = true
-        stack.setCustomSpacing(20, after: stack.arrangedSubviews.last!)
-
         // ── Right Toolbar Actions ────────────────────────────
         stack.addArrangedSubview(sectionHeader(L("Right Toolbar Actions")))
         stack.setCustomSpacing(4, after: stack.arrangedSubviews.last!)
@@ -1307,6 +1282,7 @@ class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSWindowD
         let rightActionItems = ToolbarCustomAction.rightSettingsActions.map {
             (tag: $0.rawValue, label: $0.settingsLabel)
         }
+        let enabledActions = UserDefaults.standard.array(forKey: "enabledActions") as? [Int]
         let rightActionsGrid = makeToggleGrid(items: rightActionItems,
                                               defaultsKey: "enabledActions", enabledValues: enabledActions)
         stack.addArrangedSubview(rightActionsGrid)

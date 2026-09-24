@@ -21,7 +21,6 @@ class EditorView: OverlayView {
     override func drawEditorBackground(context: NSGraphicsContext) {
         // NSScrollView.backgroundColor handles the dark background.
         // CenteringClipView handles centering. Magnification handles zoom.
-        guard !beautifyEnabled else { return }
 
         // Fast path: if we have a cached composite (screenshot + all committed annotations)
         // and nothing is actively being drawn, draw the single cached image.

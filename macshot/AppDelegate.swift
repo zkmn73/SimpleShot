@@ -239,10 +239,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
             return
         }
 
-        // Clear image-effect state written by a pre-June-2026 build, which
-        // otherwise leaves Vivid silently applied to every capture (#345).
-        EffectsMigration.runIfNeeded()
-
         // Surface save failures — otherwise a capture that can't be written
         // (full disk, unmounted volume) disappears without a word.
         ImageSaveService.onFailure = { [weak self] message in
@@ -1818,11 +1814,10 @@ extension AppDelegate: OverlayWindowControllerDelegate {
                 if let data = annotationData {
                     DetachedEditorWindowController.open(
                         image: data.rawImage,
-                        annotations: data.annotations,
-                        editState: data.editState
+                        annotations: data.annotations
                     )
                 } else {
-                    DetachedEditorWindowController.open(image: image, disableBeautify: true)
+                    DetachedEditorWindowController.open(image: image)
                 }
             }
 
@@ -2172,7 +2167,7 @@ extension AppDelegate: OverlayWindowControllerDelegate {
         }
 
         if UserDefaults.standard.bool(forKey: "quickCaptureOpenEditor") {
-            DetachedEditorWindowController.open(image: image, disableBeautify: true)
+            DetachedEditorWindowController.open(image: image)
         }
     }
 

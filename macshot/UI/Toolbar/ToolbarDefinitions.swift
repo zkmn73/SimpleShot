@@ -18,20 +18,15 @@ enum ToolbarButtonAction {
     case pin
     case ocr
     case autoRedact
-    case beautify
-    case beautifyStyle
     case cancel
     case moveSelection
     case adjustSelection
     case delayCapture
     case share
-    case removeBackground
-    case invertColors
     case loupe
     case detach
     case scrollCapture
     case addCapture  // editor only: capture a new region and append to the canvas
-    case effects  // image effects (CIFilter adjustments + presets)
 }
 
 struct ToolbarButton {
@@ -48,32 +43,17 @@ struct ToolbarButton {
 enum ToolbarCustomAction: Int {
     case pin = 1002
     case ocr = 1003
-    case beautify = 1004
-    case removeBackground = 1005
     case autoRedact = 1006
     case reserved1007 = 1007
     case scrollCapture = 1010
-    case invertColors = 1011
     case share = 1012
-    case effects = 1013
 
     static var allKnownActions: [ToolbarCustomAction] {
-        [
-            .pin, .ocr, .beautify, .removeBackground, .autoRedact, .reserved1007,
-            .scrollCapture, .invertColors, .share, .effects,
-        ]
-    }
-
-    static var bottomToolbarActions: [ToolbarCustomAction] {
-        [.invertColors, .effects, .beautify, .removeBackground]
+        [.pin, .ocr, .autoRedact, .reserved1007, .scrollCapture, .share]
     }
 
     static var rightToolbarActions: [ToolbarCustomAction] {
         [.share, .pin, .ocr, .scrollCapture]
-    }
-
-    static var bottomSettingsActions: [ToolbarCustomAction] {
-        bottomToolbarActions
     }
 
     static var rightSettingsActions: [ToolbarCustomAction] {
@@ -84,20 +64,14 @@ enum ToolbarCustomAction: Int {
         switch self {
         case .pin: return L("Pin (floating window)")
         case .ocr: return L("OCR & QR")
-        case .beautify: return L("Beautify")
-        case .removeBackground: return L("Remove Background")
         case .autoRedact: return L("Auto-Redact sensitive data")
         case .reserved1007: return ""
         case .scrollCapture: return L("Scroll Capture")
-        case .invertColors: return L("Invert Colors")
         case .share: return L("Share")
-        case .effects: return L("Adjust (Image Effects)")
         }
     }
 
     func makeToolbarButton(
-        beautifyEnabled: Bool = false,
-        effectsActive: Bool = false,
         isRecording: Bool = false,
         isEditorMode: Bool = false
     ) -> ToolbarButton? {
@@ -106,42 +80,13 @@ enum ToolbarCustomAction: Int {
             return ToolbarButton(action: .pin, sfSymbol: "pin.fill", tooltip: L("Pin"))
         case .ocr:
             return ToolbarButton(action: .ocr, sfSymbol: "doc.text.viewfinder", tooltip: L("OCR & QR"))
-        case .beautify:
-            var button = ToolbarButton(action: .beautify, sfSymbol: "sparkles", tooltip: L("Beautify"))
-            if beautifyEnabled {
-                let enabledColor = NSColor(calibratedRed: 1.0, green: 0.8, blue: 0.2, alpha: 1.0)
-                button.tintColor = enabledColor
-                button.selectedTintColor = enabledColor
-            }
-            return button
-        case .removeBackground:
-            if #available(macOS 14.0, *) {
-                return ToolbarButton(
-                    action: .removeBackground,
-                    sfSymbol: "person.crop.circle.dashed",
-                    tooltip: L("Remove Background")
-                )
-            }
-            return nil
         case .autoRedact, .reserved1007:
             return nil
         case .scrollCapture:
             guard !isRecording && !isEditorMode else { return nil }
             return ToolbarButton(action: .scrollCapture, sfSymbol: "scroll", tooltip: L("Scroll Capture"))
-        case .invertColors:
-            return ToolbarButton(
-                action: .invertColors,
-                sfSymbol: "circle.righthalf.filled.inverse",
-                tooltip: L("Invert Colors")
-            )
         case .share:
             return ToolbarButton(action: .share, sfSymbol: "square.and.arrow.up", tooltip: L("Share"))
-        case .effects:
-            var button = ToolbarButton(action: .effects, sfSymbol: "slider.horizontal.3", tooltip: L("Adjust"))
-            if effectsActive {
-                button.tintColor = NSColor(calibratedRed: 1.0, green: 0.8, blue: 0.2, alpha: 1.0)
-            }
-            return button
         }
     }
 }
@@ -252,11 +197,10 @@ class ToolbarLayout {
         UserDefaults.standard.removeObject(forKey: "toolbarBgColor")
     }
 
-    // Bottom toolbar items (drawing tools + colors + undo/redo + processing actions)
+    // Bottom toolbar items (drawing tools + colors + undo/redo)
     static func bottomButtons(
-        selectedTool: AnnotationTool, selectedColor: NSColor, beautifyEnabled: Bool = false,
-        beautifyStyleIndex: Int = 0, hasAnnotations: Bool = false, isRecording: Bool = false,
-        effectsActive: Bool = false
+        selectedTool: AnnotationTool, selectedColor: NSColor,
+        hasAnnotations: Bool = false, isRecording: Bool = false
     ) -> [ToolbarButton] {
         // Hide the bottom bar entirely while recording
         if isRecording { return [] }
@@ -335,24 +279,12 @@ class ToolbarLayout {
             ToolbarButton(
                 action: .redo, sfSymbol: "arrow.uturn.forward", tooltip: L("Redo")))
 
-        let enabledActions = ToolbarActionPreferences.enabledRawValuesAfterMigration()
-        for action in ToolbarCustomAction.bottomToolbarActions {
-            guard ToolbarActionPreferences.isEnabled(action, in: enabledActions) else { continue }
-            if let button = action.makeToolbarButton(
-                beautifyEnabled: beautifyEnabled,
-                effectsActive: effectsActive,
-                isRecording: isRecording
-            ) {
-                buttons.append(button)
-            }
-        }
-
         return buttons
     }
 
     // Right toolbar items (output actions + cancel + delay)
     static func rightButtons(
-        beautifyEnabled: Bool = false, beautifyStyleIndex: Int = 0, hasAnnotations: Bool = false,
+        hasAnnotations: Bool = false,
         isRecording: Bool = false,
         isEditorMode: Bool = false
     ) -> [ToolbarButton] {

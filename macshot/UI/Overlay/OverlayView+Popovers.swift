@@ -34,79 +34,6 @@ extension OverlayView {
         }
     }
 
-    func showBeautifyGradientPopover(anchorView: NSView? = nil, anchorRect: NSRect = .zero) {
-        let picker = GradientPickerView(selectedIndex: beautifyStyleIndex)
-        picker.onSelect = { [weak self] idx in
-            guard let self = self else { return }
-            self.beautifyStyleIndex = idx
-            UserDefaults.standard.set(idx, forKey: "beautifyStyleIndex")
-            if idx >= 0 {
-                // Gradient selected — clear custom background
-                self.customBeautifyBackground = nil
-            } else {
-                // Custom image selected — load from storage
-                self.loadCustomBeautifyBackground()
-            }
-            self.cachedCompositedImage = nil
-            self.needsDisplay = true
-            self.updateBeautifySwatch(styleIndex: idx)
-            self.onContentChanged?()
-            // Rebuild options row so blur slider appears/disappears
-            self.rebuildToolbarLayout()
-        }
-        picker.onCustomImage = { [weak self] in
-            PopoverHelper.dismiss()
-            self?.pickCustomBeautifyBackground()
-        }
-        if let anchor = anchorView {
-            PopoverHelper.show(
-                picker, size: picker.preferredSize, relativeTo: anchor.bounds, of: anchor,
-                preferredEdge: .minY)
-        } else {
-            PopoverHelper.showAtPoint(
-                picker, size: picker.preferredSize,
-                at: NSPoint(x: anchorRect.midX, y: anchorRect.midY),
-                in: self, preferredEdge: .minY)
-        }
-    }
-
-    func pickCustomBeautifyBackground() {
-        let panel = NSOpenPanel()
-        panel.canChooseFiles = true
-        panel.canChooseDirectories = false
-        panel.allowedContentTypes = [.image]
-        panel.allowsMultipleSelection = false
-        // Lower overlay window level temporarily so the open panel is interactive
-        let savedLevel = window?.level
-        window?.level = .normal
-        panel.beginSheetModal(for: window!) { [weak self] response in
-            self?.window?.level = savedLevel ?? .normal
-            guard let self = self, response == .OK, let url = panel.url,
-                  let image = NSImage(contentsOf: url) else { return }
-            // Store image data (PNG) in UserDefaults for persistence
-            if let tiff = image.tiffRepresentation,
-               let bitmap = NSBitmapImageRep(data: tiff),
-               let pngData = bitmap.representation(using: .png, properties: [:]) {
-                UserDefaults.standard.set(pngData, forKey: "beautifyCustomBgImageData")
-            }
-            self.customBeautifyBackground = image
-            self.prepareBeautifyBackgroundCache()
-            self.beautifyStyleIndex = -1
-            UserDefaults.standard.set(-1, forKey: "beautifyStyleIndex")
-            self.cachedCompositedImage = nil
-            self.needsDisplay = true
-            self.updateBeautifySwatch(styleIndex: -1)
-            self.rebuildToolbarLayout()
-        }
-    }
-
-    func loadCustomBeautifyBackground() {
-        guard let data = UserDefaults.standard.data(forKey: "beautifyCustomBgImageData"),
-              let image = NSImage(data: data) else { return }
-        customBeautifyBackground = image
-        prepareBeautifyBackgroundCache()
-    }
-
     func showEmojiPopover(anchorView: NSView? = nil, anchorRect: NSRect = .zero) {
         let picker = EmojiPickerView()
         picker.onSelectEmoji = { [weak self] emoji in
@@ -197,39 +124,6 @@ extension OverlayView {
             self.redoStack.removeAll()
             self.cachedCompositedImage = nil
             self.needsDisplay = true
-        }
-    }
-
-    func showEffectsPopover(anchorView: NSView? = nil, anchorRect: NSRect = .zero) {
-        if PopoverHelper.toggleClosedIfOpen() { return }
-        let picker = EffectsPickerView(config: effectsConfig)
-        picker.onConfigChanged = { [weak self] config in
-            guard let self = self else { return }
-            self.effectsPreset = config.preset
-            self.effectsBrightness = config.brightness
-            self.effectsContrast = config.contrast
-            self.effectsSaturation = config.saturation
-            self.effectsSharpness = config.sharpness
-            UserDefaults.standard.set(config.preset.rawValue, forKey: "effectsPreset")
-            UserDefaults.standard.set(Double(config.brightness), forKey: "effectsBrightness")
-            UserDefaults.standard.set(Double(config.contrast), forKey: "effectsContrast")
-            UserDefaults.standard.set(Double(config.saturation), forKey: "effectsSaturation")
-            UserDefaults.standard.set(Double(config.sharpness), forKey: "effectsSharpness")
-            self.cachedCompositedImage = nil
-            self.cachedEffectsScreenshot = nil
-            self.rebuildToolbarLayout()
-            self.needsDisplay = true
-            self.onContentChanged?()
-        }
-        let size = picker.preferredSize
-        if let anchor = anchorView {
-            PopoverHelper.show(
-                picker, size: size, relativeTo: anchor.bounds, of: anchor, preferredEdge: .maxY)
-        } else {
-            PopoverHelper.showAtPoint(
-                picker, size: size,
-                at: NSPoint(x: anchorRect.midX, y: anchorRect.midY),
-                in: self, preferredEdge: .maxY)
         }
     }
 

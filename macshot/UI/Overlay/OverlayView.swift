@@ -14,8 +14,6 @@ protocol OverlayViewDelegate: AnyObject {
     func overlayViewDidRequestQuickSave()
     func overlayViewDidRequestFileSave()
     func overlayViewDidRequestShare(anchorView: NSView?)
-    @available(macOS 14.0, *)
-    func overlayViewDidRequestRemoveBackground()
     func overlayViewDidRequestDetach()
     func overlayViewDidRequestScrollCapture(rect: NSRect)
     func overlayViewDidRequestStopScrollCapture()
@@ -35,8 +33,7 @@ enum UndoEntry {
     case deleted(Annotation, Int)  // annotation was deleted at index; undo re-inserts it
     /// Image transform (crop/flip): stores the previous image and annotation offsets to restore.
     /// `previousSnappedWindowImage` is non-nil only for transforms that also
-    /// changed the separately-captured window image beautify's window-snap
-    /// mode draws from.
+    /// changed the separately-captured window-snap image.
     case imageTransform(previousImage: NSImage, previousSnappedWindowImage: NSImage?,
                         annotationOffsets: [(Annotation, CGFloat, CGFloat)])
     /// Property change: stores the annotation and a snapshot taken before the edit.
@@ -66,13 +63,6 @@ struct OverlayEditorState {
     var currentMarkerSize: CGFloat
     var currentNumberSize: CGFloat
     var numberCounter: Int
-    var beautifyEnabled: Bool
-    var beautifyStyleIndex: Int
-    var effectsPreset: ImageEffectPreset
-    var effectsBrightness: Float
-    var effectsContrast: Float
-    var effectsSaturation: Float
-    var effectsSharpness: Float
 }
 
 class OverlayView: NSView {
@@ -97,15 +87,7 @@ class OverlayView: NSView {
     var screenshotImage: NSImage? {
         didSet {
             cachedCompositedImage = nil
-            cachedEffectsScreenshot = nil
             cachedOpaqueRect = nil
-            // Load the custom beautify background at session start. reset() only
-            // runs at session teardown, so the FIRST capture of a freshly-created
-            // pooled controller would otherwise render with no custom background
-            // (and fall through to a gradient) if beautify was left on with the
-            // custom-image style. The beautifyConfig getter is now side-effect-free,
-            // so this must be done eagerly. Idempotent.
-            if screenshotImage != nil { ensureCustomBeautifyBackgroundLoaded() }
             if captureSourceImage != nil {
                 captureSourceImage = screenshotImage
             }
@@ -193,7 +175,6 @@ class OverlayView: NSView {
     var annotations: [Annotation] = [] {
         didSet {
             cachedCompositedImage = nil
-            cachedEffectsScreenshot = nil
             // Update move button enabled state when annotations change
             if showToolbars { rebuildToolbarLayout() }
         }
@@ -219,8 +200,7 @@ class OverlayView: NSView {
         }
     }
     var redoStack: [UndoEntry] = []
-    /// Fired when editable content changes (undo stack, or beautify/effects).
-    /// The detached editor uses this to reveal "Done" only once there's an edit.
+    /// Fired when editable content changes (undo stack).
     var onContentChanged: (() -> Void)?
     private var currentAnnotation: Annotation?
     /// Whether the user is actively drawing/dragging a new annotation.
@@ -419,121 +399,9 @@ class OverlayView: NSView {
     private var preSelectionPresetButton: PreSelectionPresetButton?
     private var preSelectionPresetButtonRect: NSRect = .zero
 
-    // Beautify
-    var beautifyEnabled: Bool = UserDefaults.standard.bool(forKey: "beautifyEnabled")
-    var beautifyStyleIndex: Int = UserDefaults.standard.integer(
-        forKey: "beautifyStyleIndex")
-    var beautifyMode: BeautifyMode =
-        BeautifyMode(rawValue: UserDefaults.standard.integer(forKey: "beautifyMode")) ?? .window
-    var beautifyPadding: CGFloat = {
-        let v = UserDefaults.standard.object(forKey: "beautifyPadding") as? Double
-        return v != nil ? CGFloat(v!) : 48
-    }()
-    var beautifyCornerRadius: CGFloat = {
-        let v = UserDefaults.standard.object(forKey: "beautifyCornerRadius") as? Double
-        return v != nil ? CGFloat(v!) : 10
-    }()
-    var beautifyShadowRadius: CGFloat = {
-        let v = UserDefaults.standard.object(forKey: "beautifyShadowRadius") as? Double
-        return v != nil ? CGFloat(v!) : 20
-    }()
-    private(set) var beautifyBgRadius: CGFloat = {
-        let v = UserDefaults.standard.object(forKey: "beautifyBgRadius") as? Double
-        return v != nil ? CGFloat(v!) : 8
-    }()
-
-    var customBeautifyBackground: NSImage? {
-        didSet { cachedBeautifyBgCGImage = nil }
-    }
-    var beautifyBackgroundBlur: CGFloat = UserDefaults.standard.object(forKey: "beautifyBgBlur") as? CGFloat ?? 0 {
-        didSet {
-            cachedBeautifyBgCGImage = nil
-            prepareBeautifyBackgroundCache()
-        }
-    }
-    private var cachedBeautifyBgCGImage: CGImage?
-
-    func prepareBeautifyBackgroundCache() {
-        guard let bg = customBeautifyBackground else { return }
-        var cfg = BeautifyConfig(customBackgroundImage: bg, backgroundBlur: beautifyBackgroundBlur)
-        cfg.prepareBackgroundCache()
-        cachedBeautifyBgCGImage = cfg.cachedBackgroundCGImage
-    }
-
-    /// Load the custom beautify background from UserDefaults if the custom style
-    /// is selected but the image isn't in memory yet. MUST be called explicitly
-    /// (not from the `beautifyConfig` getter) — a getter that mutates state caused
-    /// the editor's "Save changes?" prompt to fire on reopen even with no edits,
-    /// because the lazy load changed `customBeautifyBackground` after the editor's
-    /// clean-state signature was captured. Safe to call repeatedly.
-    func ensureCustomBeautifyBackgroundLoaded() {
-        guard beautifyStyleIndex == -1, customBeautifyBackground == nil else { return }
-        if let data = UserDefaults.standard.data(forKey: "beautifyCustomBgImageData"),
-           let img = NSImage(data: data) {
-            customBeautifyBackground = img
-            prepareBeautifyBackgroundCache()
-        }
-    }
-
-    var beautifyConfig: BeautifyConfig {
-        return BeautifyConfig(
-            mode: beautifyMode,
-            styleIndex: beautifyStyleIndex,
-            padding: beautifyPadding,
-            cornerRadius: beautifyCornerRadius,
-            shadowRadius: beautifyShadowRadius,
-            bgRadius: 0,
-            isWindowSnap: selectionIsWindowSnap,
-            customBackgroundImage: beautifyStyleIndex == -1 ? customBeautifyBackground : nil,
-            backgroundBlur: beautifyBackgroundBlur,
-            cachedBackgroundCGImage: beautifyStyleIndex == -1 ? cachedBeautifyBgCGImage : nil
-        )
-    }
-
-    var showBeautifyInOptionsRow: Bool = false
-
-    // Image effects
-    var effectsPreset: ImageEffectPreset =
-        ImageEffectPreset(rawValue: UserDefaults.standard.integer(forKey: "effectsPreset")) ?? .none
-    var effectsBrightness: Float = {
-        let v = UserDefaults.standard.object(forKey: "effectsBrightness") as? Double
-        return v != nil ? Float(v!) : 0
-    }()
-    var effectsContrast: Float = {
-        let v = UserDefaults.standard.object(forKey: "effectsContrast") as? Double
-        return v != nil ? Float(v!) : 1.0
-    }()
-    var effectsSaturation: Float = {
-        let v = UserDefaults.standard.object(forKey: "effectsSaturation") as? Double
-        return v != nil ? Float(v!) : 1.0
-    }()
-    var effectsSharpness: Float = {
-        let v = UserDefaults.standard.object(forKey: "effectsSharpness") as? Double
-        return v != nil ? Float(v!) : 0
-    }()
-
-    var effectsConfig: ImageEffectsConfig {
-        ImageEffectsConfig(
-            preset: effectsPreset,
-            brightness: effectsBrightness,
-            contrast: effectsContrast,
-            saturation: effectsSaturation,
-            sharpness: effectsSharpness
-        )
-    }
-    var effectsActive: Bool { !effectsConfig.isIdentity }
-
-    /// Cached effects-processed screenshot for live preview. Invalidated when effects or annotations change.
-    var cachedEffectsScreenshot: NSImage?
-
     // Color picker target
     enum ColorPickerTarget { case drawColor, textBg, textOutline, textGlyphStroke, annotationOutline, loupeOutline }
     private var colorPickerTarget: ColorPickerTarget = .drawColor
-
-    // Beautify toolbar animation
-    private var beautifyToolbarAnimProgress: CGFloat = 1.0  // 0..1, 1 = fully settled
-    private var beautifyToolbarAnimTimer: Timer?
-    private var beautifyToolbarAnimTarget: Bool = false  // target beautify state
 
     // Tool options row (second row below bottom bar)
     var currentMeasureInPoints: Bool = UserDefaults.standard.bool(forKey: "measureInPoints")
@@ -898,7 +766,7 @@ class OverlayView: NSView {
     private static let preSelectionPresetWidthKey = "preSelectionResolutionPresetWidth"
     private static let preSelectionPresetHeightKey = "preSelectionResolutionPresetHeight"
     var snappedWindowID: CGWindowID? = nil
-    /// Independently captured window image (with transparent corners) for beautify snap mode.
+    /// Independently captured window image (with transparent corners) for window-snap mode.
     var snappedWindowImage: NSImage? = nil
     private var snapQueryInFlight: Bool = false
     private var pendingSnapQueryPoint: NSPoint?
@@ -1093,9 +961,7 @@ class OverlayView: NSView {
         }
 
         // Stamp cursor preview — track in view coords (same as annotations)
-        if currentTool == .stamp && currentStampImage != nil && state == .selected && !isRecording
-            && !showBeautifyInOptionsRow
-        {
+        if currentTool == .stamp && currentStampImage != nil && state == .selected && !isRecording {
             let canvasStampPt = viewToCanvas(point)
             let hoveringStamp = annotations.reversed().contains {
                 $0.tool == .stamp && $0.hitTest(point: canvasStampPt)
@@ -1150,7 +1016,7 @@ class OverlayView: NSView {
         }
 
         // Track cursor for loupe live preview (use canvas space for zoom correctness)
-        if state == .selected && currentTool == .loupe && !isRecording && !showBeautifyInOptionsRow {
+        if state == .selected && currentTool == .loupe && !isRecording {
             let canvasPoint = viewToCanvas(point)
             let hoveringLoupe = annotations.reversed().contains {
                 $0.tool == .loupe && $0.hitTest(point: canvasPoint)
@@ -1879,139 +1745,8 @@ class OverlayView: NSView {
 
             // (Text move handle removed — standard annotation chrome handles movement)
 
-            // Live beautify preview — draw gradient background, shadow, and rounded image around selection
-            let showBeautifyPreview = beautifyEnabled && state == .selected && !isScrollCapturing && !isRecording
-            let showEffectsPreview = effectsActive && state == .selected && !isScrollCapturing && !isRecording && !beautifyEnabled
-
-            if showBeautifyPreview {
-                context.saveGraphicsState()
-                applyCanvasTransform(to: context)
-                drawBeautifyPreview(context: context)
-                context.restoreGraphicsState()
-
-                // Re-draw in-progress annotation on top of beautify so it stays visible
-                if currentAnnotation != nil || autoMeasurePreview != nil {
-                    context.saveGraphicsState()
-                    applyCanvasTransform(to: context)
-                    currentAnnotation?.draw(in: context)
-                    autoMeasurePreview?.draw(in: context)
-                    context.restoreGraphicsState()
-                }
-
-                // Re-draw annotation controls on top of the beautify preview so they stay visible.
-                if !isRecording && !selectedAnnotations.isEmpty {
-                    context.saveGraphicsState()
-                    applyCanvasTransform(to: context)
-                    for selected in selectedAnnotations {
-                        drawAnnotationControls(for: selected, fullControls: selectedAnnotations.count == 1)
-                    }
-                    drawMultiSelectDeleteButton()
-                    context.restoreGraphicsState()
-                }
-
-                // Re-draw loupe preview on top of beautify so it stays visible
-                if currentTool == .loupe && selectionRect.contains(loupeCursorPoint)
-                    && loupeCursorPoint != .zero
-                {
-                    context.saveGraphicsState()
-                    applyCanvasTransform(to: context)
-                    drawLoupePreview(at: loupeCursorPoint)
-                    context.restoreGraphicsState()
-                }
-
-                // Re-draw color sampler preview on top of beautify
-                if currentTool == .colorSampler && colorSamplerPoint != .zero {
-                    context.saveGraphicsState()
-                    applyCanvasTransform(to: context)
-                    drawColorSamplerPreview(at: colorSamplerPoint)
-                    context.restoreGraphicsState()
-                }
-
-                // Re-draw snap guides on top of beautify
-                if snapGuideX != nil || snapGuideY != nil {
-                    context.saveGraphicsState()
-                    applyCanvasTransform(to: context)
-                    drawSnapGuides()
-                    context.restoreGraphicsState()
-                }
-
-                // Re-draw drawing cursor dot preview on top of beautify
-                if (currentTool == .pencil || currentTool == .marker) && drawingCursorPoint != .zero && currentAnnotation == nil && !isDraggingAnnotation && !isResizingAnnotation && !isRotatingAnnotation
-                {
-                    context.saveGraphicsState()
-                    applyCanvasTransform(to: context)
-                    drawDrawingCursorPreview(at: drawingCursorPoint)
-                    context.restoreGraphicsState()
-                }
-
-                // Re-draw crop preview on top of beautify
-                if isCropDragging && cropDragRect.width > 1 && cropDragRect.height > 1 {
-                    context.saveGraphicsState()
-                    applyCanvasTransform(to: context)
-                    drawCropPreview()
-                    NSColor.white.setStroke()
-                    let cropBorder = NSBezierPath(rect: cropDragRect)
-                    cropBorder.lineWidth = 1.5
-                    cropBorder.stroke()
-                    context.restoreGraphicsState()
-                }
-            }
-
-            // Effects-only preview (no beautify) — draw effects-processed screenshot in selection
-            if showEffectsPreview, let screenshot = screenshotImage {
-                context.saveGraphicsState()
-                applyCanvasTransform(to: context)
-                NSBezierPath(rect: selectionRect).setClip()
-                let effectsImage = effectsProcessedScreenshot(screenshot)
-                effectsImage.draw(in: captureDrawRect, from: .zero, operation: .copy, fraction: 1.0)
-                // Re-draw annotations on top (censor first, then everything else)
-                for annotation in annotations where annotation.tool == .pixelate { annotation.draw(in: context) }
-                Annotation.drawHighlightDim(for: annotations, extra: currentAnnotation, in: highlightDimBounds)
-                for annotation in annotations where annotation.tool != .pixelate { annotation.draw(in: context) }
-                currentAnnotation?.draw(in: context)
-                context.restoreGraphicsState()
-
-                // Re-draw overlays on top of effects preview
-                if !selectedAnnotations.isEmpty {
-                    context.saveGraphicsState()
-                    applyCanvasTransform(to: context)
-                    for selected in selectedAnnotations {
-                        drawAnnotationControls(for: selected, fullControls: selectedAnnotations.count == 1)
-                    }
-                    drawMultiSelectDeleteButton()
-                    context.restoreGraphicsState()
-                }
-                if currentTool == .loupe && selectionRect.contains(loupeCursorPoint) && loupeCursorPoint != .zero {
-                    context.saveGraphicsState()
-                    applyCanvasTransform(to: context)
-                    drawLoupePreview(at: loupeCursorPoint)
-                    context.restoreGraphicsState()
-                }
-                if currentTool == .colorSampler && colorSamplerPoint != .zero {
-                    context.saveGraphicsState()
-                    applyCanvasTransform(to: context)
-                    drawColorSamplerPreview(at: colorSamplerPoint)
-                    context.restoreGraphicsState()
-                }
-                if (currentTool == .pencil || currentTool == .marker) && drawingCursorPoint != .zero && currentAnnotation == nil && !isDraggingAnnotation && !isResizingAnnotation && !isRotatingAnnotation {
-                    context.saveGraphicsState()
-                    applyCanvasTransform(to: context)
-                    drawDrawingCursorPreview(at: drawingCursorPoint)
-                    context.restoreGraphicsState()
-                }
-                if snapGuideX != nil || snapGuideY != nil {
-                    context.saveGraphicsState()
-                    applyCanvasTransform(to: context)
-                    drawSnapGuides()
-                    context.restoreGraphicsState()
-                }
-            }
-
-            // Selection border — hidden in editor mode and when beautify/effects preview is active,
-            // red during scroll capture, purple otherwise
-            if shouldDrawSelectionBorder()
-                && !showBeautifyPreview && !showEffectsPreview
-            {
+            // Selection border — hidden in editor mode, red during scroll capture, purple otherwise
+            if shouldDrawSelectionBorder() {
                 let borderPath = NSBezierPath(rect: selectionRect)
                 borderPath.lineWidth = isScrollCapturing ? 2.5 : 2.0
                 (isScrollCapturing ? NSColor.systemRed : ToolbarLayout.accentColor).setStroke()
@@ -2145,8 +1880,6 @@ class OverlayView: NSView {
                 }
 
                 // Color picker popover
-
-                // Beautify style picker popover
 
                 // Stroke width picker popover
 
@@ -3016,305 +2749,6 @@ class OverlayView: NSView {
         }
         UserDefaults.standard.set(hexArray, forKey: "customColors")
     }
-    /// The expanded rect including beautify padding (for live preview).
-
-
-    private func drawBeautifyPreview(context: NSGraphicsContext) {
-        let config = beautifyConfig
-        let pad = config.padding
-        let cornerRadius = config.isWindowSnap ? 10 : config.cornerRadius  // native macOS corner radius for snapped windows
-        let shadowRadius = config.shadowRadius
-        let shadowOffset = BeautifyRenderer.shadowOffset(for: shadowRadius)
-
-        // Compute the expanded frame around the selection.
-        // Shadow extends downward (negative Y in AppKit), so expand the origin down.
-        let shadowBleed = shadowRadius + shadowOffset
-        let expandedRect: NSRect
-        if config.mode == .window && !config.isWindowSnap {
-            let titleBarH: CGFloat = 28
-            expandedRect = NSRect(
-                x: selectionRect.minX - pad - shadowBleed,
-                y: selectionRect.minY - pad - shadowBleed,
-                width: selectionRect.width + pad * 2 + shadowBleed * 2,
-                height: selectionRect.height + titleBarH + pad * 2 + shadowBleed * 2
-            )
-        } else {
-            expandedRect = NSRect(
-                x: selectionRect.minX - pad - shadowBleed,
-                y: selectionRect.minY - pad - shadowBleed,
-                width: selectionRect.width + pad * 2 + shadowBleed * 2,
-                height: selectionRect.height + pad * 2 + shadowBleed * 2
-            )
-        }
-
-        // Clear the dark overlay for the expanded area to make the preview visible
-        context.saveGraphicsState()
-        if !isEditorMode {
-            // Overlay: re-draw the screenshot in the expanded area to erase the dark overlay,
-            // then draw the dark overlay back so we have a clean base for the gradient.
-            context.cgContext.saveGState()
-            NSBezierPath(rect: expandedRect).addClip()
-            if let image = screenshotImage {
-                image.draw(in: bounds, from: .zero, operation: .copy, fraction: 1.0)
-            }
-            NSColor.black.withAlphaComponent(0.45).setFill()
-            NSBezierPath(rect: expandedRect).fill()
-            context.cgContext.restoreGState()
-        }
-
-        // Position the image/window centered within the expanded rect (not affected by shadow bleed)
-        let innerX = selectionRect.minX - pad
-        let innerY = selectionRect.minY - pad
-
-        // Draw gradient background (inner rect without shadow bleed)
-        let bgRect: NSRect
-        if config.mode == .window && !config.isWindowSnap {
-            let titleBarH: CGFloat = 28
-            bgRect = NSRect(
-                x: innerX, y: innerY, width: selectionRect.width + pad * 2,
-                height: selectionRect.height + titleBarH + pad * 2)
-        } else {
-            bgRect = NSRect(
-                x: innerX, y: innerY, width: selectionRect.width + pad * 2,
-                height: selectionRect.height + pad * 2)
-        }
-        context.cgContext.saveGState()
-        let bgPath = NSBezierPath(
-            roundedRect: bgRect, xRadius: config.bgRadius, yRadius: config.bgRadius)
-        bgPath.addClip()
-        BeautifyRenderer.drawGradientBackground(
-            in: bgRect, config: config, context: context.cgContext)
-        context.cgContext.restoreGState()
-
-        // Compute the image rect inside the expanded frame
-        let imageRect: NSRect
-        let windowRect: NSRect
-
-        if config.mode == .window && !config.isWindowSnap {
-            let titleBarH: CGFloat = 28
-            let windowW = selectionRect.width
-            let windowH = selectionRect.height + titleBarH
-            windowRect = NSRect(
-                x: innerX + pad,
-                y: innerY + pad,
-                width: windowW,
-                height: windowH
-            )
-            imageRect = NSRect(
-                x: windowRect.minX,
-                y: windowRect.minY,
-                width: windowW,
-                height: windowH - titleBarH
-            )
-        } else {
-            imageRect = NSRect(
-                x: innerX + pad,
-                y: innerY + pad,
-                width: selectionRect.width,
-                height: selectionRect.height
-            )
-            windowRect = imageRect
-        }
-
-        // Drop shadow (not for snapped windows — handled via transparency layer below)
-        if shadowRadius > 0 && !config.isWindowSnap {
-            let shadowPath = NSBezierPath(
-                roundedRect: windowRect, xRadius: cornerRadius, yRadius: cornerRadius)
-            BeautifyRenderer.drawShadowedPath(shadowPath, radius: shadowRadius)
-        }
-
-        if config.isWindowSnap {
-            // Snapped window: use independently captured window image (has real transparent corners).
-            // Draw it directly on top of the gradient — transparent corners reveal the gradient.
-            let drawWindowImage: NSImage?
-            if let windowImage = snappedWindowImage {
-                drawWindowImage = effectsActive ? ImageEffects.apply(to: windowImage, config: effectsConfig) : windowImage
-            } else { drawWindowImage = nil }
-            context.cgContext.saveGState()
-
-            // Drop shadow from the window shape
-            if shadowRadius > 0 {
-                context.cgContext.saveGState()
-                context.cgContext.setShadow(
-                    offset: CGSize(
-                        width: 0,
-                        height: -BeautifyRenderer.contactShadowOffset(for: shadowRadius)),
-                    blur: BeautifyRenderer.contactShadowBlur(for: shadowRadius),
-                    color: NSColor.black.withAlphaComponent(
-                        BeautifyRenderer.contactShadowAlpha(for: shadowRadius)).cgColor)
-                if let windowImg = drawWindowImage {
-                    windowImg.draw(in: imageRect, from: .zero, operation: .sourceOver, fraction: 1.0)
-                } else if let image = screenshotImage {
-                    let drawImage = effectsActive ? effectsProcessedScreenshot(image) : image
-                    drawImage.draw(
-                        in: imageRect, from: selectionRect, operation: .sourceOver, fraction: 1.0)
-                }
-                context.cgContext.restoreGState()
-
-                context.cgContext.saveGState()
-                context.cgContext.setShadow(
-                    offset: CGSize(width: 0, height: -shadowOffset),
-                    blur: shadowRadius,
-                    color: NSColor.black.withAlphaComponent(
-                        BeautifyRenderer.shadowAlpha(for: shadowRadius)).cgColor)
-                if let windowImg = drawWindowImage {
-                    windowImg.draw(in: imageRect, from: .zero, operation: .sourceOver, fraction: 1.0)
-                } else if let image = screenshotImage {
-                    let drawImage = effectsActive ? effectsProcessedScreenshot(image) : image
-                    drawImage.draw(
-                        in: imageRect, from: selectionRect, operation: .sourceOver, fraction: 1.0)
-                }
-                context.cgContext.restoreGState()
-            }
-
-            if let windowImg = drawWindowImage {
-                windowImg.draw(in: imageRect, from: .zero, operation: .sourceOver, fraction: 1.0)
-            } else if let image = screenshotImage {
-                // Fallback: crop from screenshot (before window capture completes)
-                let drawImage = effectsActive ? effectsProcessedScreenshot(image) : image
-                drawImage.draw(
-                    in: imageRect, from: selectionRect, operation: .sourceOver, fraction: 1.0)
-            }
-
-            // Draw annotations shifted to the preview position
-            let dx = imageRect.minX - selectionRect.minX
-            let dy = imageRect.minY - selectionRect.minY
-            if dx != 0 || dy != 0 {
-                context.cgContext.translateBy(x: dx, y: dy)
-            }
-            for annotation in annotations where annotation.tool == .pixelate {
-                annotation.draw(in: context)
-            }
-            Annotation.drawHighlightDim(for: annotations, extra: currentAnnotation, in: selectionRect)
-            for annotation in annotations where annotation.tool != .pixelate {
-                annotation.draw(in: context)
-            }
-            currentAnnotation?.draw(in: context)
-            if dx != 0 || dy != 0 {
-                context.cgContext.translateBy(x: -dx, y: -dy)
-            }
-
-            context.cgContext.restoreGState()
-        } else if config.mode == .window {
-            // Draw window chrome
-            let titleBarH: CGFloat = 28
-
-            context.cgContext.saveGState()
-            NSBezierPath(roundedRect: windowRect, xRadius: cornerRadius, yRadius: cornerRadius)
-                .addClip()
-
-            // Window background
-            NSColor(white: 0.97, alpha: 1.0).setFill()
-            NSBezierPath(rect: windowRect).fill()
-
-            // Title bar
-            let titleBarRect = NSRect(
-                x: windowRect.minX, y: windowRect.maxY - titleBarH, width: windowRect.width,
-                height: titleBarH)
-            NSColor(white: 0.94, alpha: 1.0).setFill()
-            NSBezierPath(rect: titleBarRect).fill()
-
-            // Separator
-            NSColor(white: 0.82, alpha: 1.0).setFill()
-            NSBezierPath(
-                rect: NSRect(
-                    x: windowRect.minX, y: titleBarRect.minY - 0.5, width: windowRect.width,
-                    height: 0.5)
-            ).fill()
-
-            // Traffic lights
-            let buttonY = titleBarRect.midY
-            let buttonRadius: CGFloat = 6
-            let buttonStartX = windowRect.minX + 14
-            let buttonSpacing: CGFloat = 20
-            let trafficLights: [(NSColor, NSColor)] = [
-                (
-                    NSColor(calibratedRed: 1.0, green: 0.38, blue: 0.35, alpha: 1.0),
-                    NSColor(calibratedRed: 0.85, green: 0.25, blue: 0.22, alpha: 1.0)
-                ),
-                (
-                    NSColor(calibratedRed: 1.0, green: 0.75, blue: 0.25, alpha: 1.0),
-                    NSColor(calibratedRed: 0.85, green: 0.60, blue: 0.15, alpha: 1.0)
-                ),
-                (
-                    NSColor(calibratedRed: 0.30, green: 0.80, blue: 0.35, alpha: 1.0),
-                    NSColor(calibratedRed: 0.20, green: 0.65, blue: 0.25, alpha: 1.0)
-                ),
-            ]
-            for (i, (fill, ring)) in trafficLights.enumerated() {
-                let cx = buttonStartX + CGFloat(i) * buttonSpacing
-                let circleRect = NSRect(
-                    x: cx - buttonRadius, y: buttonY - buttonRadius, width: buttonRadius * 2,
-                    height: buttonRadius * 2)
-                fill.setFill()
-                NSBezierPath(ovalIn: circleRect).fill()
-                ring.setStroke()
-                let border = NSBezierPath(ovalIn: circleRect.insetBy(dx: 0.5, dy: 0.5))
-                border.lineWidth = 0.5
-                border.stroke()
-            }
-
-            // Draw screenshot in content area (clipped to window shape), with effects if active
-            if let image = screenshotImage {
-                let drawImage = effectsActive ? effectsProcessedScreenshot(image) : image
-                drawImage.draw(
-                    in: imageRect, from: selectionRect, operation: .sourceOver, fraction: 1.0)
-            }
-
-            // Draw annotations shifted to the preview position (including current live annotation)
-            let dx = imageRect.minX - selectionRect.minX
-            let dy = imageRect.minY - selectionRect.minY
-            if dx != 0 || dy != 0 {
-                context.cgContext.translateBy(x: dx, y: dy)
-            }
-            for annotation in annotations where annotation.tool == .pixelate {
-                annotation.draw(in: context)
-            }
-            Annotation.drawHighlightDim(for: annotations, extra: currentAnnotation, in: selectionRect)
-            for annotation in annotations where annotation.tool != .pixelate {
-                annotation.draw(in: context)
-            }
-            currentAnnotation?.draw(in: context)
-            if dx != 0 || dy != 0 {
-                context.cgContext.translateBy(x: -dx, y: -dy)
-            }
-
-            context.cgContext.restoreGState()
-        } else {
-            // Rounded mode — just rounded corners on the image
-            context.cgContext.saveGState()
-            NSBezierPath(roundedRect: imageRect, xRadius: cornerRadius, yRadius: cornerRadius)
-                .addClip()
-
-            if let image = screenshotImage {
-                let drawImage = effectsActive ? effectsProcessedScreenshot(image) : image
-                drawImage.draw(in: imageRect, from: selectionRect, operation: .copy, fraction: 1.0)
-            }
-
-            // Draw annotations shifted to preview position (including current live annotation)
-            let dx = imageRect.minX - selectionRect.minX
-            let dy = imageRect.minY - selectionRect.minY
-            if dx != 0 || dy != 0 {
-                context.cgContext.translateBy(x: dx, y: dy)
-            }
-            for annotation in annotations where annotation.tool == .pixelate {
-                annotation.draw(in: context)
-            }
-            Annotation.drawHighlightDim(for: annotations, extra: currentAnnotation, in: selectionRect)
-            for annotation in annotations where annotation.tool != .pixelate {
-                annotation.draw(in: context)
-            }
-            currentAnnotation?.draw(in: context)
-            if dx != 0 || dy != 0 {
-                context.cgContext.translateBy(x: -dx, y: -dy)
-            }
-
-            context.cgContext.restoreGState()
-        }
-
-        context.restoreGraphicsState()
-    }
-
     /// Whether the current tool should show the options row
     var toolHasOptionsRow: Bool {
         // Show options row for a selected annotation's tool even when currentTool is .select
@@ -3328,39 +2762,8 @@ class OverlayView: NSView {
         case .text:
             return true
         default:
-            return showBeautifyInOptionsRow
+            return false
         }
-    }
-
-    private func startBeautifyToolbarAnimation() {
-        beautifyToolbarAnimProgress = 0
-        beautifyToolbarAnimTarget = beautifyEnabled
-        beautifyToolbarAnimTimer?.invalidate()
-        beautifyToolbarAnimTimer = Timer.scheduledTimer(withTimeInterval: 1.0 / 60.0, repeats: true)
-        { [weak self] timer in
-            guard let self = self else {
-                timer.invalidate()
-                return
-            }
-            self.beautifyToolbarAnimProgress += 0.08  // ~12 frames = 0.2s
-            if self.beautifyToolbarAnimProgress >= 1.0 {
-                self.beautifyToolbarAnimProgress = 1.0
-                timer.invalidate()
-                self.beautifyToolbarAnimTimer = nil
-            }
-            self.needsDisplay = true
-        }
-    }
-
-    /// Apply the Beautify enabled state consistently regardless of which UI control changed it.
-    func setBeautifyEnabled(_ enabled: Bool) {
-        guard beautifyEnabled != enabled else { return }
-        beautifyEnabled = enabled
-        UserDefaults.standard.set(enabled, forKey: "beautifyEnabled")
-        cachedCompositedImage = nil
-        startBeautifyToolbarAnimation()
-        needsDisplay = true
-        onContentChanged?()
     }
 
     // MARK: - Color Sampler Preview
@@ -3772,41 +3175,6 @@ class OverlayView: NSView {
         let ptMaxX = CGFloat(maxCol + 1) / scale
         let ptMaxY = CGFloat(h - minRow) / scale
         return NSRect(x: ptMinX, y: ptMinY, width: ptMaxX - ptMinX, height: ptMaxY - ptMinY)
-    }
-
-    private func invertImageColors() {
-        guard let original = screenshotImage,
-              let invertedScreenshot = Self.invertedCopy(of: original)
-        else { return }
-
-        // A selection snapped to a window draws — and exports — from
-        // snappedWindowImage, a separately captured image. Inverting only the
-        // screenshot left the capture itself in its original colours while
-        // everything around it flipped (#88).
-        let previousSnapped = snappedWindowImage
-        let invertedSnapped = snappedWindowImage.flatMap { Self.invertedCopy(of: $0) }
-
-        undoStack.append(.imageTransform(
-            previousImage: original.copy() as? NSImage ?? original,
-            previousSnappedWindowImage: previousSnapped,
-            annotationOffsets: []))
-        redoStack.removeAll()
-
-        screenshotImage = invertedScreenshot
-        if invertedSnapped != nil { snappedWindowImage = invertedSnapped }
-        cachedCompositedImage = nil
-        cachedEffectsScreenshot = nil
-        needsDisplay = true
-    }
-
-    /// Colour-inverted copy of an image, or nil when it can't be read.
-    static func invertedCopy(of image: NSImage) -> NSImage? {
-        guard let cgImage = image.cgImage(forProposedRect: nil, context: nil, hints: nil),
-              let filter = CIFilter(name: "CIColorInvert") else { return nil }
-        filter.setValue(CIImage(cgImage: cgImage), forKey: kCIInputImageKey)
-        guard let output = filter.outputImage,
-              let inverted = CIContext().createCGImage(output, from: output.extent) else { return nil }
-        return NSImage(cgImage: inverted, size: image.size)
     }
 
     // MARK: - Snap/Alignment Guides
@@ -5018,21 +4386,9 @@ class OverlayView: NSView {
         let movableAnnotations = annotations.contains { $0.isMovable }
         bottomButtons = ToolbarLayout.bottomButtons(
             selectedTool: currentTool, selectedColor: currentColor,
-            beautifyEnabled: beautifyEnabled, beautifyStyleIndex: beautifyStyleIndex,
-            hasAnnotations: movableAnnotations, isRecording: isRecording,
-            effectsActive: effectsActive
+            hasAnnotations: movableAnnotations, isRecording: isRecording
         )
-        if showBeautifyInOptionsRow {
-            for i in bottomButtons.indices {
-                if case .tool = bottomButtons[i].action {
-                    bottomButtons[i].isSelected = false
-                } else if case .beautify = bottomButtons[i].action {
-                    bottomButtons[i].isSelected = true
-                }
-            }
-        }
         rightButtons = ToolbarLayout.rightButtons(
-            beautifyEnabled: beautifyEnabled, beautifyStyleIndex: beautifyStyleIndex,
             hasAnnotations: movableAnnotations,
             isRecording: isRecording,
             isEditorMode: isEditorMode)
@@ -5125,31 +4481,7 @@ class OverlayView: NSView {
             return
         }
 
-        // Anchor rect: beautify-expanded when active, selection otherwise
-        let config = beautifyConfig
-        let bPad = config.padding
-        let titleBarH: CGFloat = config.mode == .window ? 28 : 0
-        let expandedAnchor = NSRect(
-            x: selectionRect.minX - bPad, y: selectionRect.minY - bPad,
-            width: selectionRect.width + bPad * 2,
-            height: selectionRect.height + titleBarH + bPad * 2)
-        let anchorRect: NSRect
-        if beautifyToolbarAnimProgress < 1.0 {
-            let t = beautifyToolbarAnimProgress
-            let eased = 1.0 - (1.0 - t) * (1.0 - t)
-            let fromRect = beautifyToolbarAnimTarget ? selectionRect : expandedAnchor
-            let toRect = beautifyToolbarAnimTarget ? expandedAnchor : selectionRect
-            anchorRect = NSRect(
-                x: fromRect.minX + (toRect.minX - fromRect.minX) * eased,
-                y: fromRect.minY + (toRect.minY - fromRect.minY) * eased,
-                width: fromRect.width + (toRect.width - fromRect.width) * eased,
-                height: fromRect.height + (toRect.height - fromRect.height) * eased
-            )
-        } else if beautifyEnabled && !isScrollCapturing && !isRecording {
-            anchorRect = expandedAnchor
-        } else {
-            anchorRect = selectionRect
-        }
+        let anchorRect = selectionRect
 
         let rightSize = rightStrip.frame.size
 
@@ -7712,7 +7044,6 @@ class OverlayView: NSView {
         switch action {
         case .tool(let tool):
             commitTextFieldIfNeeded()
-            showBeautifyInOptionsRow = false  // switch back to tool options
             currentTool = tool
             // Auto-select first emoji when switching to stamp tool with nothing selected
             if tool == .stamp && currentStampImage == nil {
@@ -7740,7 +7071,7 @@ class OverlayView: NSView {
             }
             setToolbarHoverSuppressed(true)
             clearToolbarHoverState(suppressUntilMouseMoved: true, clearPressed: false)
-            // Moving breaks window snap — revert to normal beautify mode
+            // Moving breaks window snap — revert to a normal (non-snapped) selection
             if selectionIsWindowSnap {
                 selectionIsWindowSnap = false
                 snappedWindowID = nil
@@ -7814,28 +7145,6 @@ class OverlayView: NSView {
             overlayDelegate?.overlayViewDidRequestOCR()
         case .autoRedact:
             performAutoRedact()
-        case .removeBackground:
-            if #available(macOS 14.0, *) {
-                overlayDelegate?.overlayViewDidRequestRemoveBackground()
-            }
-        case .invertColors:
-            invertImageColors()
-        case .effects:
-            let btn = bottomStripView?.buttonViews.first { if case .effects = $0.action { return true }; return false }
-            showEffectsPopover(anchorView: btn)
-        case .beautify:
-            commitTextFieldIfNeeded()
-            stampPreviewPoint = nil
-            loupeCursorPoint = .zero
-            // Load the custom background eagerly if that style is selected (the
-            // beautifyConfig getter no longer does this as a side effect).
-            ensureCustomBeautifyBackgroundLoaded()
-            showBeautifyInOptionsRow = true
-            needsDisplay = true
-        case .beautifyStyle:
-            beautifyStyleIndex = (beautifyStyleIndex + 1) % BeautifyRenderer.styles.count
-            UserDefaults.standard.set(beautifyStyleIndex, forKey: "beautifyStyleIndex")
-            needsDisplay = true
         case .delayCapture:
             break
         case .cancel:
@@ -7863,10 +7172,6 @@ class OverlayView: NSView {
     }
 
     /// Push a property change undo entry. Called by ToolOptionsRowView when editing completes.
-    func updateBeautifySwatch(styleIndex: Int) {
-        toolOptionsRowView?.updateBeautifySwatch(styleIndex: styleIndex)
-    }
-
     func pushPropertyChangeUndo(annotation: Annotation, snapshot: Annotation) {
         undoStack.append(.propertyChange(annotation: annotation, snapshot: snapshot))
         redoStack.removeAll()
@@ -9221,14 +8526,7 @@ class OverlayView: NSView {
             currentStrokeWidth: currentStrokeWidth,
             currentMarkerSize: currentMarkerSize,
             currentNumberSize: currentNumberSize,
-            numberCounter: numberCounter,
-            beautifyEnabled: beautifyEnabled,
-            beautifyStyleIndex: beautifyStyleIndex,
-            effectsPreset: effectsPreset,
-            effectsBrightness: effectsBrightness,
-            effectsContrast: effectsContrast,
-            effectsSaturation: effectsSaturation,
-            effectsSharpness: effectsSharpness
+            numberCounter: numberCounter
         )
     }
 
@@ -9482,22 +8780,6 @@ class OverlayView: NSView {
         hoveredAnnotationClearTimer = nil
         hoveredAnnotation = nil
         colorWheel.dismiss()
-        beautifyEnabled = UserDefaults.standard.bool(forKey: "beautifyEnabled")
-        beautifyStyleIndex = UserDefaults.standard.integer(forKey: "beautifyStyleIndex")
-        beautifyMode =
-            BeautifyMode(rawValue: UserDefaults.standard.integer(forKey: "beautifyMode")) ?? .window
-        beautifyPadding = CGFloat(
-            UserDefaults.standard.object(forKey: "beautifyPadding") as? Double ?? 48)
-        beautifyCornerRadius = CGFloat(
-            UserDefaults.standard.object(forKey: "beautifyCornerRadius") as? Double ?? 10)
-        beautifyShadowRadius = CGFloat(
-            UserDefaults.standard.object(forKey: "beautifyShadowRadius") as? Double ?? 20)
-        beautifyBgRadius = CGFloat(
-            UserDefaults.standard.object(forKey: "beautifyBgRadius") as? Double ?? 8)
-        // The custom-style background is loaded here (not lazily in the
-        // beautifyConfig getter) so reads during draw never mutate state.
-        customBeautifyBackground = nil
-        ensureCustomBeautifyBackgroundLoaded()
         currentLineStyle =
             LineStyle(rawValue: UserDefaults.standard.integer(forKey: "currentLineStyle")) ?? .solid
         currentArrowStyle =
@@ -9560,20 +8842,6 @@ extension OverlayView: NSTextViewDelegate {
 }
 
 // MARK: - AnnotationCanvas conformance
-
-// MARK: - Image Effects helpers
-
-extension OverlayView {
-    /// Returns the effects-processed screenshot, cached for performance during draw().
-    func effectsProcessedScreenshot(_ screenshot: NSImage) -> NSImage {
-        if let cached = cachedEffectsScreenshot { return cached }
-        let config = effectsConfig
-        guard !config.isIdentity else { return screenshot }
-        let processed = ImageEffects.apply(to: screenshot, config: config)
-        cachedEffectsScreenshot = processed
-        return processed
-    }
-}
 
 extension OverlayView: AnnotationCanvas {
     var activeAnnotation: Annotation? {
