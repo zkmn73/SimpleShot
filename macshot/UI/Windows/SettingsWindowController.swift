@@ -1122,7 +1122,7 @@ class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSWindowD
             (.ellipse, L("Ellipse")), (.marker, L("Marker")), (.text, L("Text")),
             (.number, L("Number / Counter")), (.pixelate, L("Censor")),
             (.highlight, L("Highlight (Spotlight)")),
-            (.loupe, L("Magnify (Loupe)")), (.stamp, L("Stamp / Emoji")), (.colorSampler, L("Color Picker")), (.measure, L("Measure")),
+            (.loupe, L("Magnify (Loupe)")), (.colorSampler, L("Color Picker")), (.measure, L("Measure")),
         ]
         let enabledTools = UserDefaults.standard.array(forKey: "enabledTools") as? [Int]
         let toolsGrid = makeToggleGrid(items: annotationTools.map { (tag: $0.rawValue, label: $1) },
@@ -1623,7 +1623,7 @@ class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSWindowD
     @objc private func toggleItemChanged(_ sender: NSButton) {
         let key = sender.identifier?.rawValue ?? "enabledTools"
         let allTools: [AnnotationTool] = [.pencil, .line, .arrow, .rectangle,
-                                          .ellipse, .marker, .text, .number, .pixelate, .highlight, .loupe, .stamp, .measure]
+                                          .ellipse, .marker, .text, .number, .pixelate, .highlight, .loupe, .measure]
         let defaultValues: [Int] = key == "enabledTools" ? allTools.map { $0.rawValue } : ToolbarActionPreferences.defaultEnabledRawValues
         var enabled = UserDefaults.standard.array(forKey: key) as? [Int] ?? defaultValues
         if sender.state == .on { if !enabled.contains(sender.tag) { enabled.append(sender.tag) } }

@@ -186,54 +186,6 @@ final class DirectorySweeperTests: XCTestCase {
     }
 }
 
-/// Text pinned from the clipboard is rendered to an image; these are the parts
-/// that decide what that image contains.
-final class ClipboardTextPinRendererTests: XCTestCase {
-
-    func testPlainTextKeepsItsContent() {
-        let attributed = ClipboardTextPinRenderer.plainAttributedString("hello\nworld")
-        XCTAssertEqual(attributed.string, "hello\nworld")
-        XCTAssertGreaterThan(attributed.length, 0)
-    }
-
-    func testPlainTextIsStyledForALightBackground() {
-        let attributed = ClipboardTextPinRenderer.plainAttributedString("x")
-        let color = attributed.attribute(.foregroundColor, at: 0, effectiveRange: nil) as? NSColor
-        XCTAssertEqual(color, .black, "the pin renders on white, so the text has to be dark")
-        XCTAssertNotNil(attributed.attribute(.font, at: 0, effectiveRange: nil))
-    }
-
-    func testEmptyTextIsHandled() {
-        XCTAssertEqual(ClipboardTextPinRenderer.plainAttributedString("").string, "")
-    }
-
-    func testAttachmentsAreDetected() {
-        let withImage = NSMutableAttributedString(string: "before ")
-        let attachment = NSTextAttachment()
-        attachment.image = ImageProbe.solidImage(width: 4, height: 4)
-        withImage.append(NSAttributedString(attachment: attachment))
-        XCTAssertTrue(ClipboardTextPinRenderer.containsAttachments(withImage))
-    }
-
-    func testPlainTextHasNoAttachments() {
-        XCTAssertFalse(ClipboardTextPinRenderer.containsAttachments(NSAttributedString(string: "just text")))
-        XCTAssertFalse(ClipboardTextPinRenderer.containsAttachments(NSAttributedString(string: "")))
-    }
-
-    func testRenderingProducesAnImageForOrdinaryText() {
-        let image = ClipboardTextPinRenderer.render(ClipboardTextPinRenderer.plainAttributedString("Pinned note"))
-        XCTAssertNotNil(image)
-        XCTAssertGreaterThan(image?.size.width ?? 0, 0)
-        XCTAssertGreaterThan(image?.size.height ?? 0, 0)
-    }
-
-    func testRenderingHandlesAwkwardText() {
-        for text in ["", "   ", "\n\n\n", String(repeating: "word ", count: 2_000), "🎉", "العربية"] {
-            _ = ClipboardTextPinRenderer.render(ClipboardTextPinRenderer.plainAttributedString(text))
-        }
-    }
-}
-
 /// Build-variant flags decide whether upload UI exists at all.
 final class BuildVariantTests: XCTestCase {
 

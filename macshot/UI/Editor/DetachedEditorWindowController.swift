@@ -354,12 +354,6 @@ extension DetachedEditorWindowController: OverlayViewDelegate {
         }
     }
 
-    func overlayViewDidRequestPin() {
-        guard let save = captureSnapshot() else { return }
-        (NSApp.delegate as? AppDelegate)?.showPin(image: save.image)
-        screenshotNeverOutput = false
-    }
-
     func overlayViewDidRequestOCR() {
         guard let image = overlayView?.captureSelectedRegion(),
               let cgImage = image.cgImage(forProposedRect: nil, context: nil, hints: nil) else { return }
@@ -412,20 +406,6 @@ extension DetachedEditorWindowController: OverlayViewDelegate {
                 self?.screenshotNeverOutput = false
             }
         }
-    }
-
-    func overlayViewDidRequestShare(anchorView: NSView?) {
-        guard let save = captureSnapshot(), let imageData = ImageEncoder.encode(save.image) else { return }
-        let tempURL = TmpScratchDirectory.makeURL(filename: FilenameFormatter.defaultImageFilename())
-        try? imageData.write(to: tempURL)
-
-        let picker = NSSharingServicePicker(items: [tempURL])
-        if let anchor = anchorView {
-            picker.show(relativeTo: anchor.bounds, of: anchor, preferredEdge: .minX)
-        } else if let view = overlayView {
-            picker.show(relativeTo: .zero, of: view, preferredEdge: .minY)
-        }
-        screenshotNeverOutput = false
     }
 
     func overlayViewDidRequestDetach() {}
@@ -529,10 +509,6 @@ private class AddCaptureOverlayHandler: NSObject, OverlayWindowControllerDelegat
         }
     }
 
-    func overlayDidRequestPin(_ controller: OverlayWindowController, image: NSImage, annotationData: CaptureAnnotationData?) {
-        dismissOverlays()
-        onCapture?(image)
-    }
     func overlayDidRequestOCR(_ controller: OverlayWindowController, result: OCRScanResult, image: NSImage?) {}
     func overlayDidRequestScrollCapture(_ controller: OverlayWindowController, rect: NSRect, screen: NSScreen) {}
     func overlayDidRequestStopScrollCapture(_ controller: OverlayWindowController) {}

@@ -9,11 +9,9 @@ protocol OverlayViewDelegate: AnyObject {
     func overlayViewDidConfirm()
     func overlayViewDidRequestSave()
     func overlayViewDidRequestSaveAs()
-    func overlayViewDidRequestPin()
     func overlayViewDidRequestOCR()
     func overlayViewDidRequestQuickSave()
     func overlayViewDidRequestFileSave()
-    func overlayViewDidRequestShare(anchorView: NSView?)
     func overlayViewDidRequestDetach()
     func overlayViewDidRequestScrollCapture(rect: NSRect)
     func overlayViewDidRequestStopScrollCapture()
@@ -6997,9 +6995,6 @@ class OverlayView: NSView {
 
     private func handleToolbarButtonRightClick(_ action: ToolbarButtonAction, anchorView: NSView) {
         switch action {
-        case .autoRedact:
-            showRedactTypePopover(
-                anchorRect: anchorView.convert(anchorView.bounds, to: self), anchorView: anchorView)
         case .save:
             let menu = NSMenu()
             switch SaveActionPreference.current {
@@ -7135,16 +7130,8 @@ class OverlayView: NSView {
             overlayDelegate?.overlayViewDidConfirm()
         case .save:
             overlayDelegate?.overlayViewDidRequestSave()
-        case .share:
-            // Show share picker anchored to the share button, then dismiss on selection
-            let shareBtn = rightStripView?.buttonViews.first { if case .share = $0.action { return true }; return false }
-            overlayDelegate?.overlayViewDidRequestShare(anchorView: shareBtn)
-        case .pin:
-            overlayDelegate?.overlayViewDidRequestPin()
         case .ocr:
             overlayDelegate?.overlayViewDidRequestOCR()
-        case .autoRedact:
-            performAutoRedact()
         case .delayCapture:
             break
         case .cancel:

@@ -15,14 +15,11 @@ enum ToolbarButtonAction {
     case redo
     case copy
     case save
-    case pin
     case ocr
-    case autoRedact
     case cancel
     case moveSelection
     case adjustSelection
     case delayCapture
-    case share
     case loupe
     case detach
     case scrollCapture
@@ -41,33 +38,27 @@ struct ToolbarButton {
 }
 
 enum ToolbarCustomAction: Int {
-    case pin = 1002
     case ocr = 1003
-    case autoRedact = 1006
     case reserved1007 = 1007
     case scrollCapture = 1010
-    case share = 1012
 
     static var allKnownActions: [ToolbarCustomAction] {
-        [.pin, .ocr, .autoRedact, .reserved1007, .scrollCapture, .share]
+        [.ocr, .reserved1007, .scrollCapture]
     }
 
     static var rightToolbarActions: [ToolbarCustomAction] {
-        [.share, .pin, .ocr, .scrollCapture]
+        [.ocr, .scrollCapture]
     }
 
     static var rightSettingsActions: [ToolbarCustomAction] {
-        [.pin, .ocr, .autoRedact, .scrollCapture, .share]
+        [.ocr, .scrollCapture]
     }
 
     var settingsLabel: String {
         switch self {
-        case .pin: return L("Pin (floating window)")
         case .ocr: return L("OCR & QR")
-        case .autoRedact: return L("Auto-Redact sensitive data")
         case .reserved1007: return ""
         case .scrollCapture: return L("Scroll Capture")
-        case .share: return L("Share")
         }
     }
 
@@ -76,17 +67,13 @@ enum ToolbarCustomAction: Int {
         isEditorMode: Bool = false
     ) -> ToolbarButton? {
         switch self {
-        case .pin:
-            return ToolbarButton(action: .pin, sfSymbol: "pin.fill", tooltip: L("Pin"))
         case .ocr:
             return ToolbarButton(action: .ocr, sfSymbol: "doc.text.viewfinder", tooltip: L("OCR & QR"))
-        case .autoRedact, .reserved1007:
+        case .reserved1007:
             return nil
         case .scrollCapture:
             guard !isRecording && !isEditorMode else { return nil }
             return ToolbarButton(action: .scrollCapture, sfSymbol: "scroll", tooltip: L("Scroll Capture"))
-        case .share:
-            return ToolbarButton(action: .share, sfSymbol: "square.and.arrow.up", tooltip: L("Share"))
         }
     }
 }
@@ -245,7 +232,6 @@ class ToolbarLayout {
             (.pixelate, "_custom.checkerboard", L("Censor (Pixelate / Blur / Solid)")),
             (.highlight, "sun.max", L("Highlight (Spotlight)")),
             (.loupe, "magnifyingglass", L("Magnify (Loupe)")),
-            (.stamp, "face.smiling", L("Stamp / Emoji")),
             (.colorSampler, "eyedropper", L("Color Picker")),
             (.measure, "ruler", L("Measure (px)")),
         ]

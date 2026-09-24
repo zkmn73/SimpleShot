@@ -62,7 +62,6 @@ private final class ScreenshotOverlayRootView: NSView {
 protocol OverlayWindowControllerDelegate: AnyObject {
     func overlayDidCancel(_ controller: OverlayWindowController)
     func overlayDidConfirm(_ controller: OverlayWindowController, capturedImage: NSImage?, annotationData: CaptureAnnotationData?)
-    func overlayDidRequestPin(_ controller: OverlayWindowController, image: NSImage, annotationData: CaptureAnnotationData?)
     func overlayDidRequestOCR(_ controller: OverlayWindowController, result: OCRScanResult, image: NSImage?)
     func overlayDidRequestScrollCapture(
         _ controller: OverlayWindowController, rect: NSRect, screen: NSScreen)
@@ -94,8 +93,6 @@ class OverlayWindowController {
     private var overlayView: OverlayView?
     private var rootView: ScreenshotOverlayRootView?
     private var overlayWindow: OverlayWindow?
-    private var shareDelegate: SharePickerDelegate?
-    private var shareDismissTime: Date = .distantPast
     var windowNumber: CGWindowID {
         overlayWindow.map { CGWindowID($0.windowNumber) } ?? CGWindowID.max
     }
@@ -487,13 +484,6 @@ extension OverlayWindowController: OverlayViewDelegate {
         overlayDelegate?.overlayDidConfirm(self, capturedImage: compositedImage, annotationData: annotationData)
     }
 
-    func overlayViewDidRequestPin() {
-        guard let image = captureRegion() else { return }
-        let annotationData = currentAnnotationDataForHistory()
-        dismiss()
-        overlayDelegate?.overlayDidRequestPin(self, image: image, annotationData: annotationData)
-    }
-
     func overlayViewDidRequestOCR() {
         guard let image = captureRegion() else { return }
         guard let cgImage = image.cgImage(forProposedRect: nil, context: nil, hints: nil) else {
@@ -509,63 +499,6 @@ extension OverlayWindowController: OverlayViewDelegate {
                     self.overlayDelegate?.overlayDidRequestOCR(self, result: result, image: capturedImage)
                 }
             }
-        }
-    }
-
-    func overlayViewDidRequestShare(anchorView: NSView?) {
-        // Prevent re-entry: if a share session is active or was just dismissed, ignore
-        if shareDelegate != nil { return }
-        if Date().timeIntervalSince(shareDismissTime) < 0.5 {
-            return
-        }
-
-        guard let image = captureRegion() else { return }
-        let annotationData = currentAnnotationDataForHistory()
-        guard let imageData = ImageEncoder.encode(image) else { return }
-        let tempURL = TmpScratchDirectory.makeURL(
-            filename: FilenameFormatter.defaultImageFilename(windowTitle: capturedWindowTitle))
-        try? imageData.write(to: tempURL)
-
-        // Get the screen position of the share button
-        let screenRect: NSRect
-        if let anchor = anchorView, let win = anchor.window {
-            let viewRect = anchor.convert(anchor.bounds, to: nil)
-            screenRect = win.convertToScreen(viewRect)
-        } else {
-            let mid = NSScreen.main?.frame ?? NSRect(x: 400, y: 400, width: 100, height: 100)
-            screenRect = NSRect(x: mid.midX - 20, y: mid.midY - 20, width: 40, height: 40)
-        }
-
-        // Temporarily lower the overlay so the system share picker popover appears on top.
-        // NSSharingServicePicker creates its own window at a standard level that we can't control.
-        let savedLevel = overlayWindow?.level ?? NSWindow.Level(257)
-        overlayWindow?.level = .floating
-
-        let picker = NSSharingServicePicker(items: [tempURL])
-        let delegate = SharePickerDelegate(
-            onPick: { [weak self] in
-                guard let self = self else { return }
-                self.overlayWindow?.level = savedLevel
-                self.shareDelegate = nil
-                let img = image
-                self.dismiss()
-                self.overlayDelegate?.overlayDidConfirm(self, capturedImage: img, annotationData: annotationData)
-            },
-            onDismiss: { [weak self] in
-                self?.overlayWindow?.level = savedLevel
-                self?.shareDelegate = nil
-                self?.shareDismissTime = Date()
-            }
-        )
-        shareDelegate = delegate
-        picker.delegate = delegate
-
-        // Show anchored to the button in the overlay view
-        if let anchor = anchorView {
-            picker.show(relativeTo: anchor.bounds, of: anchor, preferredEdge: .minY)
-        } else if let view = overlayView {
-            let center = NSRect(x: view.bounds.midX - 1, y: view.bounds.midY - 1, width: 2, height: 2)
-            picker.show(relativeTo: center, of: view, preferredEdge: .minY)
         }
     }
 
@@ -778,24 +711,4 @@ extension OverlayWindowController: OverlayViewDelegate {
 class OverlayWindow: NSPanel {
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { true }
-}
-
-/// Retained delegate for NSSharingServicePicker — dismisses overlay only when user picks a service.
-private class SharePickerDelegate: NSObject, NSSharingServicePickerDelegate {
-    let onPick: () -> Void
-    let onDismiss: () -> Void
-    init(onPick: @escaping () -> Void, onDismiss: @escaping () -> Void) {
-        self.onPick = onPick
-        self.onDismiss = onDismiss
-    }
-
-    func sharingServicePicker(
-        _ sharingServicePicker: NSSharingServicePicker, didChoose service: NSSharingService?
-    ) {
-        if service != nil {
-            onPick()
-        } else {
-            onDismiss()
-        }
-    }
 }

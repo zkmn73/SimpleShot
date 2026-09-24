@@ -167,7 +167,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
     private var overlayControllers: [OverlayWindowController] = []
     private var settingsController: SettingsWindowController?
     private var onboardingController: PermissionOnboardingController?
-    private var pinControllers: [PinWindowController] = []
     private var ocrController: OCRResultController?
     private var isCapturing = false
     private var delayCountdownWindow: NSWindow?
@@ -283,12 +282,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         NotificationCenter.default.addObserver(
             self, selector: #selector(screenParametersDidChange),
             name: NSApplication.didChangeScreenParametersNotification, object: nil
-        )
-
-        // Pin from history panel
-        NotificationCenter.default.addObserver(
-            self, selector: #selector(pinFromHistory(_:)),
-            name: .init("macshot.pinFromHistory"), object: nil
         )
 
         // Check screen recording permission. If not yet granted, show the
@@ -750,13 +743,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         HotkeyManager.applyMenuShortcut(for: .openFromClipboard, to: pasteImageItem)
         menu.addItem(pasteImageItem)
 
-        let pinClipboardTitle = L("Pin from Clipboard")
-        let pinClipboardItem = NSMenuItem(title: pinClipboardTitle, action: #selector(pinFromClipboard), keyEquivalent: "")
-        pinClipboardItem.target = self
-        pinClipboardItem.image = NSImage(systemSymbolName: "pin.fill", accessibilityDescription: pinClipboardTitle)
-        HotkeyManager.applyMenuShortcut(for: .pinFromClipboard, to: pinClipboardItem)
-        menu.addItem(pinClipboardItem)
-
         menu.addItem(NSMenuItem.separator())
 
         let prefsItem = NSMenuItem(title: L("Settings..."), action: #selector(openSettings), keyEquivalent: ",")
@@ -835,9 +821,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
             captureLastArea: { [weak self] in
                 stamp()
                 self?.perform(#selector(AppDelegate.captureLastAreaFromHotkey))
-            },
-            pinFromClipboard: { [weak self] in
-                DispatchQueue.main.async { self?.pinFromClipboard() }
             }
         )
     }
@@ -1576,11 +1559,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         ImageSaveService.saveToConfiguredFolder(image, panelLevel: .floating, activateApp: true)
     }
 
-    @objc private func pinFromHistory(_ notification: Notification) {
-        guard let image = notification.object as? NSImage else { return }
-        showPin(image: image)
-    }
-
     /// Reports a failure the user needs to know about. Losing a capture without
     /// any indication is worse than any error message.
     func showFailureToast(_ message: String) {
@@ -1592,13 +1570,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         }
         toast.show(status: message)
         toast.showError(message: message, asUploadFailure: false)
-    }
-
-    func showPin(image: NSImage) {
-        let pin = PinWindowController(image: image)
-        pin.delegate = self
-        pin.show()
-        pinControllers.append(pin)
     }
 
     // MARK: - Open Image
@@ -1620,29 +1591,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
             return
         }
         DetachedEditorWindowController.open(image: image)
-    }
-
-    @objc private func pinFromClipboard() {
-        guard let item = NSPasteboard.general.pasteboardItems?.first else {
-            showNoPinClipboardContentAlert()
-            return
-        }
-
-        switch ClipboardPinService.image(from: item) {
-        case .image(let image):
-            showPin(image: image)
-        case .unsupported:
-            showNoPinClipboardContentAlert()
-        }
-    }
-
-    private func showNoPinClipboardContentAlert() {
-        let alert = NSAlert()
-        alert.messageText = L("No Image or Text on Clipboard")
-        alert.informativeText = L("Copy an image or text to the clipboard first, then try again.")
-        alert.alertStyle = .informational
-        alert.addButton(withTitle: L("OK"))
-        alert.runModal()
     }
 
     private func openImageWithPanel() {
@@ -1863,19 +1811,6 @@ extension AppDelegate: OverlayWindowControllerDelegate {
 
         guard let cgImage = cgCtx.makeImage() else { return nil }
         return NSImage(cgImage: cgImage, size: globalRect.size)
-    }
-
-    func overlayDidRequestPin(_ controller: OverlayWindowController, image: NSImage, annotationData: CaptureAnnotationData?) {
-        let appToRefocus = previousApp
-        dismissOverlays(refocusPreviousApp: false)
-        let pin = PinWindowController(image: image)
-        pin.delegate = self
-        pin.show()
-        pinControllers.append(pin)
-        // Return focus to previous app — pin stays visible (hidesOnDeactivate=false, orderFrontRegardless)
-        if let app = appToRefocus, !app.isTerminated, app.bundleIdentifier != Bundle.main.bundleIdentifier {
-            DispatchQueue.main.async { AppDelegate.activateApp(app) }
-        }
     }
 
     func overlayDidRequestOCR(_ controller: OverlayWindowController, result: OCRScanResult, image: NSImage?) {
@@ -2148,14 +2083,6 @@ extension AppDelegate: OverlayWindowControllerDelegate {
         }
     }
 
-}
-
-// MARK: - PinWindowControllerDelegate
-
-extension AppDelegate: PinWindowControllerDelegate {
-    func pinWindowDidClose(_ controller: PinWindowController) {
-        pinControllers.removeAll { $0 === controller }
-    }
 }
 
 // MARK: - NSMenuDelegate (status bar menu)

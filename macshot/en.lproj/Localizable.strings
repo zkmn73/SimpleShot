@@ -30,7 +30,6 @@
 "Show History Panel" = "Show History Panel";
 "Open Image..." = "Open Image...";
 "Open from Clipboard" = "Open from Clipboard";
-"Pin from Clipboard" = "Pin from Clipboard";
 "Check for Updates..." = "Check for Updates...";
 "Quit macshot" = "Quit macshot";
 "No recent captures" = "No recent captures";
@@ -69,7 +68,6 @@
 "Text" = "Text";
 "Number" = "Number";
 "Number / Counter" = "Number / Counter";
-"Stamp / Emoji" = "Stamp / Emoji";
 "Censor" = "Censor";
 "Censor (Pixelate / Blur / Solid)" = "Censor (Pixelate / Blur / Solid)";
 "Highlight" = "Highlight";
@@ -88,21 +86,16 @@
 "Save to File" = "Save to File";
 "Save to" = "Save to";
 "Open in Editor Window" = "Open in Editor Window";
-"Pin on Screen" = "Pin on Screen";
-"Pin" = "Pin";
-"Pin (floating window)" = "Pin (floating window)";
 "OCR" = "OCR";
 "OCR Text" = "OCR Text";
 "OCR (extract text)" = "OCR (extract text)";
 "OCR & QR" = "OCR & QR";
 "Upload" = "Upload";
-"Share" = "Share";
 "Undo" = "Undo";
 "Redo" = "Redo";
 "Close" = "Close";
 "Record" = "Record";
 "Record screen" = "Record screen";
-"Auto-Redact sensitive data" = "Auto-Redact sensitive data";
 "Move Selection" = "Move Selection";
 
 /* Toolbar - Recording */
@@ -344,8 +337,6 @@
 /* Alerts */
 "No Image on Clipboard" = "No Image on Clipboard";
 "Copy an image to the clipboard first, then try again." = "Copy an image to the clipboard first, then try again.";
-"No Image or Text on Clipboard" = "No Image or Text on Clipboard";
-"Copy an image or text to the clipboard first, then try again." = "Copy an image or text to the clipboard first, then try again.";
 "OK" = "OK";
 "Accessibility Access Required" = "Accessibility Access Required";
 "macshot needs Accessibility permission to auto-scroll other apps. Please grant access in System Settings, then try again." = "macshot needs Accessibility permission to auto-scroll other apps. Please grant access in System Settings, then try again.";
