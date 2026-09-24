@@ -147,55 +147,14 @@ class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSWindowD
         container.translatesAutoresizingMaskIntoConstraints = false
         tabContentContainer = container
 
-        // Footer separator
-        let sep = NSBox()
-        sep.boxType = .separator
-        sep.translatesAutoresizingMaskIntoConstraints = false
-
-        // Footer labels
-        let madeBy = NSTextField(labelWithString: "\(L("Made by")) sw33tLie")
-        madeBy.font = NSFont.systemFont(ofSize: 11)
-        madeBy.textColor = .secondaryLabelColor
-        madeBy.translatesAutoresizingMaskIntoConstraints = false
-
-        let linkBtn = NSButton(title: "github.com/sw33tLie/macshot", target: self, action: #selector(openGitHub))
-        linkBtn.bezelStyle = .inline
-        linkBtn.isBordered = false
-        linkBtn.font = NSFont.systemFont(ofSize: 11)
-        linkBtn.attributedTitle = NSAttributedString(string: "github.com/sw33tLie/macshot", attributes: [
-            .font: NSFont.systemFont(ofSize: 11),
-            .foregroundColor: NSColor.linkColor,
-            .underlineStyle: NSUnderlineStyle.single.rawValue,
-        ])
-        linkBtn.translatesAutoresizingMaskIntoConstraints = false
-
-        let footerStack = NSStackView(views: [madeBy, NSView(), linkBtn])
-        footerStack.orientation = .horizontal
-        footerStack.spacing = 0
-        footerStack.translatesAutoresizingMaskIntoConstraints = false
-
         cv.addSubview(container)
-        cv.addSubview(sep)
-        cv.addSubview(footerStack)
 
         NSLayoutConstraint.activate([
-            // Content container fills above the footer
+            // Content container fills the whole window
             container.topAnchor.constraint(equalTo: cv.topAnchor),
             container.leadingAnchor.constraint(equalTo: cv.leadingAnchor),
             container.trailingAnchor.constraint(equalTo: cv.trailingAnchor),
-            container.bottomAnchor.constraint(equalTo: sep.topAnchor),
-
-            // Footer separator
-            sep.leadingAnchor.constraint(equalTo: cv.leadingAnchor),
-            sep.trailingAnchor.constraint(equalTo: cv.trailingAnchor),
-            sep.bottomAnchor.constraint(equalTo: footerStack.topAnchor, constant: -6),
-            sep.heightAnchor.constraint(equalToConstant: 1),
-
-            // Footer
-            footerStack.leadingAnchor.constraint(equalTo: cv.leadingAnchor, constant: 20),
-            footerStack.trailingAnchor.constraint(equalTo: cv.trailingAnchor, constant: -20),
-            footerStack.bottomAnchor.constraint(equalTo: cv.bottomAnchor, constant: -8),
-            footerStack.heightAnchor.constraint(equalToConstant: 20),
+            container.bottomAnchor.constraint(equalTo: cv.bottomAnchor),
         ])
 
         // Show initial tab
@@ -1584,9 +1543,6 @@ class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSWindowD
     }
     @objc private func closeEditorAfterCopyChanged(_ sender: NSButton) {
         UserDefaults.standard.set(sender.state == .on, forKey: "closeEditorAfterCopy")
-    }
-    @objc private func openGitHub() {
-        if let url = URL(string: "https://github.com/sw33tLie/macshot") { NSWorkspace.shared.open(url) }
     }
     @objc private func imageFormatChanged(_ sender: NSPopUpButton) {
         guard let raw = sender.selectedItem?.representedObject as? String,
