@@ -210,10 +210,6 @@
 "Hotkeys still work. To show the icon again, re-launch macshot." = "Hotkeys still work. To show the icon again, re-launch macshot.";
 "Check for updates automatically" = "Check for updates automatically";
 "Check for beta updates" = "Check for beta updates";
-"Menu Bar Order" = "Menu Bar Order";
-"Choose the order of capture actions in the macshot menu bar menu." = "Choose the order of capture actions in the macshot menu bar menu.";
-"Move up" = "Move up";
-"Move down" = "Move down";
 "Output" = "Output";
 "Image format:" = "Image format:";
 "Quality:" = "Quality:";

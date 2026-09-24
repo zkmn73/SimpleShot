@@ -15,7 +15,6 @@ enum CaptureMenuItemID: String, CaseIterable {
     case captureLastArea = "captureLastArea"
     case scrollCapture = "scrollCapture"
 
-    static let userDefaultsKey = "captureMenuItemOrder"
     static let defaultOrder: [CaptureMenuItemID] = [
         .captureArea,
         .captureScreen,
@@ -58,28 +57,6 @@ enum CaptureMenuItemID: String, CaseIterable {
         }
     }
 
-    static func orderedItems(defaults: UserDefaults = .standard) -> [CaptureMenuItemID] {
-        let saved = defaults.stringArray(forKey: userDefaultsKey) ?? []
-        var result: [CaptureMenuItemID] = []
-        for rawValue in saved {
-            guard let item = CaptureMenuItemID(rawValue: rawValue), !result.contains(item) else { continue }
-            result.append(item)
-        }
-        for item in defaultOrder where !result.contains(item) {
-            result.append(item)
-        }
-        return result
-    }
-
-    static func saveOrder(_ items: [CaptureMenuItemID], defaults: UserDefaults = .standard) {
-        let sanitized = items.filter { defaultOrder.contains($0) }
-        let completed = sanitized + defaultOrder.filter { !sanitized.contains($0) }
-        defaults.set(completed.map(\.rawValue), forKey: userDefaultsKey)
-    }
-
-    static func resetOrder(defaults: UserDefaults = .standard) {
-        defaults.removeObject(forKey: userDefaultsKey)
-    }
 }
 
 import os.log
@@ -739,7 +716,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         let menu = NSMenu()
         menu.autoenablesItems = false
 
-        for itemID in CaptureMenuItemID.orderedItems() {
+        for itemID in CaptureMenuItemID.defaultOrder {
             menu.addItem(makeCaptureMenuItem(itemID))
         }
 
