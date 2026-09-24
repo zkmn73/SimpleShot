@@ -42,24 +42,8 @@ enum ToolbarCustomAction: Int {
     case reserved1007 = 1007
     case scrollCapture = 1010
 
-    static var allKnownActions: [ToolbarCustomAction] {
-        [.ocr, .reserved1007, .scrollCapture]
-    }
-
     static var rightToolbarActions: [ToolbarCustomAction] {
         [.ocr, .scrollCapture]
-    }
-
-    static var rightSettingsActions: [ToolbarCustomAction] {
-        [.ocr, .scrollCapture]
-    }
-
-    var settingsLabel: String {
-        switch self {
-        case .ocr: return L("OCR & QR")
-        case .reserved1007: return ""
-        case .scrollCapture: return L("Scroll Capture")
-        }
     }
 
     func makeToolbarButton(
@@ -75,43 +59,6 @@ enum ToolbarCustomAction: Int {
             guard !isRecording && !isEditorMode else { return nil }
             return ToolbarButton(action: .scrollCapture, sfSymbol: "scroll", tooltip: L("Scroll Capture"))
         }
-    }
-}
-
-enum ToolbarActionPreferences {
-    static let enabledDefaultsKey = "enabledActions"
-    static let knownDefaultsKey = "knownActionTags"
-
-    static var allKnownRawValues: [Int] {
-        ToolbarCustomAction.allKnownActions.map(\.rawValue)
-    }
-
-    static var defaultEnabledRawValues: [Int] {
-        allKnownRawValues
-    }
-
-    static func enabledRawValuesAfterMigration() -> [Int]? {
-        var enabledActions = UserDefaults.standard.array(forKey: enabledDefaultsKey) as? [Int]
-        let knownActionTags = UserDefaults.standard.array(forKey: knownDefaultsKey) as? [Int]
-        let newTags = allKnownRawValues.filter { !(knownActionTags ?? []).contains($0) }
-
-        if !newTags.isEmpty {
-            if enabledActions == nil {
-                enabledActions = allKnownRawValues
-            } else if knownActionTags == nil {
-                // Upgrading from a version before knownActionTags tracking was added.
-            } else {
-                enabledActions = enabledActions! + newTags
-            }
-            UserDefaults.standard.set(enabledActions, forKey: enabledDefaultsKey)
-            UserDefaults.standard.set(allKnownRawValues, forKey: knownDefaultsKey)
-        }
-
-        return enabledActions
-    }
-
-    static func isEnabled(_ action: ToolbarCustomAction, in enabledActions: [Int]?) -> Bool {
-        enabledActions == nil || enabledActions!.contains(action.rawValue)
     }
 }
 
@@ -194,29 +141,6 @@ class ToolbarLayout {
 
         var buttons: [ToolbarButton] = []
 
-        // Get enabled tools from UserDefaults — migrate: only add tools that are brand-new.
-        // Track introduced tools in `knownToolRawValues` so user-disabled tools are never re-enabled.
-        let allKnownToolRawValues = AnnotationTool.allCases
-            .filter { $0 != .select && $0 != .translateOverlay }
-            .map { $0.rawValue }
-        var enabledRawValues = UserDefaults.standard.array(forKey: "enabledTools") as? [Int]
-        let knownToolRawValues = UserDefaults.standard.array(forKey: "knownToolRawValues") as? [Int]
-        let newToolRaws = allKnownToolRawValues.filter { !(knownToolRawValues ?? []).contains($0) }
-        if !newToolRaws.isEmpty {
-            if enabledRawValues == nil {
-                // Fresh install: enable everything.
-                enabledRawValues = allKnownToolRawValues
-            } else if knownToolRawValues == nil {
-                // Upgrading from a version before knownToolRawValues tracking was added.
-                // Respect the existing enabledTools as-is; just mark all current tools as known.
-            } else {
-                // Normal upgrade: new tools introduced — add them enabled by default.
-                enabledRawValues = (enabledRawValues! + newToolRaws)
-            }
-            UserDefaults.standard.set(enabledRawValues, forKey: "enabledTools")
-            UserDefaults.standard.set(allKnownToolRawValues, forKey: "knownToolRawValues")
-        }
-
         let tools: [(AnnotationTool, String, String)] = [
             (.pencil, "scribble", L("Pencil (Draw)")),
             (.line, "line.diagonal", L("Line")),
@@ -237,10 +161,6 @@ class ToolbarLayout {
         ]
 
         for (tool, symbol, tip) in tools {
-            // Skip if disabled
-            if let enabledRawValues = enabledRawValues, !enabledRawValues.contains(tool.rawValue) {
-                continue
-            }
             var btn = ToolbarButton(action: .tool(tool), sfSymbol: symbol, tooltip: tip)
             btn.isSelected = (tool == selectedTool)
             switch tool {
@@ -276,8 +196,6 @@ class ToolbarLayout {
     ) -> [ToolbarButton] {
         var buttons: [ToolbarButton] = []
 
-        let enabledActions = ToolbarActionPreferences.enabledRawValuesAfterMigration()
-
         // Cancel, move-selection, editor — not shown in editor window
         if !isEditorMode {
             buttons.append(
@@ -310,7 +228,6 @@ class ToolbarLayout {
         buttons.append(saveBtn)
 
         for action in ToolbarCustomAction.rightToolbarActions {
-            guard ToolbarActionPreferences.isEnabled(action, in: enabledActions) else { continue }
             if let button = action.makeToolbarButton(
                 isRecording: isRecording,
                 isEditorMode: isEditorMode

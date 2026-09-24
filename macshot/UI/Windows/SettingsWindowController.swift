@@ -29,7 +29,6 @@ class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSWindowD
             TabDef(id: "general",   label: "General",   symbolName: "gearshape",                 legacyImageName: NSImage.preferencesGeneralName),
             TabDef(id: "capture",   label: "Capture",   symbolName: "camera.viewfinder",         legacyImageName: NSImage.preferencesGeneralName),
             TabDef(id: "shortcuts", label: "Shortcuts", symbolName: "keyboard",                  legacyImageName: NSImage.preferencesGeneralName),
-            TabDef(id: "tools",     label: "Tools",     symbolName: "paintbrush",                legacyImageName: NSImage.preferencesGeneralName),
         ]
         tabs.append(TabDef(id: "about", label: "About", symbolName: "info.circle", legacyImageName: NSImage.preferencesGeneralName))
         return tabs
@@ -139,7 +138,6 @@ class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSWindowD
         tabContentViews["general"]   = makeGeneralTabView()
         tabContentViews["capture"]   = makeCaptureTabView()
         tabContentViews["shortcuts"] = makeShortcutsTabView()
-        tabContentViews["tools"]     = makeToolsTabView()
         tabContentViews["about"]     = makeAboutTabView()
 
         // Container that swaps content views
@@ -514,7 +512,6 @@ class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSWindowD
         tabContentViews["general"] = makeGeneralTabView()
         tabContentViews["capture"] = makeCaptureTabView()
         tabContentViews["shortcuts"] = makeShortcutsTabView()
-        tabContentViews["tools"] = makeToolsTabView()
         tabContentViews["about"] = makeAboutTabView()
         showTab(id: previouslySelected)
     }
@@ -1048,79 +1045,6 @@ class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSWindowD
         if let monitor = localMonitor { NSEvent.removeMonitor(monitor); localMonitor = nil }
     }
 
-    // MARK: - Tools Tab
-
-    private func makeToolsTabView() -> NSView {
-        let scroll = NSScrollView()
-        scroll.hasVerticalScroller = true
-        scroll.autohidesScrollers = true
-        scroll.borderType = .noBorder
-        scroll.drawsBackground = false
-        scroll.autoresizingMask = [.width, .height]
-
-        let stack = NSStackView()
-        stack.orientation = .vertical
-        stack.alignment = .leading
-        stack.spacing = 0
-        stack.translatesAutoresizingMaskIntoConstraints = false
-        stack.edgeInsets = NSEdgeInsets(top: 0, left: 20, bottom: 16, right: 20)
-
-        // ── Annotation Tools ─────────────────────────────────
-        stack.addArrangedSubview(sectionHeader(L("Annotation Tools")))
-        stack.setCustomSpacing(4, after: stack.arrangedSubviews.last!)
-
-        let noteA = NSTextField(labelWithString: L("Hidden tools are removed from the bottom toolbar."))
-        noteA.font = NSFont.systemFont(ofSize: 11)
-        noteA.textColor = .secondaryLabelColor
-        stack.addArrangedSubview(noteA)
-        stack.setCustomSpacing(10, after: stack.arrangedSubviews.last!)
-
-        let annotationTools: [(AnnotationTool, String)] = [
-            (.pencil, L("Pencil")), (.line, L("Line")), (.arrow, L("Arrow")),
-            (.rectangle, L("Rectangle")),
-            (.ellipse, L("Ellipse")), (.marker, L("Marker")), (.text, L("Text")),
-            (.number, L("Number / Counter")), (.pixelate, L("Censor")),
-            (.highlight, L("Highlight (Spotlight)")),
-            (.loupe, L("Magnify (Loupe)")), (.colorSampler, L("Color Picker")), (.measure, L("Measure")),
-        ]
-        let enabledTools = UserDefaults.standard.array(forKey: "enabledTools") as? [Int]
-        let toolsGrid = makeToggleGrid(items: annotationTools.map { (tag: $0.rawValue, label: $1) },
-                                       defaultsKey: "enabledTools", enabledValues: enabledTools)
-        stack.addArrangedSubview(toolsGrid)
-        toolsGrid.widthAnchor.constraint(equalTo: stack.widthAnchor, constant: -40).isActive = true
-        stack.setCustomSpacing(20, after: stack.arrangedSubviews.last!)
-
-        // ── Right Toolbar Actions ────────────────────────────
-        stack.addArrangedSubview(sectionHeader(L("Right Toolbar Actions")))
-        stack.setCustomSpacing(4, after: stack.arrangedSubviews.last!)
-
-        let noteC = NSTextField(labelWithString: L("Hidden actions are removed from the right toolbar."))
-        noteC.font = NSFont.systemFont(ofSize: 11)
-        noteC.textColor = .secondaryLabelColor
-        stack.addArrangedSubview(noteC)
-        stack.setCustomSpacing(10, after: stack.arrangedSubviews.last!)
-
-        let rightActionItems = ToolbarCustomAction.rightSettingsActions.map {
-            (tag: $0.rawValue, label: $0.settingsLabel)
-        }
-        let enabledActions = UserDefaults.standard.array(forKey: "enabledActions") as? [Int]
-        let rightActionsGrid = makeToggleGrid(items: rightActionItems,
-                                              defaultsKey: "enabledActions", enabledValues: enabledActions)
-        stack.addArrangedSubview(rightActionsGrid)
-        rightActionsGrid.widthAnchor.constraint(equalTo: stack.widthAnchor, constant: -40).isActive = true
-
-        let clipView = scroll.contentView
-        scroll.documentView = stack
-
-        NSLayoutConstraint.activate([
-            stack.topAnchor.constraint(equalTo: clipView.topAnchor),
-            stack.leadingAnchor.constraint(equalTo: clipView.leadingAnchor),
-            stack.trailingAnchor.constraint(equalTo: clipView.trailingAnchor),
-        ])
-
-        return scroll
-    }
-
     // MARK: - About Tab
 
     private func makeAboutTabView() -> NSView {
@@ -1312,85 +1236,6 @@ class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSWindowD
         return row
     }
 
-    /// Two-column grid of checkboxes in a rounded box, fills parent width.
-    private func makeToggleGrid(items: [(tag: Int, label: String)],
-                                 defaultsKey: String,
-                                 enabledValues: [Int]?) -> NSView {
-        let box = NSView()
-        box.translatesAutoresizingMaskIntoConstraints = false
-        box.wantsLayer = true
-        box.layer?.backgroundColor = NSColor.windowBackgroundColor.withAlphaComponent(0.5).cgColor
-        box.layer?.cornerRadius = 6
-        box.layer?.borderWidth = 1
-        box.layer?.borderColor = NSColor.separatorColor.cgColor
-
-        // Build rows of 2 columns using horizontal stack views inside a vertical stack
-        let vStack = NSStackView()
-        vStack.orientation = .vertical
-        vStack.spacing = 0
-        vStack.alignment = .leading
-        vStack.translatesAutoresizingMaskIntoConstraints = false
-        box.addSubview(vStack)
-
-        let pad: CGFloat = 8
-        NSLayoutConstraint.activate([
-            vStack.topAnchor.constraint(equalTo: box.topAnchor, constant: pad),
-            vStack.leadingAnchor.constraint(equalTo: box.leadingAnchor, constant: pad),
-            vStack.trailingAnchor.constraint(equalTo: box.trailingAnchor, constant: -pad),
-            vStack.bottomAnchor.constraint(equalTo: box.bottomAnchor, constant: -pad),
-        ])
-
-        let cols = 2
-        let rows = Int(ceil(Double(items.count) / Double(cols)))
-
-        for row in 0..<rows {
-            let hStack = NSStackView()
-            hStack.orientation = .horizontal
-            hStack.distribution = .fillEqually
-            hStack.spacing = 0
-            hStack.translatesAutoresizingMaskIntoConstraints = false
-            // Row must be AT LEAST 28pt so single-line checkboxes still look
-            // consistent, but can grow if a translated label wraps to two
-            // lines. Without this relaxation, long locale strings get
-            // horizontally clipped (issue #130).
-            hStack.heightAnchor.constraint(greaterThanOrEqualToConstant: 28).isActive = true
-
-            for col in 0..<cols {
-                let idx = row * cols + col
-                if idx < items.count {
-                    let item = items[idx]
-                    let isEnabled = enabledValues == nil || enabledValues!.contains(item.tag)
-                    let cb = NSButton(checkboxWithTitle: item.label, target: self, action: #selector(toggleItemChanged(_:)))
-                    cb.state = isEnabled ? .on : .off
-                    cb.tag = item.tag
-                    cb.identifier = NSUserInterfaceItemIdentifier(defaultsKey)
-                    cb.translatesAutoresizingMaskIntoConstraints = false
-                    // Let the title wrap when it doesn't fit the column —
-                    // the native NSButton checkbox truncates by default.
-                    // Word-wrap is graceful; the cell takes a second line
-                    // of text when needed instead of swallowing characters.
-                    cb.cell?.wraps = true
-                    cb.cell?.isScrollable = false
-                    cb.cell?.lineBreakMode = .byWordWrapping
-                    if let cell = cb.cell as? NSButtonCell {
-                        cell.usesSingleLineMode = false
-                    }
-                    hStack.addArrangedSubview(cb)
-                } else {
-                    let filler = NSView()
-                    filler.translatesAutoresizingMaskIntoConstraints = false
-                    hStack.addArrangedSubview(filler)
-                }
-            }
-            vStack.addArrangedSubview(hStack)
-            // Stretch row to fill the vStack's width (must be after addArrangedSubview
-            // so both views share a common ancestor)
-            hStack.widthAnchor.constraint(equalTo: vStack.widthAnchor).isActive = true
-        }
-
-        return box
-    }
-
     // MARK: - Load settings
 
     func refreshShortcutDisplaysForKeyboardLayout() {
@@ -1575,16 +1420,6 @@ class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSWindowD
     }
     @objc private func scrollFrozenDetectionChanged(_ sender: NSButton) {
         UserDefaults.standard.set(sender.state == .on, forKey: "scrollFrozenDetection")
-    }
-    @objc private func toggleItemChanged(_ sender: NSButton) {
-        let key = sender.identifier?.rawValue ?? "enabledTools"
-        let allTools: [AnnotationTool] = [.pencil, .line, .arrow, .rectangle,
-                                          .ellipse, .marker, .text, .number, .pixelate, .highlight, .loupe, .measure]
-        let defaultValues: [Int] = key == "enabledTools" ? allTools.map { $0.rawValue } : ToolbarActionPreferences.defaultEnabledRawValues
-        var enabled = UserDefaults.standard.array(forKey: key) as? [Int] ?? defaultValues
-        if sender.state == .on { if !enabled.contains(sender.tag) { enabled.append(sender.tag) } }
-        else { enabled.removeAll { $0 == sender.tag } }
-        UserDefaults.standard.set(enabled, forKey: key)
     }
     @objc private func accentColorChanged(_ sender: NSColorWell) {
         ToolbarLayout.saveAccentColor(sender.color)

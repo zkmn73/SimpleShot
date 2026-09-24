@@ -67,13 +67,11 @@
 "Marker" = "Marker";
 "Text" = "Text";
 "Number" = "Number";
-"Number / Counter" = "Number / Counter";
 "Censor" = "Censor";
 "Censor (Pixelate / Blur / Solid)" = "Censor (Pixelate / Blur / Solid)";
 "Highlight" = "Highlight";
 "Highlight (Spotlight)" = "Highlight (Spotlight)";
 "Dim" = "Dim";
-"Measure" = "Measure";
 "Measure (px)" = "Measure (px)";
 "Magnify (Loupe)" = "Magnify (Loupe)";
 "Color Sampler" = "Color Sampler";
@@ -180,7 +178,6 @@
 /* Preferences - General */
 "macshot Preferences" = "macshot Preferences";
 "General" = "General";
-"Tools" = "Tools";
 "Recording" = "Recording";
 "About" = "About";
 "Shortcuts" = "Shortcuts";
@@ -254,14 +251,6 @@
 "Clear shortcut" = "Clear shortcut";
 "Press keys..." = "Press keys...";
 "Waiting..." = "Waiting...";
-
-/* Preferences - Tools */
-"Annotation Tools" = "Annotation Tools";
-"Hidden tools are removed from the bottom toolbar." = "Hidden tools are removed from the bottom toolbar.";
-"Capture Actions" = "Capture Actions";
-"Editor Actions" = "Editor Actions";
-"Right Toolbar Actions" = "Right Toolbar Actions";
-"Hidden actions are removed from the right toolbar." = "Hidden actions are removed from the right toolbar.";
 
 /* Preferences - Recording */
 "Frame rate:" = "Frame rate:";
