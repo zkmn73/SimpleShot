@@ -1,26 +1,21 @@
 {
-  "images" : [
+  "images": [
     {
-      "filename" : "statusbar.png",
-      "idiom" : "mac",
-      "scale" : "1x"
+      "filename": "statusbar.png",
+      "idiom": "mac",
+      "scale": "1x"
     },
     {
-      "filename" : "statusbar@2x.png",
-      "idiom" : "mac",
-      "scale" : "2x"
-    },
-    {
-      "filename" : "statusbar@3x.png",
-      "idiom" : "mac",
-      "scale" : "3x"
+      "filename": "statusbar@2x.png",
+      "idiom": "mac",
+      "scale": "2x"
     }
   ],
-  "info" : {
-    "author" : "xcode",
-    "version" : 1
+  "info": {
+    "author": "xcode",
+    "version": 1
   },
-  "properties" : {
-    "template-rendering-intent" : "template"
+  "properties": {
+    "template-rendering-intent": "template"
   }
 }

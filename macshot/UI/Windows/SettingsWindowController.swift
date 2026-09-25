@@ -696,7 +696,7 @@ class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSWindowD
             field.isSelectable = false
             field.alignment = .center
             field.setContentHuggingPriority(.defaultHigh, for: .horizontal)
-            field.widthAnchor.constraint(equalToConstant: 80).isActive = true
+            field.widthAnchor.constraint(equalToConstant: 100).isActive = true
             field.stringValue = HotkeyManager.displayString(for: slot)
 
             let btn = NSButton(title: L("Set"), target: self, action: #selector(recordShortcut(_:)))
