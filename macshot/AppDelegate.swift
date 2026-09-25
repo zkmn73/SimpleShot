@@ -1151,8 +1151,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // Window creation above already ran in parallel with the prep that the
         // background work still has to do.
         //
-        // Prefer SCScreenshotManager: it honors the "Capture mouse cursor"
-        // toggle even for the enlarged shake-to-find / accessibility cursor,
+        // Prefer SCScreenshotManager: it never captures the mouse cursor, even the
+        // enlarged shake-to-find / accessibility cursor,
         // which CGWindowListCreateImage cannot exclude (the cursor is a
         // WindowServer layer, not a window). On macOS 26+, use the rect-based
         // screenshot API to avoid SCShareableContent enumeration in the hot

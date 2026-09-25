@@ -2,7 +2,6 @@ import Cocoa
 
 extension OverlayView {
 
-    static let browserElementSnapEnabledKey = "browserElementSnapEnabled"
     private static let browserAccessibilityLock = NSLock()
     private static var browserAccessibilitySessionToken = 0
     private static var browserAccessibilityPreviousValues: [Int: BrowserAccessibilityValues] = [:]
@@ -286,10 +285,6 @@ extension OverlayView {
         ownerPID: Int,
         sessionToken: Int
     ) -> Bool {
-        let defaults = UserDefaults.standard
-        let enabled = defaults.object(forKey: browserElementSnapEnabledKey) as? Bool ?? true
-        guard enabled else { return false }
-
         browserAccessibilityLock.lock()
         guard sessionToken == browserAccessibilitySessionToken else {
             browserAccessibilityLock.unlock()

@@ -46,7 +46,7 @@ Upgrade with `brew upgrade --cask simpleshot`, remove with `brew uninstall --cas
 - Window snap: hover a window and click to capture it exactly (`Tab` toggles snap, `F` selects the full screen)
 - Boundary snap to strong edges while dragging (hold `Option` to bypass)
 - Exact pixel size and aspect-ratio presets, editable while selecting
-- Multi-monitor capture, optional capture delay (3/5/10/30 s), optional mouse cursor
+- Multi-monitor capture, optional capture delay (3/5/10/30 s); the mouse cursor is never captured
 - Scroll capture: select a region and scroll, SimpleShot stitches it into one tall image
 - OCR & QR: extract text with Apple Vision and read QR codes
 - Open an image file or the clipboard image in the editor
@@ -58,7 +58,7 @@ Upgrade with `brew upgrade --cask simpleshot`, remove with `brew uninstall --cas
 - Click any annotation to move, resize, rotate, restyle or delete it; hold `Space` while drawing to reposition; snap guides; full undo/redo
 
 **Output**
-- Copy to clipboard, save to a folder, or ask where to save
+- Copy to clipboard, save to a folder (default `~/Downloads`), or ask where to save
 - PNG, JPEG, HEIC and WebP, adjustable quality, optional 1x downscale on Retina
 - Filename templates (`{date}`, `{window}`, `{random}` and more)
 - Standalone editor window with crop, flip, zoom, Add Capture (compose several regions) and paste

@@ -15,7 +15,7 @@ SimpleShot is a free, open-source screenshot and annotation tool for macOS. It r
 
 ## Data stored on your device
 
-- **Screenshots** — saved to the folder you choose, or copied to the clipboard.
+- **Screenshots** — saved to the folder you choose (default `~/Downloads`), or copied to the clipboard.
 - **Preferences** — stored in macOS UserDefaults, inside the app's sandbox container.
 - **Temporary files** — short-lived scratch files in the system temporary directory, cleaned up automatically.
 

@@ -8,6 +8,16 @@ enum SaveDirectoryAccess {
     private static let bookmarkKey = "saveDirectoryBookmark"
     private static let pathKey = "saveDirectory"
 
+    /// The user's real `~/Downloads`. In the sandbox `NSHomeDirectory()` and
+    /// `.downloadsDirectory` point into the app container, so the real home is
+    /// read from the user database. Writable without a bookmark thanks to the
+    /// `files.downloads.read-write` entitlement.
+    static var defaultDirectory: URL {
+        let home = getpwuid(getuid()).flatMap { String(cString: $0.pointee.pw_dir) }
+            ?? FileManager.default.homeDirectoryForCurrentUser.path
+        return URL(fileURLWithPath: home, isDirectory: true).appendingPathComponent("Downloads", isDirectory: true)
+    }
+
     /// Save both the path (for display) and the security-scoped bookmark (for sandbox access).
     static func save(url: URL) {
         UserDefaults.standard.set(url.path, forKey: pathKey)
@@ -25,10 +35,15 @@ enum SaveDirectoryAccess {
     /// Resolve the configured save directory, starting sandbox-scoped access,
     /// but return `nil` when no valid security-scoped bookmark exists. Use this
     /// for writes that must succeed in the sandbox — `nil` means the caller
-    /// should prompt the user to choose a folder.
+    /// should prompt the user to choose a folder. Until the user picks a folder,
+    /// this is `~/Downloads` (when it is writable).
     /// Caller **must** call `stopAccessing(url:)` when done writing.
     static func resolveIfAccessible() -> URL? {
-        guard let bookmarkData = UserDefaults.standard.data(forKey: bookmarkKey) else { return nil }
+        guard let bookmarkData = UserDefaults.standard.data(forKey: bookmarkKey) else {
+            guard UserDefaults.standard.string(forKey: pathKey) == nil,
+                  FileManager.default.isWritableFile(atPath: defaultDirectory.path) else { return nil }
+            return defaultDirectory
+        }
         var isStale = false
         guard let url = try? URL(resolvingBookmarkData: bookmarkData,
                                   options: .withSecurityScope,
@@ -52,7 +67,7 @@ enum SaveDirectoryAccess {
     /// Caller **must** call `stopAccessing(url:)` when done writing.
     ///
     /// ⚠️ This **always** returns a URL, falling back to the stored raw path or
-    /// `~/Pictures` when no bookmark exists — but that fallback has **no**
+    /// `~/Downloads` when no bookmark exists — a stored path has **no**
     /// sandbox write access, so `write(to:)` will fail. Prefer
     /// `resolveIfAccessible()` for writes that must work in the sandbox.
     static func resolve() -> URL {
@@ -60,8 +75,7 @@ enum SaveDirectoryAccess {
         if let path = UserDefaults.standard.string(forKey: pathKey) {
             return URL(fileURLWithPath: path)
         }
-        return FileManager.default.urls(for: .picturesDirectory, in: .userDomainMask).first
-            ?? FileManager.default.homeDirectoryForCurrentUser
+        return defaultDirectory
     }
 
     /// Resolve the directory URL **without** starting scoped access.
@@ -71,7 +85,7 @@ enum SaveDirectoryAccess {
         if let path = UserDefaults.standard.string(forKey: pathKey) {
             return URL(fileURLWithPath: path)
         }
-        return FileManager.default.urls(for: .picturesDirectory, in: .userDomainMask).first
+        return defaultDirectory
     }
 
     /// Stop accessing the security-scoped resource after writing is complete.
@@ -81,6 +95,6 @@ enum SaveDirectoryAccess {
 
     /// The display path for the settings UI.
     static var displayPath: String {
-        UserDefaults.standard.string(forKey: pathKey) ?? "~/Pictures"
+        UserDefaults.standard.string(forKey: pathKey) ?? "~/Downloads"
     }
 }

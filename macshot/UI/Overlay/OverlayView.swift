@@ -108,7 +108,7 @@ class OverlayView: NSView {
             boundarySnapGuideX = nil
             boundarySnapGuideY = nil
             pendingAutoAdjustSelection = false
-            if boundarySnapEnabled, !isEditorMode {
+            if !isEditorMode {
                 scheduleBoundarySnapIndexBuild()
             }
         }
@@ -478,9 +478,6 @@ class OverlayView: NSView {
     var snapGuideX: CGFloat? = nil  // vertical guide line X
     var snapGuideY: CGFloat? = nil  // horizontal guide line Y
     private let snapThreshold: CGFloat = 5
-    private var snapGuidesEnabled: Bool {
-        UserDefaults.standard.object(forKey: "snapGuidesEnabled") as? Bool ?? true
-    }
     private var selectionOutsideShadowDisabled: Bool {
         UserDefaults.standard.bool(forKey: "disableSelectionOutsideShadow")
     }
@@ -714,11 +711,8 @@ class OverlayView: NSView {
     }
 
     // Boundary snapping — snap the selection's dragged edges to strong color
-    // edges in the captured image (UI lines, window borders, etc.). Off by
-    // default. Hold Option while dragging to bypass.
-    var boundarySnapEnabled: Bool {
-        UserDefaults.standard.object(forKey: "boundarySnapEnabled") as? Bool ?? true
-    }
+    // edges in the captured image (UI lines, window borders, etc.). Always on;
+    // hold Option while dragging to bypass.
     private var boundarySnapIndex: BoundarySnapIndex?
     private var boundarySnapBuildGeneration = 0
     private var pendingAutoAdjustSelection = false
@@ -3183,12 +3177,6 @@ class OverlayView: NSView {
 
     /// Snap a point's X and Y to the nearest target within threshold. Returns snapped point and sets guide lines.
     func snapPoint(_ point: NSPoint, excluding: Annotation? = nil) -> NSPoint {
-        guard snapGuidesEnabled else {
-            snapGuideX = nil
-            snapGuideY = nil
-            return point
-        }
-
         let (xs, ys) = collectSnapTargets(excluding: excluding)
         var result = point
         snapGuideX = nil
@@ -3232,12 +3220,6 @@ class OverlayView: NSView {
     private func snapRectDelta(rect: NSRect, excluding: Annotation? = nil) -> (
         dx: CGFloat, dy: CGFloat
     ) {
-        guard snapGuidesEnabled else {
-            snapGuideX = nil
-            snapGuideY = nil
-            return (0, 0)
-        }
-
         let (xs, ys) = collectSnapTargets(excluding: excluding)
         let edgesX = [rect.minX, rect.midX, rect.maxX]
         let edgesY = [rect.minY, rect.midY, rect.maxY]
@@ -3284,8 +3266,6 @@ class OverlayView: NSView {
 
     /// Draw snap guide lines (called from draw after annotations, before toolbars).
     private func drawSnapGuides() {
-        guard snapGuidesEnabled else { return }
-
         let guideColor = NSColor.systemCyan.withAlphaComponent(0.6)
         guideColor.setStroke()
 
@@ -6046,7 +6026,7 @@ class OverlayView: NSView {
         // stays exact, and bypassed with Option. The anchor edge stays put.
         // While repositioning with Space the whole rect translates rigidly, so we
         // snap the WHOLE moved rect below instead of just the cursor corner.
-        if !spaceRepositioning, boundarySnapEnabled, !modifiers.contains(.option), let index = boundarySnapIndex,
+        if !spaceRepositioning, !modifiers.contains(.option), let index = boundarySnapIndex,
            activePreSelectionRatio == nil, !shiftHeld {
             point = snapMovingPoint(point, anchor: selectionStart, index: index)
         } else if !spaceRepositioning, boundarySnapGuideX != nil || boundarySnapGuideY != nil {
@@ -6413,7 +6393,7 @@ class OverlayView: NSView {
 
         // Boundary snap (before aspect, so the locked ratio is preserved): snap
         // the dragged edge(s) to nearby strong image edges. Option bypasses.
-        if boundarySnapEnabled, !modifiers.contains(.option), let index = boundarySnapIndex {
+        if !modifiers.contains(.option), let index = boundarySnapIndex {
             newRect = applyBoundarySnap(to: newRect, handle: resizeHandle, minSize: minSize, index: index)
         } else if boundarySnapGuideX != nil || boundarySnapGuideY != nil {
             boundarySnapGuideX = nil
@@ -6465,10 +6445,10 @@ class OverlayView: NSView {
     /// resize snapping, the rect size is fixed: we translate it so an edge lands
     /// on a boundary. Both left/right edges are candidates on X (and top/bottom on
     /// Y); the nearer snap wins per axis. Returns the translated rect and updates
-    /// the snap-guide feedback. Returns the rect unchanged when snapping is off /
+    /// the snap-guide feedback. Returns the rect unchanged when
     /// Option is held / no index is built.
     func boundarySnappedMovedRect(_ rect: NSRect, modifiers: NSEvent.ModifierFlags) -> NSRect {
-        guard boundarySnapEnabled, !modifiers.contains(.option), let index = boundarySnapIndex else {
+        guard !modifiers.contains(.option), let index = boundarySnapIndex else {
             if boundarySnapGuideX != nil || boundarySnapGuideY != nil {
                 boundarySnapGuideX = nil
                 boundarySnapGuideY = nil
@@ -6534,8 +6514,7 @@ class OverlayView: NSView {
     }
 
     /// Refine all four edges of an existing selection in one explicit action.
-    /// This deliberately does not consult `boundarySnapEnabled` and does not
-    /// alter the drag-time snap radius or behavior.
+    /// This does not alter the drag-time snap radius or behavior.
     private func autoAdjustSelection() {
         guard state == .selected, !isEditorMode, selectionRect.width >= 4,
               selectionRect.height >= 4 else { return }

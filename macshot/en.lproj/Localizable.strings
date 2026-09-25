@@ -103,11 +103,6 @@
 "Shortcuts" = "Shortcuts";
 "Capture" = "Capture";
 "Launch at login" = "Launch at login";
-"Show snap alignment guides" = "Show snap alignment guides";
-"Snap selection edges to image boundaries" = "Snap selection edges to image boundaries";
-"Enhance browser and Electron element snapping" = "Enhance browser and Electron element snapping";
-"Builds the target app's accessibility tree in Element mode. Disable this if a browser or Electron app becomes slow or has input issues." = "Builds the target app's accessibility tree in Element mode. Disable this if a browser or Electron app becomes slow or has input issues.";
-"Capture mouse cursor in screenshot" = "Capture mouse cursor in screenshot";
 "Double-click selection to copy" = "Double-click selection to copy";
 "Hide capture instructions" = "Hide capture instructions";
 "Disable shadow outside selection" = "Disable shadow outside selection";
@@ -189,7 +184,6 @@
 "Text Recognition" = "Text Recognition";
 "Text & QR Recognition" = "Text & QR Recognition";
 "%d chars · %d words" = "%d chars · %d words";
-"AI Search" = "AI Search";
 "(No text detected in the selected area)" = "(No text detected in the selected area)";
 "QR Code" = "QR Code";
 "QR Codes" = "QR Codes";

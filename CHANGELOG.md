@@ -12,6 +12,10 @@ First SimpleShot release: a minimal, fully local macOS screenshot and annotation
 - **Single build** — the separate "Offline" variant is gone; there is one app.
 - **Fixed toolbar theme** — the toolbar always uses the default theme; accent, icon and background colors are no longer configurable.
 - **English only** — all other localizations were removed.
+- **Snapping is always on** — annotation alignment guides, selection edge snapping to image boundaries (hold `Option` to bypass) and the enhanced browser/Electron element snapping no longer have settings.
+- **Default save folder is `~/Downloads`** — screenshots save there without asking for a folder first. Choose another folder in Settings at any time.
+- **OCR "AI Search" button removed** — recognized text is no longer sent to a web search from the OCR window.
+- **Mouse cursor is never captured** — the "Capture mouse cursor in screenshot" option was removed.
 - **Toolbar and settings simplified** — every annotation tool and the OCR / Scroll Capture actions are always available; the Tools settings tab, menu bar order and menu bar icon customization, single-key tool shortcuts, and the settings footer were removed.
 - **Distribution through Homebrew** — `brew install --cask zkmn73/tap/simpleshot`. Releases are built by GitHub Actions and published as `SimpleShot.dmg`.
 

@@ -11,14 +11,6 @@ class ScreenCaptureManager {
     struct ImmediateCaptureContext {
         let screens: [NSScreen]
         let mainHeight: CGFloat
-        let mouseLocation: NSPoint
-        let cursor: CursorCapture?
-    }
-
-    struct CursorCapture {
-        let image: CGImage
-        let size: NSSize
-        let hotSpot: NSPoint
     }
 
     // MARK: - SCShareableContent cache
@@ -59,28 +51,10 @@ class ScreenCaptureManager {
         let screens = NSScreen.screens
         timing?("makeImmediateCaptureContext NSScreen.screens end count=\(screens.count)")
         let mainHeight = screens.first?.frame.height ?? 0
-        let mouseLocation = NSEvent.mouseLocation
-        let includeCursor = UserDefaults.standard.bool(forKey: "captureCursor")
-        let cursor: CursorCapture?
-        if includeCursor {
-            timing?("makeImmediateCaptureContext cursor capture begin")
-            let current = NSCursor.current
-            let image = current.image
-            if let cgImage = image.cgImage(forProposedRect: nil, context: nil, hints: nil) {
-                cursor = CursorCapture(image: cgImage, size: image.size, hotSpot: current.hotSpot)
-            } else {
-                cursor = nil
-            }
-            timing?("makeImmediateCaptureContext cursor capture end captured=\(cursor != nil)")
-        } else {
-            cursor = nil
-        }
 
         return ImmediateCaptureContext(
             screens: screens,
-            mainHeight: mainHeight,
-            mouseLocation: mouseLocation,
-            cursor: cursor)
+            mainHeight: mainHeight)
     }
 
     static func captureAllScreensImmediately(
@@ -104,16 +78,7 @@ class ScreenCaptureManager {
                 return nil
             }
             timing?("CGWindowListCreateImage end screen=\(index) pixels=\(image.width)x\(image.height)")
-            let finalImage: CGImage
-            if let cursor = context.cursor {
-                timing?("draw cursor begin screen=\(index)")
-                finalImage = imageByDrawingCursor(
-                    cursor, onto: image, screen: screen, mouseLocation: context.mouseLocation)
-                timing?("draw cursor end screen=\(index)")
-            } else {
-                finalImage = image
-            }
-            return ScreenCapture(screen: screen, image: finalImage)
+            return ScreenCapture(screen: screen, image: image)
         }
     }
 
@@ -121,8 +86,7 @@ class ScreenCaptureManager {
     /// `captureAllScreensImmediately` (which uses CGWindowListCreateImage and
     /// cannot exclude the WindowServer-composited cursor — notably the enlarged
     /// shake-to-find / accessibility pointer), SCK never paints the cursor when
-    /// `showsCursor` is false, so the "Capture mouse cursor" toggle is honored
-    /// for the enlarged cursor too.
+    /// `showsCursor` is false, so screenshots never contain the cursor.
     ///
     /// On macOS 26+, first uses the rect-based screenshot API. That avoids
     /// enumerating SCShareableContent in the hot path, while still freezing
@@ -136,10 +100,8 @@ class ScreenCaptureManager {
     static func captureAllScreensImmediatelySCK(
         timing: (@Sendable (String) -> Void)? = nil
     ) async -> [ScreenCapture]? {
-        let showsCursor = UserDefaults.standard.bool(forKey: "captureCursor")
         if #available(macOS 26.0, *) {
             if let captures = await captureAllScreensImmediatelySCKRect(
-                showsCursor: showsCursor,
                 timing: timing
             ) {
                 return captures
@@ -180,14 +142,14 @@ class ScreenCaptureManager {
                 let (display, screen) = pair
                 group.addTask {
                     // Capture the whole display, excluding nothing: transient UI
-                    // must be preserved. The cursor is controlled by showsCursor,
-                    // not by the window list.
+                    // must be preserved. The cursor is never captured
+                    // (showsCursor is false).
                     let filter = SCContentFilter(display: display, excludingWindows: [])
                     let config = SCStreamConfiguration()
                     let scale = Int(screen.backingScaleFactor)
                     config.width = display.width * scale
                     config.height = display.height * scale
-                    config.showsCursor = showsCursor
+                    config.showsCursor = false
                     config.captureResolution = .best
                     timing?("SCK immediate capture begin display=\(index)")
                     guard
@@ -217,7 +179,6 @@ class ScreenCaptureManager {
 
     @available(macOS 26.0, *)
     private static func captureAllScreensImmediatelySCKRect(
-        showsCursor: Bool,
         timing: (@Sendable (String) -> Void)? = nil
     ) async -> [ScreenCapture]? {
         let screens = NSScreen.screens
@@ -250,7 +211,7 @@ class ScreenCaptureManager {
                     let config = SCScreenshotConfiguration()
                     config.width = Int(rect.width * screen.backingScaleFactor)
                     config.height = Int(rect.height * screen.backingScaleFactor)
-                    config.showsCursor = showsCursor
+                    config.showsCursor = false
                     // Rectangle screenshots omit window framing by default on
                     // macOS 26. Preserve the shadows visible on the desktop.
                     config.ignoreShadows = false
@@ -329,42 +290,6 @@ class ScreenCaptureManager {
         return context.makeImage() ?? image
     }
 
-    private static func imageByDrawingCursor(
-        _ cursor: CursorCapture, onto image: CGImage, screen: NSScreen, mouseLocation: NSPoint
-    ) -> CGImage {
-        guard screen.frame.contains(mouseLocation) else { return image }
-
-        guard
-            let colorSpace = image.colorSpace ?? CGColorSpace(name: CGColorSpace.sRGB),
-            let context = CGContext(
-                data: nil,
-                width: image.width,
-                height: image.height,
-                bitsPerComponent: 8,
-                bytesPerRow: 0,
-                space: colorSpace,
-                bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)
-        else { return image }
-
-        let imageRect = CGRect(x: 0, y: 0, width: image.width, height: image.height)
-        context.draw(image, in: imageRect)
-
-        let scaleX = CGFloat(image.width) / screen.frame.width
-        let scaleY = CGFloat(image.height) / screen.frame.height
-
-        let localMouse = NSPoint(
-            x: mouseLocation.x - screen.frame.minX,
-            y: mouseLocation.y - screen.frame.minY)
-        let cursorRect = CGRect(
-            x: (localMouse.x - cursor.hotSpot.x) * scaleX,
-            y: (localMouse.y - cursor.hotSpot.y) * scaleY,
-            width: cursor.size.width * scaleX,
-            height: cursor.size.height * scaleY)
-        context.draw(cursor.image, in: cursorRect)
-
-        return context.makeImage() ?? image
-    }
-
     static func captureAllScreens(
         excludingWindowNumbers: [CGWindowID] = [],
         timing: (@Sendable (String) -> Void)? = nil,
@@ -431,8 +356,7 @@ class ScreenCaptureManager {
                                 let scale = Int(screen.backingScaleFactor)
                                 config.width = display.width * scale
                                 config.height = display.height * scale
-                                config.showsCursor = UserDefaults.standard.bool(
-                                    forKey: "captureCursor")
+                                config.showsCursor = false
                                 config.captureResolution = .best
 
                                 guard

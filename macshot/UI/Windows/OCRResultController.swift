@@ -148,13 +148,6 @@ class OCRResultController: NSObject {
         footer.addSubview(copyBtn)
         self.copyButton = copyBtn
 
-        // AI Search button
-        let aiSearchBtn = NSButton(title: L("AI Search"), target: self, action: #selector(openAISearch))
-        aiSearchBtn.bezelStyle = .rounded
-        aiSearchBtn.frame = NSRect(x: rightW - 220, y: (footerH - 28) / 2, width: 100, height: 28)
-        aiSearchBtn.autoresizingMask = [.minXMargin]
-        footer.addSubview(aiSearchBtn)
-
         let qrSectionH = qrCodes.isEmpty ? CGFloat(0) : min(CGFloat(46 + qrCodes.count * 36), 168)
 
         // Scrollable text view
@@ -316,14 +309,6 @@ class OCRResultController: NSObject {
         guard sender.tag >= 0, sender.tag < qrCodes.count,
               let url = qrCodes[sender.tag].url else { return }
         NSWorkspace.shared.open(url)
-    }
-
-    @objc private func openAISearch() {
-        guard let text = textView?.string, !text.isEmpty else { return }
-        guard let encoded = text.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
-              let url = URL(string: "https://www.google.com/search?q=\(encoded)&csuir=1&udm=50") else { return }
-        NSWorkspace.shared.open(url)
-        close()
     }
 
     private func updateCharCount(for text: String) {
