@@ -67,7 +67,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private var delayEscMonitor: Any?
     /// Transient toast for failures that would otherwise be invisible — a save
     /// that couldn't be written, a recording that produced no file.
-    private var errorToastController: UploadToastController?
+    private var errorToastController: FailureToastController?
     private let terminationCoordinator = ApplicationTerminationCoordinator()
     private var scrollCaptureController: ScrollCaptureController?
     /// The overlay controller whose selection is being scroll-captured.
@@ -124,13 +124,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         // Offer to move to /Applications if running from a DMG or translocated path
         promptToMoveToApplicationsIfNeeded()
-
-        migrateFilenameTemplateIfNeeded()
-
-        // Reclaim disk from stale tmp leftovers (cancelled recordings,
-        // legacy clipboard PNGs, share-sheet scratch). Runs off the main
-        // thread so it can't delay launch.
-        LaunchCleanup.runAll()
 
         setupMainMenu()
         setupStatusBar()
@@ -332,20 +325,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         if window.isMiniaturized { window.deminiaturize(nil) }
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
-    }
-
-    /// One-shot migration from the legacy `useWindowTitleInFilename` checkbox
-    /// to the new `filenameTemplate` string. Runs once — seeds the template
-    /// from the old bool then clears the legacy key.
-    private func migrateFilenameTemplateIfNeeded() {
-        let d = UserDefaults.standard
-        guard d.object(forKey: FilenameFormatter.userDefaultsKey) == nil else { return }
-        let hadWindowTitle = d.bool(forKey: "useWindowTitleInFilename")
-        let template = hadWindowTitle
-            ? "Screenshot {date} at {time} — {window}"
-            : FilenameFormatter.defaultTemplate
-        d.set(template, forKey: FilenameFormatter.userDefaultsKey)
-        d.removeObject(forKey: "useWindowTitleInFilename")
     }
 
     /// If the app is running from a DMG volume or a translocated path,
@@ -1173,13 +1152,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     /// any indication is worse than any error message.
     func showFailureToast(_ message: String) {
         errorToastController?.dismiss()
-        let toast = UploadToastController()
+        let toast = FailureToastController()
         errorToastController = toast
         toast.onDismiss = { [weak self] in
             self?.errorToastController = nil
         }
-        toast.show(status: message)
-        toast.showError(message: message, asUploadFailure: false)
+        toast.show(message: message)
     }
 
     // MARK: - Open Image

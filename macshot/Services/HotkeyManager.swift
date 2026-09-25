@@ -91,7 +91,7 @@ class HotkeyManager {
 
         installEventHandler()
         var ref: EventHotKeyRef?
-        var hotkeyID = EventHotKeyID(signature: OSType(0x4D53_4854), id: UInt32(slot.rawValue))
+        let hotkeyID = EventHotKeyID(signature: OSType(0x4D53_4854), id: UInt32(slot.rawValue))
 
         let status = RegisterEventHotKey(
             keyCode, modifiers, hotkeyID,

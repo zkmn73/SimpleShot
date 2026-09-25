@@ -1071,16 +1071,6 @@ class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSWindowD
         filenameTemplateField.stringValue = UserDefaults.standard.string(forKey: FilenameFormatter.userDefaultsKey) ?? FilenameFormatter.defaultTemplate
         updateFilenamePreview()
 
-        // Migrate old bool setting to new int: 0=save, 1=copy, 2=both
-        if let oldBool = UserDefaults.standard.object(forKey: "quickModeCopyToClipboard") as? Bool {
-            let mode = oldBool ? 1 : 0
-            // If old autoCopy was on + save mode, migrate to "both"
-            let hadAutoCopy = UserDefaults.standard.object(forKey: "autoCopyToClipboard") as? Bool ?? true
-            let migratedMode = (!oldBool && hadAutoCopy) ? 2 : mode
-            UserDefaults.standard.set(migratedMode, forKey: "quickCaptureMode")
-            UserDefaults.standard.removeObject(forKey: "quickModeCopyToClipboard")
-            UserDefaults.standard.removeObject(forKey: "autoCopyToClipboard")
-        }
         let quickMode = UserDefaults.standard.object(forKey: "quickCaptureMode") as? Int ?? 1
         quickModePopup.selectItem(at: quickMode)
         quickCaptureOpenEditorCheckbox.state = UserDefaults.standard.bool(forKey: "quickCaptureOpenEditor") ? .on : .off

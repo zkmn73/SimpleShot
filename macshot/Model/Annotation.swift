@@ -1089,18 +1089,6 @@ class Annotation {
         }
         let epx = -sin(endAngle), epy = cos(endAngle)
 
-        // Start angle: direction leaving the tail
-        let postFirst = pts.count >= 2 ? pts[1] : lastPt
-        let startAngle: CGFloat
-        if hasMultiAnchor {
-            startAngle = atan2(postFirst.y - firstPt.y, postFirst.x - firstPt.x)
-        } else if let cp = controlPoint {
-            startAngle = atan2(cp.y - firstPt.y, cp.x - firstPt.x)
-        } else {
-            startAngle = endAngle
-        }
-        let spx = -sin(startAngle), spy = cos(startAngle)
-
         // Sizing — the arrow's cross-section (shaft + head width) should never
         // exceed the arrow's length. Scale everything down proportionally.
         let rawTailHalf = max(2, strokeWidth * 0.5)
@@ -1286,7 +1274,6 @@ class Annotation {
         let headLen = min(max(baseWidth * 4.3, 13), totalLen * 0.27)
         let headGap = min(max(baseWidth * 0.28, 1.5), max(2, totalLen * 0.025))
         let shaftEndLen = max(0, totalLen - headLen - headGap)
-        let headBaseLen = max(0, totalLen - headLen)
         let steps = max(12, min(140, Int(totalLen / 6)))
 
         func point(atDistance distance: CGFloat) -> (point: NSPoint, tangent: CGVector) {

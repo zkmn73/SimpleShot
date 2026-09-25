@@ -418,14 +418,7 @@ class OverlayView: NSView {
     // Stroke width picker popover
 
     var pencilSmoothMode: Int = {
-        // Migrate old bool to new mode: true → 1 (Smooth), false → 0 (None)
-        if let old = UserDefaults.standard.object(forKey: "pencilSmoothEnabled") as? Bool {
-            UserDefaults.standard.removeObject(forKey: "pencilSmoothEnabled")
-            let mode = old ? 1 : 0
-            UserDefaults.standard.set(mode, forKey: "pencilSmoothMode")
-            return mode
-        }
-        return UserDefaults.standard.object(forKey: "pencilSmoothMode") as? Int ?? 1
+        UserDefaults.standard.object(forKey: "pencilSmoothMode") as? Int ?? 1
     }()
     var pencilPressureEnabled: Bool =
         UserDefaults.standard.object(forKey: "pencilPressureEnabled") as? Bool ?? false
@@ -2857,7 +2850,6 @@ class OverlayView: NSView {
         screenshotImage = NSImage(cgImage: flipped, size: original.size)
 
         // Mirror annotation X coordinates around the image center
-        let imgW = original.size.width
         for ann in annotations {
             ann.startPoint.x = selectionRect.minX + (selectionRect.maxX - ann.startPoint.x)
             ann.endPoint.x = selectionRect.minX + (selectionRect.maxX - ann.endPoint.x)
@@ -3534,7 +3526,7 @@ class OverlayView: NSView {
     /// Convert a point in view space to canvas (annotation) space by reversing the zoom transform.
     func viewToCanvas(_ p: NSPoint) -> NSPoint {
         if isInsideScrollView { return p }
-        var q = adjustPointForEditor(p)
+        let q = adjustPointForEditor(p)
         if zoomLevel == 1.0 && zoomAnchorCanvas == .zero && zoomAnchorView == .zero { return q }
         guard zoomAnchorCanvas != .zero || zoomAnchorView != .zero else { return q }
         return NSPoint(
@@ -3583,7 +3575,6 @@ class OverlayView: NSView {
         // Map canvas rect → CGImage pixel rect.
         // CGImage uses top-left origin; canvas uses bottom-left.
         let pointsW = originalImage.size.width
-        let pointsH = originalImage.size.height
         let pixScale = CGFloat(cgOriginal.width) / pointsW
 
         let normX = (canvasRect.minX - selectionRect.minX) / selectionRect.width
@@ -4081,19 +4072,6 @@ class OverlayView: NSView {
         // This avoids regenerating the expensive CIFilter pipeline on every rotation change.
         let unrotatedBBox = baseBBox.insetBy(dx: -padding, dy: -padding)
         guard unrotatedBBox.width > 0, unrotatedBBox.height > 0 else { return }
-
-        // Expand to rotated bounding box for the draw rect so the image covers the full rotated shape
-        let drawBBox: NSRect
-        if annotation.rotation != 0 && annotation.supportsRotation {
-            let cx = unrotatedBBox.midX, cy = unrotatedBBox.midY
-            let cos_r = abs(cos(annotation.rotation)), sin_r = abs(sin(annotation.rotation))
-            let w = unrotatedBBox.width, h = unrotatedBBox.height
-            let rotW = w * cos_r + h * sin_r
-            let rotH = w * sin_r + h * cos_r
-            drawBBox = NSRect(x: cx - rotW / 2, y: cy - rotH / 2, width: rotW, height: rotH)
-        } else {
-            drawBBox = unrotatedBBox
-        }
 
         // Use cached glow if available and unrotated position hasn't changed.
         // Rotation is handled at draw time via transform, not by regenerating the glow.
@@ -7800,18 +7778,12 @@ class OverlayView: NSView {
     }
 
     private func clearHoverIfNeeded(_ removed: [Annotation]) {
-        var changed = false
         if let h = hoveredAnnotation, removed.contains(where: { $0 === h }) {
             hoveredAnnotationClearTimer?.invalidate()
             hoveredAnnotationClearTimer = nil
             hoveredAnnotation = nil
-            changed = true
         }
-        let beforeCount = selectedAnnotations.count
         selectedAnnotations.removeAll { ann in removed.contains(where: { $0 === ann }) }
-        if selectedAnnotations.count != beforeCount {
-            changed = true
-        }
     }
 
     func redo() {

@@ -372,7 +372,7 @@ class OverlayWindowController {
             ?? overlayView?.captureSelectedRegion()
     }
 
-    /// Snapshot editable history data, using a pre-captured raw image.
+    /// Snapshot the editable annotation data, using a pre-captured raw image.
     /// Returns nil if there are no movable annotations.
     private func snapshotAnnotationData(rawImage: NSImage) -> CaptureAnnotationData? {
         guard let view = overlayView else { return nil }
@@ -388,7 +388,7 @@ class OverlayWindowController {
         return CaptureAnnotationData(rawImage: rawImage, annotations: shifted)
     }
 
-    private func currentAnnotationDataForHistory() -> CaptureAnnotationData? {
+    private func currentAnnotationData() -> CaptureAnnotationData? {
         guard let view = overlayView else { return nil }
         let snapWindowImg = view.snappedWindowImage
         let hasAnnotations = view.annotations.contains(where: { $0.isMovable })
@@ -637,7 +637,7 @@ extension OverlayWindowController: OverlayViewDelegate {
             overlayDelegate?.overlayDidCancel(self)
             return
         }
-        let annotationData = currentAnnotationDataForHistory()
+        let annotationData = currentAnnotationData()
 
         dismiss()
         overlayDelegate?.overlayDidConfirm(self, capturedImage: image, annotationData: annotationData)

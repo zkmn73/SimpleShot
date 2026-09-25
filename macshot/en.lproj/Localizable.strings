@@ -183,10 +183,6 @@
 "Open Link" = "Open Link";
 
 /* Upload Toast */
-"URL copied to the clipboard" = "URL copied to the clipboard";
-"Uploading... %d%%" = "Uploading... %d%%";
-"Upload failed: %@" = "Upload failed: %@";
-"Open" = "Open";
 
 /* Video Editor */
 "Export failed" = "Export failed";

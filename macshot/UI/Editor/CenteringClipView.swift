@@ -51,7 +51,7 @@ class CenteringClipView: NSClipView {
 
         if !isTrackpad {
             // Mouse wheel: scroll vertically if there's scrollable content, otherwise do nothing
-            guard let sv = enclosingScrollView else { return }
+            guard enclosingScrollView != nil else { return }
             let docFrame = documentView?.frame ?? .zero
             let canScrollV = docFrame.height > bounds.height + 1
             if canScrollV {
