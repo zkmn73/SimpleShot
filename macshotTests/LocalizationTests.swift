@@ -1,7 +1,7 @@
 import Cocoa
 import XCTest
 
-/// macshot ships English only. Nothing in the build checks `L("…")` keys
+/// SimpleShot ships English only. Nothing in the build checks `L("…")` keys
 /// against `en.lproj/Localizable.strings`, so a new key that's never added
 /// there silently shows the raw key in the UI.
 ///

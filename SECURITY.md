@@ -1,36 +1,39 @@
 # Security Policy
 
-I do vulnerability research and bug bounty for a living, so I know what a good
-disclosure experience looks like from the reporter's side, and what a bad one
-feels like. You'll get the good kind here.
-
 ## Reporting a vulnerability
 
-**Preferred:** [GitHub Private Vulnerability Reporting](https://github.com/sw33tLie/macshot/security/advisories/new).
-It's private and structured, and we can work on the fix together in a private fork.
+**Preferred:** [GitHub Private Vulnerability Reporting](https://github.com/zkmn73/SimpleShot/security/advisories/new).
+It is private and structured, and lets us work on a fix together before anything is public.
 
-**Also fine:** DM me on X at [x.com/sw33tLie](https://x.com/sw33tLie). Good for a
-heads-up or if you can't use GitHub. Please don't put PoCs or exploit details in
-public issues, and don't test against infrastructure you don't own.
+Please don't put proof-of-concept code or exploit details in public issues, and
+don't test against systems you don't own.
 
-I aim to respond within 48 hours, usually much faster. High/Critical issues get a
-fix or a concrete plan within days, not weeks, and fixes reach users quickly via
-Sparkle auto-update.
+This is a small, volunteer-maintained project. Reports are handled on a
+best-effort basis: expect an acknowledgement within about a week, and a fix or
+a concrete plan for high-severity issues as soon as practical.
+
+## Scope
+
+SimpleShot runs locally, has no network access and no accounts, so the relevant
+surface is mainly: handling of untrusted input (image files, clipboard content,
+`simpleshot://` URLs), file access outside the chosen save folder, and privilege
+or permission misuse (Screen Recording, Accessibility).
 
 ## Out of scope
 
-Auto-redact regex misses (best-effort, documented as such), issues
-requiring a compromised machine or physical access, vulnerabilities in Sparkle/
-macOS/dependencies themselves (report upstream, but tell me so I can ship the
-bumped version), and DoS of the app's UI.
+- Misses by the Censor tool's automatic redaction patterns (best-effort by design).
+- Issues that require a compromised machine or physical access.
+- Vulnerabilities in macOS or third-party dependencies themselves (please report
+  them upstream, and let us know so the fixed version can be picked up).
+- Denial of service limited to the app's own UI.
 
 ## Supported versions
 
-Only the latest release of each variant (normal and Offline). Sparkle keeps
-almost everyone current within days.
+Only the latest release. Updates are delivered through Homebrew
+(`brew upgrade --cask simpleshot`) and GitHub Releases; the app does not update itself.
 
 ## Credit
 
-No paid bounty (this is a free GPLv3 project), but you'll get credited in the
-release notes, CHANGELOG, and the GitHub advisory unless you'd rather stay
-anonymous.
+There is no paid bounty (this is a free GPLv3 project), but reporters are
+credited in the release notes, CHANGELOG and the GitHub advisory unless they
+prefer to stay anonymous.

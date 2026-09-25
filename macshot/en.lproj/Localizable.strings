@@ -1,51 +1,27 @@
-/* English (Base) — SimpleShot localization
+/* SimpleShot — English strings.
  *
- * To add a new language:
- * 1. Create a new folder: SimpleShot/<lang-code>.lproj/
- * 2. Copy this file into that folder
- * 3. Translate all values (right side of = sign)
- * 4. Add the language to LanguageManager.availableLanguages in Services/LanguageManager.swift
- * 5. Add the language code to knownRegions in SimpleShot.xcodeproj/project.pbxproj
- * 6. Submit a pull request!
- *
- * Keys use the English text. Values should be the translation.
- * Format strings use %@ for strings, %d for integers.
- * Keep keyboard shortcuts (like ⌘C) untranslated.
- * Keep brand names (SimpleShot, Google Drive, imgbb, S3) untranslated.
+ * SimpleShot is English-only. Keys are the English text passed to `L("…")`;
+ * add a new key here whenever you add a new `L("…")` call (a unit test fails
+ * if a key used in code is missing). Keep the brand name "SimpleShot" as is.
  */
 
 /* Menu Bar */
 "Capture Area" = "Capture Area";
 "Capture Screen" = "Capture Screen";
-"Capture OCR" = "Capture OCR";
 "Capture OCR & QR" = "Capture OCR & QR";
 "Quick Capture" = "Quick Capture";
 "Scroll Capture" = "Scroll Capture";
 "Capture Delay" = "Capture Delay";
 "None" = "None";
 "%d seconds" = "%d seconds";
-"Record Area" = "Record Area";
-"Record Screen" = "Record Screen";
-"Recent Captures" = "Recent Captures";
-"Show History Panel" = "Show History Panel";
 "Open Image..." = "Open Image...";
 "Open from Clipboard" = "Open from Clipboard";
 "Quit SimpleShot" = "Quit SimpleShot";
-"No recent captures" = "No recent captures";
-"Clear History" = "Clear History";
 
 /* History Panel */
 "Copy" = "Copy";
-"Open in Editor" = "Open in Editor";
 "Delete" = "Delete";
 "All" = "All";
-"Screenshots" = "Screenshots";
-"GIFs" = "GIFs";
-"Click to copy · Drag to app" = "Click to copy · Drag to app";
-"No captures yet" = "No captures yet";
-
-"Save Recording" = "Save Recording";
-"Save" = "Save";
 
 /* Editor Top Bar */
 "Zoom In" = "Zoom In";
@@ -61,62 +37,25 @@
 "Line" = "Line";
 "Rectangle" = "Rectangle";
 "Ellipse" = "Ellipse";
-"Pencil" = "Pencil";
 "Pencil (Draw)" = "Pencil (Draw)";
 "Marker" = "Marker";
 "Text" = "Text";
 "Number" = "Number";
-"Censor" = "Censor";
 "Censor (Pixelate / Blur / Solid)" = "Censor (Pixelate / Blur / Solid)";
-"Highlight" = "Highlight";
 "Highlight (Spotlight)" = "Highlight (Spotlight)";
 "Dim" = "Dim";
 "Measure (px)" = "Measure (px)";
 "Magnify (Loupe)" = "Magnify (Loupe)";
-"Color Sampler" = "Color Sampler";
 "Color Picker" = "Color Picker";
-"Select & Edit" = "Select & Edit";
 "Color" = "Color";
 
 /* Toolbar - Actions */
-"Copy to Clipboard" = "Copy to Clipboard";
-"Save to File" = "Save to File";
 "Save to" = "Save to";
 "Open in Editor Window" = "Open in Editor Window";
-"OCR" = "OCR";
-"OCR Text" = "OCR Text";
-"OCR (extract text)" = "OCR (extract text)";
 "OCR & QR" = "OCR & QR";
-"Upload" = "Upload";
 "Undo" = "Undo";
 "Redo" = "Redo";
-"Close" = "Close";
-"Record" = "Record";
-"Record screen" = "Record screen";
 "Move Selection" = "Move Selection";
-
-/* Toolbar - Recording */
-"Start Recording" = "Start Recording";
-"Cancel Recording" = "Cancel Recording";
-"Highlight Mouse Clicks" = "Highlight Mouse Clicks";
-"Record System Audio" = "Record System Audio";
-"Record Microphone" = "Record Microphone";
-"Webcam Overlay" = "Webcam Overlay";
-"Camera Access Required" = "Camera Access Required";
-"SimpleShot needs camera permission for the webcam overlay. Open System Settings to grant access." = "SimpleShot needs camera permission for the webcam overlay. Open System Settings to grant access.";
-"Recording Settings" = "Recording Settings";
-"Webcam" = "Webcam";
-"Small" = "Small";
-"Large" = "Large";
-"Webcam Size Small" = "Small";
-"Webcam Size Medium" = "Medium";
-"Webcam Size Large" = "Large";
-"Webcam Size Extra Large" = "Extra Large";
-"Circle" = "Circle";
-"Rounded Rectangle" = "Rounded Rectangle";
-"Cam pos:" = "Cam pos:";
-"Cam size:" = "Cam size:";
-"Cam shape:" = "Cam shape:";
 
 /* Tool Options */
 "Size" = "Size";
@@ -130,60 +69,38 @@
 "Outline" = "Outline";
 "More Emojis" = "More Emojis";
 "Load Image" = "Load Image";
-"On" = "On";
 "Text Only" = "Text Only";
 "All Text" = "All Text";
 "PII" = "PII";
 "Faces" = "Faces";
 "People" = "People";
-"Confirm before upload" = "Confirm before upload";
 "Flip" = "Flip";
 "Smooth" = "Smooth";
 "Refined" = "Refined";
 "Smart" = "Smart";
-"Right-click to add points" = "Right-click to add points";
 "Hold 1 auto-vertical  ·  Hold 2 auto-horizontal" = "Hold 1 auto-vertical  ·  Hold 2 auto-horizontal";
 
 /* Overlay / Canvas */
 "Click a window  ·  Drag for custom area  ·  F for full screen" = "Click a window  ·  Drag for custom area  ·  F for full screen";
 "Click an element  ·  Drag for custom area  ·  F for full screen" = "Click an element  ·  Drag for custom area  ·  F for full screen";
 "Drag to select  ·  Click for full screen" = "Drag to select  ·  Click for full screen";
-"Release to annotate and edit" = "Release to annotate and edit";
 "Release to finish" = "Release to finish";
-"Space to move. Release to annotate and edit" = "Space to move. Release to annotate and edit";
-"Space to move. Release to finish" = "Space to move. Release to finish";
-"Window snap: " = "Window snap: ";
 "Snap mode: " = "Snap mode: ";
-"ON" = "ON";
 "OFF" = "OFF";
 "WINDOW" = "WINDOW";
 "ELEMENT" = "ELEMENT";
-"  (Tab to toggle)" = "  (Tab to toggle)";
 "  (Tab to switch)" = "  (Tab to switch)";
 "Right-click to copy" = "Right-click to copy";
 "Copied %@" = "Copied %@";
 "Set color %@" = "Set color %@";
-"Draw something first to use the move tool." = "Draw something first to use the move tool.";
-"Drag to reposition" = "Drag to reposition";
 
 /* Overlay - Popovers */
-"Format:" = "Format:";
-"FPS:" = "FPS:";
-"When done:" = "When done:";
-"Open editor" = "Open editor";
-"Show in Finder" = "Show in Finder";
 "Copy to clipboard" = "Copy to clipboard";
 
 /* Preferences - General */
-"SimpleShot Preferences" = "SimpleShot Preferences";
 "General" = "General";
-"Recording" = "Recording";
 "About" = "About";
 "Shortcuts" = "Shortcuts";
-"Uploads" = "Uploads";
-"Language" = "Language";
-"Language:" = "Language:";
-"Restart the app to fully apply the new language." = "Restart the app to fully apply the new language.";
 "Capture" = "Capture";
 "Launch at login" = "Launch at login";
 "Show snap alignment guides" = "Show snap alignment guides";
@@ -194,7 +111,6 @@
 "Double-click selection to copy" = "Double-click selection to copy";
 "Hide capture instructions" = "Hide capture instructions";
 "Disable shadow outside selection" = "Disable shadow outside selection";
-"Use window title in saved filename" = "Use window title in saved filename";
 "Hide menu bar icon" = "Hide menu bar icon";
 "Hotkeys still work. To show the icon again, re-launch SimpleShot." = "Hotkeys still work. To show the icon again, re-launch SimpleShot.";
 "Output" = "Output";
@@ -203,15 +119,7 @@
 "%d%%" = "%d%%";
 "Save at standard resolution (1x)" = "Save at standard resolution (1x)";
 "Halves dimensions on Retina displays, ~4x smaller files" = "Halves dimensions on Retina displays, ~4x smaller files";
-"Embed sRGB color profile" = "Embed sRGB color profile";
-"Ensures consistent colors across different displays" = "Ensures consistent colors across different displays";
 "Enable simpleshot:// URL scheme" = "Enable simpleshot:// URL scheme";
-"Screenshot History" = "Screenshot History";
-"History size:" = "History size:";
-"screenshots kept on disk (0 = off)" = "screenshots kept on disk (0 = off)";
-"Order history by last edit" = "Order history by last edit";
-"Edited screenshots move to the top. Off keeps them in capture order." = "Edited screenshots move to the top. Off keeps them in capture order.";
-"Save Directory" = "Save Directory";
 "Save folder:" = "Save folder:";
 "Browse…" = "Browse…";
 "Freeform" = "Freeform";
@@ -224,11 +132,7 @@
 "Units" = "Units";
 "Hold Space to move. Release to annotate and edit" = "Hold Space to move. Release to annotate and edit";
 "Hold Space to move. Release to finish" = "Hold Space to move. Release to finish";
-"Accent color:" = "Accent color:";
-"Icon color:" = "Icon color:";
-"Background color:" = "Background color:";
 "Reset" = "Reset";
-"OCR Capture:" = "OCR Capture:";
 "OCR & QR Capture:" = "OCR & QR Capture:";
 "Show window + copy to clipboard" = "Show window + copy to clipboard";
 "Show window only" = "Show window only";
@@ -239,23 +143,15 @@
 "Ask where to save" = "Ask where to save";
 "Save to file" = "Save to file";
 "Save + copy to clipboard" = "Save + copy to clipboard";
-"OCR Action" = "OCR Action";
 
 /* Preferences - Shortcuts */
 "Keyboard Shortcuts" = "Keyboard Shortcuts";
-"Hotkeys" = "Hotkeys";
-"Clear shortcut" = "Clear shortcut";
 "Press keys..." = "Press keys...";
 "Waiting..." = "Waiting...";
 
 /* Preferences - Recording */
-"Frame rate:" = "Frame rate:";
-"After recording:" = "After recording:";
-"Save recording to:" = "Save recording to:";
-"Clear" = "Clear";
 "Max height:" = "Max height:";
 "px (0 = unlimited)" = "px (0 = unlimited)";
-"Behavior" = "Behavior";
 "Auto-scroll (sends synthetic scroll events)" = "Auto-scroll (sends synthetic scroll events)";
 "Detect fixed/sticky headers" = "Detect fixed/sticky headers";
 "Scroll speed:" = "Scroll speed:";
@@ -263,54 +159,6 @@
 "Medium" = "Medium";
 "Fast" = "Fast";
 "Very fast" = "Very fast";
-"5 fps" = "5 fps";
-"10 fps" = "10 fps";
-"15 fps" = "15 fps";
-"24 fps" = "24 fps";
-"30 fps" = "30 fps";
-"60 fps" = "60 fps";
-"120 fps" = "120 fps";
-"MP4 (H.264)" = "MP4 (H.264)";
-"GIF" = "GIF";
-
-/* Preferences - Upload */
-"Upload Service" = "Upload Service";
-"Upload Provider" = "Upload Provider";
-"Provider:" = "Provider:";
-"Google Drive" = "Google Drive";
-"Google Drive (images + videos)" = "Google Drive (images + videos)";
-"imgbb (images only)" = "imgbb (images only)";
-"S3-Compatible (images + videos)" = "S3-Compatible (images + videos)";
-"S3-Compatible Storage" = "S3-Compatible Storage";
-"Sign In with Google" = "Sign In with Google";
-"Sign Out" = "Sign Out";
-"Signed in" = "Signed in";
-"Not signed in" = "Not signed in";
-"Folder:" = "Folder:";
-"Account:" = "Account:";
-"Test Connection" = "Test Connection";
-"Fill in endpoint, bucket, and credentials first" = "Fill in endpoint, bucket, and credentials first";
-"Testing..." = "Testing...";
-"Connection successful!" = "Connection successful!";
-"Leave empty to use default" = "Leave empty to use default";
-"Endpoint:" = "Endpoint:";
-"Region:" = "Region:";
-"Bucket:" = "Bucket:";
-"Access Key:" = "Access Key:";
-"Secret Key:" = "Secret Key:";
-"Public URL:" = "Public URL:";
-"Path Prefix:" = "Path Prefix:";
-"Make uploads publicly readable" = "Make uploads publicly readable";
-"API key:" = "API key:";
-"Upload History" = "Upload History";
-"No uploads yet." = "No uploads yet.";
-"Base URL for public access. If empty, the S3 endpoint URL is used (may not be publicly accessible)." = "Base URL for public access. If empty, the S3 endpoint URL is used (may not be publicly accessible).";
-"Sends the public-read ACL so uploaded files are viewable by anyone with the link. Needed for AWS S3, DigitalOcean Spaces, MinIO and Backblaze B2, which store objects privately by default. Leave off for Cloudflare R2, which has no ACLs and rejects the header." = "Sends the public-read ACL so uploaded files are viewable by anyone with the link. Needed for AWS S3, DigitalOcean Spaces, MinIO and Backblaze B2, which store objects privately by default. Leave off for Cloudflare R2, which has no ACLs and rejects the header.";
-"A shared key is included — get your own free key at imgbb.com/api if you hit rate limits. Images only (no video support)." = "A shared key is included — get your own free key at imgbb.com/api if you hit rate limits. Images only (no video support).";
-"Works with AWS S3, Cloudflare R2, MinIO, DigitalOcean Spaces, Backblaze B2, and other S3-compatible services. Supports images and videos." = "Works with AWS S3, Cloudflare R2, MinIO, DigitalOcean Spaces, Backblaze B2, and other S3-compatible services. Supports images and videos.";
-"Configure S3 in Preferences" = "Configure S3 in Preferences";
-"Sign in to Google Drive in Preferences" = "Sign in to Google Drive in Preferences";
-"Video upload requires Google Drive or S3" = "Video upload requires Google Drive or S3";
 
 /* Preferences - About */
 "SimpleShot" = "SimpleShot";
@@ -327,12 +175,6 @@
 "SimpleShot needs Accessibility permission for scroll capture. Please grant access in System Settings, then try again." = "SimpleShot needs Accessibility permission for scroll capture. Please grant access in System Settings, then try again.";
 "Open Settings" = "Open Settings";
 "Cancel" = "Cancel";
-"Microphone Access Required" = "Microphone Access Required";
-"SimpleShot needs microphone permission to record voice audio. Open System Settings to grant access." = "SimpleShot needs microphone permission to record voice audio. Open System Settings to grant access.";
-"Upload to Google Drive?" = "Upload to Google Drive?";
-"Upload to S3?" = "Upload to S3?";
-"Upload to imgbb.com?" = "Upload to imgbb.com?";
-"Your screenshot will be uploaded." = "Your screenshot will be uploaded.";
 
 /* Permission Onboarding */
 "Welcome to SimpleShot" = "Welcome to SimpleShot";
@@ -347,7 +189,6 @@
 "Text Recognition" = "Text Recognition";
 "Text & QR Recognition" = "Text & QR Recognition";
 "%d chars · %d words" = "%d chars · %d words";
-"Copy  ⌘↩" = "Copy  ⌘↩";
 "AI Search" = "AI Search";
 "(No text detected in the selected area)" = "(No text detected in the selected area)";
 "QR Code" = "QR Code";
@@ -358,26 +199,10 @@
 "URL copied to the clipboard" = "URL copied to the clipboard";
 "Uploading... %d%%" = "Uploading... %d%%";
 "Upload failed: %@" = "Upload failed: %@";
-"Uploaded! Link copied." = "Uploaded! Link copied.";
-"Uploading to %@... %d%%" = "Uploading to %@... %d%%";
 "Open" = "Open";
 
-/* Recording Toast */
-"Recording saved" = "Recording saved";
-"%@ • Recording saved" = "%@ • Recording saved";
-"Copy Path" = "Copy Path";
-"Path copied!" = "Path copied!";
-
 /* Video Editor */
-"SimpleShot Video Editor" = "SimpleShot Video Editor";
-"%@ selected" = "%@ selected";
-"Exporting..." = "Exporting...";
 "Export failed" = "Export failed";
-"Saved to %@" = "Saved to %@";
-"Save failed" = "Save failed";
-
-/* Barcode Detector */
-/* "Open" and "Copy" are shared with other sections */
 
 /* Save Panel */
 "Save As..." = "Save As...";
@@ -389,46 +214,16 @@
 "Scrolling..." = "Scrolling...";
 "Presets" = "Presets";
 
-/* Time Ago */
-"just now" = "just now";
-"%ds ago" = "%ds ago";
-"%dm ago" = "%dm ago";
-"%dh ago" = "%dh ago";
-
 /* Hotkey Labels */
-"History" = "History";
 "Capture Last Area" = "Capture Last Area";
 
-/* Preferences - Shortcuts note */
-"Click \"Record\" and press a key combination with at least one modifier (⌘, ⌥, ⌃, ⇧) to set a shortcut." = "Click \"Record\" and press a key combination with at least one modifier (⌘, ⌥, ⌃, ⇧) to set a shortcut.";
-
-/* Recording — GIF Processing */
-"Processing GIF…" = "Processing GIF…";
-
 /* Recording — Input Monitoring Permission */
-"Input Monitoring Required" = "Input Monitoring Required";
-"SimpleShot needs Input Monitoring permission to highlight mouse clicks or show keystrokes during recording. Please grant access in System Settings, then try again." = "SimpleShot needs Input Monitoring permission to highlight mouse clicks or show keystrokes during recording. Please grant access in System Settings, then try again.";
 "SimpleShot needs Accessibility permission to snap to individual interface elements. Please grant access in System Settings, then try again." = "SimpleShot needs Accessibility permission to snap to individual interface elements. Please grant access in System Settings, then try again.";
-
-/* Recording — Keystroke Overlay */
-"Show Keystrokes" = "Show Keystrokes";
-"Shortcuts Only" = "Shortcuts Only";
-"All Keystrokes" = "All Keystrokes";
-
-/* Recording — Settings Popover */
-"Delay:" = "Delay:";
-
-/* Video Editor */
-"Copied to clipboard!" = "Copied to clipboard!";
 
 /* Recently added strings */
 "Settings..." = "Settings...";
-"SimpleShot Settings" = "SimpleShot Settings";
 "Also open in Editor" = "Also open in Editor";
 "Close editor after copying" = "Close editor after copying";
-"Hide controls" = "Hide controls";
-"Hide recording controls" = "Hide recording controls";
-"Stop recording from the menu bar icon instead." = "Stop recording from the menu bar icon instead.";
 "Pixelate" = "Pixelate";
 "Blur" = "Blur";
 "Solid" = "Solid";
@@ -437,88 +232,22 @@
 "Do nothing" = "Do nothing";
 "Set" = "Set";
 "Reset to default" = "Reset to default";
-"Keep Separate" = "Keep Separate";
-"Merge Audio" = "Merge Audio";
-"Audio Tracks" = "Audio Tracks";
-"Adjust volume for each audio track:" = "Adjust volume for each audio track:";
-"Microphone:" = "Microphone:";
-"System audio:" = "System audio:";
-"Loupe" = "Loupe";
-"Stamp" = "Stamp";
-"Unlimited" = "Unlimited";
 
 /* Save dialog + misc */
 "Save changes?" = "Save changes?";
 "Your annotations will be lost if you close without saving." = "Your annotations will be lost if you close without saving.";
 "Save & Close" = "Save & Close";
 "Discard" = "Discard";
-"Stop Recording" = "Stop Recording";
-"Pause" = "Pause";
-"Resume" = "Resume";
-"Configure S3 in Settings" = "Configure S3 in Settings";
-"Sign in to Google Drive in Settings" = "Sign in to Google Drive in Settings";
-"Position:" = "Position:";
-"Size:" = "Size:";
-"Shape:" = "Shape:";
-"Same as screenshots" = "Same as screenshots";
-"(0 = off)" = "(0 = off)";
-"Clear All" = "Clear All";
-"Clear History?" = "Clear History?";
-"This will permanently delete all screenshots from history." = "This will permanently delete all screenshots from history.";
 "Click \"Set\" and press a key combination with at least one modifier (⌘, ⌥, ⌃, ⇧) to set a shortcut." = "Click \"Set\" and press a key combination with at least one modifier (⌘, ⌥, ⌃, ⇧) to set a shortcut.";
-"Files are uploaded to this folder in your Google Drive. Leave empty to use \"SimpleShot\". SimpleShot can only use folders it created itself, so a folder you made in Drive with the same name won't be reused — a new one is created instead. Everything stays private — nothing is shared publicly." = "Files are uploaded to this folder in your Google Drive. Leave empty to use \"SimpleShot\". SimpleShot can only use folders it created itself, so a folder you made in Drive with the same name won't be reused — a new one is created instead. Everything stays private — nothing is shared publicly.";
 
 "Pressure" = "Pressure";
 
 /* Added for v4.1.0-beta.3 — video editor, effects, open-video, shortcuts help */
-"Open Video..." = "Open Video...";
-"Choose a video to open in SimpleShot editor" = "Choose a video to open in SimpleShot editor";
-"Click to add effects" = "Click to add effects";
-"Add Zoom" = "Add Zoom";
-"Add Censor" = "Add Censor";
-"Add Cut" = "Add Cut";
-"Add Speed" = "Add Speed";
-"Add Freeze" = "Add Freeze";
-"Add Text" = "Add Text";
-"Delete Zoom" = "Delete Zoom";
-"Delete Censor" = "Delete Censor";
-"Delete Cut" = "Delete Cut";
-"Delete Speed" = "Delete Speed";
-"Delete Freeze" = "Delete Freeze";
-"Delete Text" = "Delete Text";
-"Edit Text…" = "Edit Text…";
-"Huge" = "Huge";
-"Bold" = "Bold";
-"Italic" = "Italic";
-"Alignment" = "Alignment";
-"Left" = "Left";
-"Center" = "Center";
-"Right" = "Right";
-"Text Color" = "Text Color";
-"Background Color" = "Background Color";
-"Rounded" = "Rounded";
-"Custom…" = "Custom…";
-"Transparent" = "Transparent";
-"Black" = "Black";
-"White" = "White";
-"Yellow" = "Yellow";
-"Red" = "Red";
-"Green" = "Green";
-"Blue" = "Blue";
 "Untitled" = "Untitled";
-"Add effect" = "Add effect";
-"Fade" = "Fade";
-"High" = "High";
-"Low" = "Low";
-"Not enough room here" = "Not enough room here";
-"Converting to GIF…" = "Converting to GIF…";
-"GIF conversion failed" = "GIF conversion failed";
-"No video track found" = "No video track found";
 "Preview:" = "Preview:";
 
 /* Settings — shortcuts help text */
 "Application" = "Application";
-"Capture area and extract text" = "Capture area and extract text";
 "Capture area and read text/QR codes" = "Capture area and read text/QR codes";
 "Capture the full screen" = "Capture the full screen";
 "Counter for multi-screen captures" = "Counter for multi-screen captures";
@@ -527,7 +256,6 @@
 "Filename tokens" = "Filename tokens";
 "Filename:" = "Filename:";
 "Open an image file in the editor" = "Open an image file in the editor";
-"Open the recent captures overlay" = "Open the recent captures overlay";
 "Open this settings window" = "Open this settings window";
 "Quick capture (uses your Enter action)" = "Quick capture (uses your Enter action)";
 "Re-capture the last selected area" = "Re-capture the last selected area";
@@ -535,10 +263,7 @@
 "Show available filename tokens" = "Show available filename tokens";
 "Show supported URL scheme commands" = "Show supported URL scheme commands";
 "Start area capture" = "Start area capture";
-"Start area recording" = "Start area recording";
-"Start full-screen recording" = "Start full-screen recording";
 "Start scroll capture" = "Start scroll capture";
-"Stop the current recording" = "Stop the current recording";
 "Supported URL Scheme Commands" = "Supported URL Scheme Commands";
 "The file extension is appended automatically. Slashes and colons in {window} become dashes." = "The file extension is appended automatically. Slashes and colons in {window} become dashes.";
 "Trigger SimpleShot from Raycast, Alfred, Shortcuts, or any tool that opens URLs." = "Trigger SimpleShot from Raycast, Alfred, Shortcuts, or any tool that opens URLs.";
@@ -569,34 +294,18 @@
 
 /* Measure tool: clamp toggle (#212) */
 "Limit to selection" = "Limit to selection";
-"Effect" = "Effect";
-"Font" = "Font";
 "System" = "System";
 
 /* Auto-adjust selection (#317) */
-"Auto-Adjust Selection" = "Auto-Adjust Selection";
 "Auto-adjust selection" = "Auto-adjust selection";
 "Could not analyze selection edges" = "Could not analyze selection edges";
 "Detecting nearby edges…" = "Detecting nearby edges…";
 "No nearby edges found" = "No nearby edges found";
 "Selection adjusted" = "Selection adjusted";
 "Selection is already aligned" = "Selection is already aligned";
-"Recording failed: %@" = "Recording failed: %@";
 "Could not encode the screenshot." = "Could not encode the screenshot.";
 "Could not save the screenshot: %@" = "Could not save the screenshot: %@";
-"Could not save the screenshot to history." = "Could not save the screenshot to history.";
 
 "Saving..." = "Saving...";
 
-"Show Recordings in Finder" = "Show Recordings in Finder";
-
-"Cancelled" = "Cancelled";
-
-"Cancelling..." = "Cancelling...";
-"Preparing video..." = "Preparing video...";
-"History is busy saving. Please try again shortly." = "History is busy saving. Please try again shortly.";
-
 // Video editor accessibility
-"Play" = "Play";
-"Mute" = "Mute";
-"Unmute" = "Unmute";

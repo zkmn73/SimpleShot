@@ -53,7 +53,7 @@ macshot/
 │   ├── EditorCommandShortcutManager.swift  # Configurable undo/redo chords
 │   ├── FilenameFormatter.swift         # Filename templates ({date}, {window}, {random}, …)
 │   ├── SettingsPortability.swift       # Settings export/import + the secret filter
-│   ├── LanguageManager.swift           # Locale resolution + L("…") lookup
+│   ├── Localization.swift             # English-only L("…") lookup
 │   ├── ScreenshotHistory.swift         # Local history in ~/Library/Application Support/
 │   └── SaveDirectoryAccess.swift       # Security-scoped bookmark for save directory
 │
