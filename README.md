@@ -36,7 +36,7 @@ Upgrade with `brew upgrade --cask simpleshot`, remove with `brew uninstall --cas
 
 1. Launch SimpleShot — it lives in your menu bar.
 2. Press `Cmd+Shift+X` and drag to select a region.
-3. Annotate with the toolbar, then press `Cmd+C` to copy or `Cmd+S` to save.
+3. Pick a tool from the toolbar to annotate (Move is the default: drag inside the selection to reposition it), then press `Cmd+C` to copy or `Cmd+S` to save.
 4. Press `Esc` to cancel.
 
 ## Features

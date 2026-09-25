@@ -4,6 +4,17 @@ SimpleShot is a slimmed-down fork of [macshot](https://github.com/sw33tLie/macsh
 
 Only major releases (1.x.0) are listed; patch releases are not.
 
+## [1.4.0] - 2026-09-26
+
+One toolbar, and Move as the default tool.
+
+### Changed
+
+- **One toolbar** — the right-hand toolbar was merged into the bottom one: Copy, Save, OCR, Scroll Capture, Open in Editor and Cancel now sit at the right end of the same bar, after a divider. The editor's bar is the same minus the overlay-only Scroll Capture, Open in Editor and Cancel.
+- **Move is the default tool** — a new Move button is first in the toolbar and active by default. Dragging inside the selection moves the whole selection; pick a drawing tool to annotate. This replaces the separate "Move Selection" button, and holding `Space` still moves the selection.
+- **Shortcuts settings** — the hotkey fields are as wide as the Undo / Redo fields, so both sections line up.
+- **Simpler internals, no behavior change** — dead code left over from removed features (launch-time tmp cleanup, old settings migrations, upload progress UI) was deleted; save failures still show the same toast.
+
 ## [1.3.0] - 2026-09-26
 
 Fewer options, more fixed defaults.

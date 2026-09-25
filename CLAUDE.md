@@ -13,7 +13,7 @@ Native macOS screenshot & annotation tool. Swift + AppKit, no Qt, no Electron. S
 
 **Removed on purpose — do not reintroduce unless asked:** cloud upload (imgbb / Google Drive / S3), screenshot history, screen recording and the video editor, Pin to screen, Beautify / image effects / Invert Colors / Remove Background, Share, translation, Sparkle auto-update and the beta channel, multi-language localization, the floating thumbnail, capture sound, single-key tool shortcuts, toolbar theme and menu bar customization, the Tools settings tab, Capture Last Area, mouse cursor capture, OCR "AI Search", diagnostic logs, the Offline build variant, and the toggles for snap guides / boundary snap / browser element snap / selection dimming.
 
-**Kept as inert internals:** `AnnotationTool` has implicit raw values, so cases are never deleted. `translateOverlay` is retired but still decodes; `stamp` is only created by the editor's Add Capture; `select`, `crop` and `blur` are not toolbar tools. Never reorder or remove cases.
+**Kept as inert internals:** `AnnotationTool` has implicit raw values, so cases are never deleted. `translateOverlay` is retired but still decodes; `stamp` is only created by the editor's Add Capture; `crop` and `blur` are not toolbar tools. Never reorder or remove cases.
 
 ## Project Setup
 
@@ -60,8 +60,7 @@ macshot/
 ├── Capture/
 │   ├── ScreenCaptureManager.swift      # Multi-screen capture via ScreenCaptureKit (+ CGWindowList fallback)
 │   ├── ScrollCaptureController.swift   # Scroll capture with SAD-based stitching
-│   ├── ScrollFrameAnalyzer.swift       # Pure pixel comparison: frozen header + scrollbar detection
-│   └── SafeNumerics.swift              # NaN/inf-safe numeric conversions
+│   └── ScrollFrameAnalyzer.swift       # Pure pixel comparison: frozen header + scrollbar detection
 │
 ├── Services/
 │   ├── ImageEncoder.swift              # PNG/JPEG/HEIC/WebP encoding, clipboard copy, Retina downscale
@@ -82,8 +81,6 @@ macshot/
 │   ├── DeferredRestoration.swift       # Hidden-window bookkeeping across overlapping capture cycles
 │   ├── ScreenFallback.swift            # NSScreen.preferred: safe screen lookup when macOS reports no display
 │   ├── SettingsPortability.swift       # Settings export/import + the secret filter
-│   ├── LaunchCleanup.swift             # Sweeps stale tmp files at launch
-│   ├── TmpScratchDirectory.swift       # Short-lived tmp files for drag/share
 │   ├── AppInfo.swift                   # AppInfo.displayName
 │   └── Localization.swift              # English-only L("…") lookup
 │
@@ -119,7 +116,7 @@ macshot/
 │       ├── SettingsWindowController.swift     # Settings: General, Capture, Shortcuts, About
 │       ├── OCRResultController.swift          # OCR text + QR code results window
 │       ├── PermissionOnboardingController.swift  # First-run Screen Recording guide
-│       ├── UploadToastController.swift        # Generic toast (name is legacy; used for failure toasts)
+│       ├── FailureToastController.swift       # Toast for failures the user would otherwise not see
 │       └── CountdownView.swift                # Delay-capture countdown
 │
 ├── Info.plist, macshot.entitlements
@@ -148,7 +145,7 @@ The core canvas view: selection state machine, annotation rendering, input routi
 
 **Zoom:** 0.1x–8x (min 1.0x in the overlay, 0.1x in the editor), scroll/pinch, pan while zoomed.
 
-**Toolbars:** real NSView strips (`ToolbarStripView` + `ToolbarButtonView`) positioned by `OverlayView`. Bottom toolbar: 13 tools, color, undo/redo. Right toolbar: Cancel, Move Selection, Open in Editor Window, Copy, Save, OCR, Scroll Capture. Tool options in `ToolOptionsRowView`. Popovers use `NSPopover` via `PopoverHelper`.
+**Toolbar:** one real NSView strip (`ToolbarStripView` + `ToolbarButtonView`) positioned by `OverlayView`, below the selection (above if there is no room). Left group: Move (the default tool), 13 drawing tools, color, undo/redo. After a divider: Copy, Save, OCR, then the overlay-only Scroll Capture, Open in Editor Window, Cancel (so the editor's bar is a prefix of the overlay's). Tool options in `ToolOptionsRowView`. Popovers use `NSPopover` via `PopoverHelper`. The Move tool is `AnnotationTool.select`: dragging empty space inside the selection moves the whole selection, while annotations can still be clicked and moved; holding `Space` also moves the selection.
 
 **Editor mode (`EditorView` subclass):** overrides behavior through clean override points and uses `NSScrollView` for zoom/pan/centering. Use the `isEditorMode` computed property.
 
@@ -183,7 +180,7 @@ A class (not a struct) with `clone()` for safe copying, in `Model/Annotation.swi
 
 `AnnotationTool` cases, in declaration order (never reorder): `pencil, line, arrow, rectangle, filledRectangle, ellipse, marker, text, number, pixelate, blur, measure, loupe, select, translateOverlay, crop, colorSampler, stamp, highlight`.
 
-Toolbar tools (13): Pencil, Line, Arrow, Rectangle, Ellipse, Marker, Text, Number, Censor (`pixelate` + `CensorMode`: pixelate / blur / solid / erase, plus auto-redact), Highlight (spotlight), Loupe, Color Picker, Measure.
+Toolbar tools: Move (`select`), Pencil, Line, Arrow, Rectangle, Ellipse, Marker, Text, Number, Censor (`pixelate` + `CensorMode`: pixelate / blur / solid / erase, plus auto-redact), Highlight (spotlight), Loupe, Color Picker, Measure.
 
 #### DetachedEditorWindowController — Standalone Editor
 - Opens from the overlay's "Open in Editor Window" button, Quick Capture with "Also open in Editor", the menu's Open Image… / Open from Clipboard, or `simpleshot://open`.
@@ -199,7 +196,6 @@ OverlayViewDelegate              — OverlayView → OverlayWindowController / D
 AnnotationToolHandler            — Tool creation/update/finish lifecycle
 AnnotationCanvas                 — OverlayView state interface for tool handlers
 TextEditingCanvas                — Coordinate transforms + annotation storage for TextEditingController
-LaunchCleaner                    — One sweep rule in LaunchCleanup
 ```
 
 ### Undo/Redo
@@ -278,7 +274,7 @@ Workflow: `.github/workflows/build-release.yml`. It runs on a tag push (`v*.*.*`
 
 Steps:
 1. Add a `## [x.y.z]` entry to `CHANGELOG.md` (used as release notes; if missing, notes are generated from commits).
-2. Tag and push: `git tag v1.0.1 && git push origin master --tags`
+2. Tag and push: `git tag v1.4.1 && git push origin master --tags`
 3. CI does the rest. `MARKETING_VERSION` / `CURRENT_PROJECT_VERSION` in `project.pbxproj` are only for local builds; CI overrides them from the tag and run number.
 
-Never rapidly create/delete tags — GitHub throttles tag push events. If a tag push doesn't trigger CI, use `gh workflow run build-release.yml --ref master -f tag=v1.0.1`.
+Never rapidly create/delete tags — GitHub throttles tag push events. If a tag push doesn't trigger CI, use `gh workflow run build-release.yml --ref master -f tag=v1.4.1`.
