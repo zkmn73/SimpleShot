@@ -37,16 +37,6 @@
 	</array>
 	<key>Privacy - Screen Capture Usage Description</key>
 	<string>SimpleShot needs screen recording permission to capture screenshots.</string>
-	<key>SUFeedURL</key>
-	<string>https://raw.githubusercontent.com/sw33tLie/macshot/main/appcast.xml</string>
-	<key>SUPublicEDKey</key>
-	<string>+5RTT9lGyoeOYAYuNfCdPhxugmruYvRDyFXgk6VPY1c=</string>
-	<key>SUScheduledCheckInterval</key>
-	<integer>86400</integer>
-	<key>SUEnableAutomaticChecks</key>
-	<true/>
-	<key>SUEnableInstallerLauncherService</key>
-	<true/>
 	<key>NSSupportsAutomaticTermination</key>
 	<false/>
 </dict>

@@ -60,7 +60,6 @@ class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSWindowD
     private var disableSelectionShadowCheckbox: NSButton!
     private var filenameTemplateField: NSTextField!
     private var filenameTemplatePreview: NSTextField!
-    private var autoUpdateCheckbox: NSButton!
     private var quickModePopup: NSPopUpButton!
     private var quickCaptureOpenEditorCheckbox: NSButton!
     private var closeEditorAfterCopyCheckbox: NSButton!
@@ -323,9 +322,6 @@ class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSWindowD
         stack.addArrangedSubview(indented(urlSchemeRow))
         stack.setCustomSpacing(6, after: stack.arrangedSubviews.last!)
 
-        autoUpdateCheckbox = NSButton(checkboxWithTitle: L("Check for updates automatically"), target: self, action: #selector(autoUpdateChanged(_:)))
-        stack.addArrangedSubview(indented(autoUpdateCheckbox))
-        stack.setCustomSpacing(20, after: stack.arrangedSubviews.last!)
 
         // ── Settings Backup ──────────────────────────────────
         stack.setCustomSpacing(20, after: stack.arrangedSubviews.last!)
@@ -1043,7 +1039,7 @@ class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSWindowD
         stack.setCustomSpacing(20, after: desc)
 
         #if OFFLINE
-        let offlineNote = NSTextField(wrappingLabelWithString: L("Offline build: upload and cloud storage integrations are removed. Update checks may still connect to SimpleShot's update server. Screenshots and recordings stay local unless you share or save them yourself."))
+        let offlineNote = NSTextField(wrappingLabelWithString: L("Offline build: upload and cloud storage integrations are removed. Screenshots and recordings stay local unless you share or save them yourself."))
         offlineNote.font = NSFont.systemFont(ofSize: 12)
         offlineNote.textColor = .secondaryLabelColor
         offlineNote.alignment = .center
@@ -1154,9 +1150,6 @@ class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSWindowD
         disableSelectionShadowCheckbox.state = UserDefaults.standard.bool(forKey: "disableSelectionOutsideShadow") ? .on : .off
         filenameTemplateField.stringValue = UserDefaults.standard.string(forKey: FilenameFormatter.userDefaultsKey) ?? FilenameFormatter.defaultTemplate
         updateFilenamePreview()
-
-        let autoUpdate = UserDefaults.standard.object(forKey: "SUEnableAutomaticChecks") as? Bool ?? true
-        autoUpdateCheckbox.state = autoUpdate ? .on : .off
 
         // Migrate old bool setting to new int: 0=save, 1=copy, 2=both
         if let oldBool = UserDefaults.standard.object(forKey: "quickModeCopyToClipboard") as? Bool {
@@ -1453,10 +1446,6 @@ class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSWindowD
         let hidden = sender.state == .on
         UserDefaults.standard.set(hidden, forKey: "hideMenuBarIcon")
         (NSApp.delegate as? AppDelegate)?.setMenuBarIconVisible(!hidden)
-    }
-
-    @objc private func autoUpdateChanged(_ sender: NSButton) {
-        UserDefaults.standard.set(sender.state == .on, forKey: "SUEnableAutomaticChecks")
     }
 
     func showWindow() {

@@ -30,7 +30,6 @@
 "Show History Panel" = "Show History Panel";
 "Open Image..." = "Open Image...";
 "Open from Clipboard" = "Open from Clipboard";
-"Check for Updates..." = "Check for Updates...";
 "Quit SimpleShot" = "Quit SimpleShot";
 "No recent captures" = "No recent captures";
 "Clear History" = "Clear History";
@@ -198,7 +197,6 @@
 "Use window title in saved filename" = "Use window title in saved filename";
 "Hide menu bar icon" = "Hide menu bar icon";
 "Hotkeys still work. To show the icon again, re-launch SimpleShot." = "Hotkeys still work. To show the icon again, re-launch SimpleShot.";
-"Check for updates automatically" = "Check for updates automatically";
 "Output" = "Output";
 "Image format:" = "Image format:";
 "Quality:" = "Quality:";
@@ -546,7 +544,7 @@
 "Trigger SimpleShot from Raycast, Alfred, Shortcuts, or any tool that opens URLs." = "Trigger SimpleShot from Raycast, Alfred, Shortcuts, or any tool that opens URLs.";
 "URL scheme info" = "URL scheme info";
 "Settings" = "Settings";
-"Offline build: upload and cloud storage integrations are removed. Update checks may still connect to SimpleShot's update server. Screenshots and recordings stay local unless you share or save them yourself." = "Offline build: upload and cloud storage integrations are removed. Update checks may still connect to SimpleShot's update server. Screenshots and recordings stay local unless you share or save them yourself.";
+"Offline build: upload and cloud storage integrations are removed. Screenshots and recordings stay local unless you share or save them yourself." = "Offline build: upload and cloud storage integrations are removed. Screenshots and recordings stay local unless you share or save them yourself.";
 
 /* Settings import/export (issues #265, #280) */
 "Settings Backup" = "Settings Backup";

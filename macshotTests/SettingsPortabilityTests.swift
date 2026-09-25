@@ -33,15 +33,6 @@ final class SettingsPortabilityTests: XCTestCase {
         }
     }
 
-    func testSecretsWinOverTheForcedIncludeList() {
-        for key in SettingsPortability.forcedIncludeKeys {
-            XCTAssertFalse(SettingsPortability.looksSecret(key),
-                           "`\(key)` is force-included, so it must not be secret-shaped")
-        }
-        // And the ordering itself: a secret-named key can't be forced in.
-        XCTAssertFalse(SettingsPortability.isPortable("SUEnableAutomaticChecksToken"))
-    }
-
     // MARK: - Machine-specific state stays behind
 
     func testMachineSpecificKeysAreNotPortable() {
@@ -94,11 +85,6 @@ final class SettingsPortabilityTests: XCTestCase {
         for key in settings {
             XCTAssertTrue(SettingsPortability.isPortable(key), "`\(key)` is a normal setting and should transfer")
         }
-    }
-
-    func testTheSparkleKeyIsForcedThroughDespiteItsShape() {
-        XCTAssertTrue(SettingsPortability.isPortable("SUEnableAutomaticChecks"),
-                      "macshot owns this pref even though it isn't lowercase")
     }
 
     // MARK: - Import validation
