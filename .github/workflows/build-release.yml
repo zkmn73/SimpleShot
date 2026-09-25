@@ -253,9 +253,8 @@ jobs:
           if [ "$HAS_SIGNING" != "true" ]; then
             POSTFLIGHT=$(cat <<'RUBY'
 
-            postflight do
-              system_command "/usr/bin/xattr",
-                             args: ["-dr", "com.apple.quarantine", "#{appdir}/SimpleShot.app"]
+            postflight_steps do
+              run "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "{{appdir}}/SimpleShot.app"]
             end
 
             caveats "This build is not notarized. Screen Recording permission must be granted again after each upgrade."

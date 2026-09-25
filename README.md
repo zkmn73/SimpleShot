@@ -24,7 +24,7 @@ brew trust zkmn73/tap
 brew install --cask zkmn73/tap/simpleshot
 ```
 
-Recent Homebrew versions only load casks from third-party taps you have trusted, which is what `brew trust` does. Older versions don't have the command; on those, `brew install --cask zkmn73/tap/simpleshot` is enough.
+Recent Homebrew versions (7.x) only load casks from third-party taps you have trusted, which is what `brew trust` does. The cask also uses `postflight_steps`, so it needs a Homebrew version that supports it.
 
 Upgrade with `brew upgrade --cask simpleshot`, remove with `brew uninstall --cask --zap simpleshot`.
 
