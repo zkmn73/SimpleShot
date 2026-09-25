@@ -1,8 +1,5 @@
 import Cocoa
 import Carbon
-import os.log
-
-private let hotkeyLog = OSLog(subsystem: "com.zkmn73.simpleshot", category: "hotkey-timing")
 
 class HotkeyManager {
 
@@ -138,18 +135,11 @@ class HotkeyManager {
                                   nil, MemoryLayout<EventHotKeyID>.size, nil, &hotkeyID)
 
                 if let slot = HotkeySlot(rawValue: Int(hotkeyID.id)), let callback = mgr.callbacks[slot] {
-                    os_log("CARBON HANDLER ENTERED slot=%{public}d abs=%{public}.6f isMain=%{public}@",
-                           log: hotkeyLog, type: .info,
-                           slot.rawValue, CFAbsoluteTimeGetCurrent(),
-                           Thread.isMainThread ? "YES" : "NO")
                     if NSApp.modalWindow != nil {
                         NSApp.stopModal()
                         NSApp.modalWindow?.close()
                     }
                     callback()
-                    os_log("CARBON HANDLER RETURNED slot=%{public}d abs=%{public}.6f",
-                           log: hotkeyLog, type: .info,
-                           slot.rawValue, CFAbsoluteTimeGetCurrent())
                 }
                 return noErr
             },

@@ -68,7 +68,6 @@ class OverlayView: NSView {
     // MARK: - Properties
 
     weak var overlayDelegate: OverlayViewDelegate?
-    var timingMark: ((String) -> Void)?
 
     override var isOpaque: Bool {
         !usesExternalScreenshotPreview && screenshotImage != nil && !isScrollCapturing && !isRecording && !isEditorMode
@@ -1456,10 +1455,6 @@ class OverlayView: NSView {
     // MARK: - Drawing
 
     override func draw(_ dirtyRect: NSRect) {
-        timingMark?("OverlayView.draw begin state=\(state) screenshot=\(screenshotImage != nil) dirty=\(Int(dirtyRect.width))x\(Int(dirtyRect.height)) opaque=\(isOpaque)")
-        defer {
-            timingMark?("OverlayView.draw end")
-        }
         super.draw(dirtyRect)
 
         guard let context = NSGraphicsContext.current else { return }

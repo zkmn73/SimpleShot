@@ -46,10 +46,8 @@ class ScreenCaptureManager {
     /// activates. This preserves transient UI such as menu extras, app menus,
     /// Raycast/Spotlight-style panels, and other windows that disappear as soon
     /// as focus changes.
-    static func makeImmediateCaptureContext(timing: (@Sendable (String) -> Void)? = nil) -> ImmediateCaptureContext {
-        timing?("makeImmediateCaptureContext NSScreen.screens begin")
+    static func makeImmediateCaptureContext() -> ImmediateCaptureContext {
         let screens = NSScreen.screens
-        timing?("makeImmediateCaptureContext NSScreen.screens end count=\(screens.count)")
         let mainHeight = screens.first?.frame.height ?? 0
 
         return ImmediateCaptureContext(
@@ -58,26 +56,21 @@ class ScreenCaptureManager {
     }
 
     static func captureAllScreensImmediately(
-        context: ImmediateCaptureContext,
-        timing: (@Sendable (String) -> Void)? = nil
+        context: ImmediateCaptureContext
     ) -> [ScreenCapture] {
-        timing?("captureAllScreensImmediately screens=\(context.screens.count)")
         return context.screens.enumerated().compactMap { index, screen in
             let cgRect = CGRect(
                 x: screen.frame.origin.x,
                 y: context.mainHeight - screen.frame.origin.y - screen.frame.height,
                 width: screen.frame.width,
                 height: screen.frame.height)
-            timing?("CGWindowListCreateImage begin screen=\(index)")
             guard
                 let image = CGWindowListCreateImage(
                     cgRect, .optionAll, kCGNullWindowID, .bestResolution
                 )
             else {
-                timing?("CGWindowListCreateImage failed screen=\(index)")
                 return nil
             }
-            timing?("CGWindowListCreateImage end screen=\(index) pixels=\(image.width)x\(image.height)")
             return ScreenCapture(screen: screen, image: image)
         }
     }
@@ -97,26 +90,19 @@ class ScreenCaptureManager {
     /// Returns nil on any failure so the caller can fall back to the synchronous
     /// CGWindowListCreateImage path.
     @available(macOS 14.0, *)
-    static func captureAllScreensImmediatelySCK(
-        timing: (@Sendable (String) -> Void)? = nil
-    ) async -> [ScreenCapture]? {
+    static func captureAllScreensImmediatelySCK() async -> [ScreenCapture]? {
         if #available(macOS 26.0, *) {
-            if let captures = await captureAllScreensImmediatelySCKRect(
-                timing: timing
-            ) {
+            if let captures = await captureAllScreensImmediatelySCKRect() {
                 return captures
             }
         }
 
-        timing?("SCK immediate: shareable content begin")
         guard
             let content = try? await SCShareableContent.excludingDesktopWindows(
                 false, onScreenWindowsOnly: true)
         else {
-            timing?("SCK immediate: shareable content failed — fallback")
             return nil
         }
-        timing?("SCK immediate: shareable content end displays=\(content.displays.count) windows=\(content.windows.count)")
 
         let screens = NSScreen.screens
         var pairs: [(SCDisplay, NSScreen)] = []
@@ -131,7 +117,6 @@ class ScreenCaptureManager {
             }
         }
         guard !pairs.isEmpty else {
-            timing?("SCK immediate: no display-screen pairs — fallback")
             return nil
         }
 
@@ -151,15 +136,12 @@ class ScreenCaptureManager {
                     config.height = display.height * scale
                     config.showsCursor = false
                     config.captureResolution = .best
-                    timing?("SCK immediate capture begin display=\(index)")
                     guard
                         let image = try? await SCScreenshotManager.captureImage(
                             contentFilter: filter, configuration: config)
                     else {
-                        timing?("SCK immediate capture failed display=\(index)")
                         return nil
                     }
-                    timing?("SCK immediate capture end display=\(index) pixels=\(image.width)x\(image.height)")
                     return ScreenCapture(screen: screen, image: image)
                 }
             }
@@ -171,23 +153,18 @@ class ScreenCaptureManager {
         // If SCK couldn't produce an image for every display, fall back rather
         // than show a partial capture.
         guard captures.count == pairs.count else {
-            timing?("SCK immediate: partial captures \(captures.count)/\(pairs.count) — fallback")
             return nil
         }
         return captures
     }
 
     @available(macOS 26.0, *)
-    private static func captureAllScreensImmediatelySCKRect(
-        timing: (@Sendable (String) -> Void)? = nil
-    ) async -> [ScreenCapture]? {
+    private static func captureAllScreensImmediatelySCKRect() async -> [ScreenCapture]? {
         let screens = NSScreen.screens
         guard !screens.isEmpty else {
-            timing?("SCK rect immediate: no screens — fallback")
             return nil
         }
 
-        timing?("SCK rect immediate: begin screens=\(screens.count)")
         // SCScreenshotManager.captureScreenshot(rect:) takes CoreGraphics display
         // space: origin at the TOP-left of the primary display, y down. NSScreen
         // frames are AppKit space: origin at the BOTTOM-left of the primary, y up.
@@ -217,7 +194,6 @@ class ScreenCaptureManager {
                     config.ignoreShadows = false
                     config.displayIntent = .local
                     config.dynamicRange = .sdr
-                    timing?("SCK rect capture begin screen=\(index) rect=\(Int(rect.origin.x)),\(Int(rect.origin.y)) \(Int(rect.width))x\(Int(rect.height))")
                     let result = await captureScreenshotOutput(rect: rect, configuration: config)
                     guard
                         result.error == nil,
@@ -225,10 +201,8 @@ class ScreenCaptureManager {
                         let image = output.sdrImage ?? output.hdrImage
                     else {
                         let reason = result.error?.localizedDescription ?? "no image returned"
-                        timing?("SCK rect capture failed screen=\(index) error=\(reason)")
                         return nil
                     }
-                    timing?("SCK rect capture end screen=\(index) pixels=\(image.width)x\(image.height)")
                     return ScreenCapture(screen: screen, image: image)
                 }
             }
@@ -241,11 +215,9 @@ class ScreenCaptureManager {
         }
 
         guard captures.count == screens.count else {
-            timing?("SCK rect immediate: partial captures \(captures.count)/\(screens.count) — fallback")
             return nil
         }
 
-        timing?("SCK rect immediate: end")
         return captures
     }
 
@@ -292,40 +264,29 @@ class ScreenCaptureManager {
 
     static func captureAllScreens(
         excludingWindowNumbers: [CGWindowID] = [],
-        timing: (@Sendable (String) -> Void)? = nil,
         completion: @escaping ([ScreenCapture]) -> Void
     ) {
         Task {
             do {
-                timing?("captureAllScreens Task entered")
                 // When excluding windows, fetch fresh content so newly-created
                 // windows (e.g. thumbnails spawned after the cache was built) are
                 // present in the window list and can actually be excluded.
                 let content: SCShareableContent
                 if !excludingWindowNumbers.isEmpty {
-                    timing?("SCShareableContent fresh begin")
                     content = try await SCShareableContent.excludingDesktopWindows(
                         true, onScreenWindowsOnly: true)
-                    timing?("SCShareableContent fresh end displays=\(content.displays.count) windows=\(content.windows.count)")
                 } else {
-                    timing?("SCShareableContent cached begin")
                     content = try await shareableContent()
-                    timing?("SCShareableContent cached end displays=\(content.displays.count) windows=\(content.windows.count)")
                 }
                 let displays = content.displays
-                timing?("captureAllScreens NSScreen.screens begin")
                 let screens = NSScreen.screens
-                timing?("captureAllScreens NSScreen.screens end count=\(screens.count)")
 
                 // Resolve window numbers to SCWindow objects for exclusion
-                timing?("resolve excluded windows begin count=\(excludingWindowNumbers.count)")
                 let excludedSCWindows: [SCWindow] = excludingWindowNumbers.compactMap { wid in
                     content.windows.first(where: { CGWindowID($0.windowID) == wid })
                 }
-                timing?("resolve excluded windows end matched=\(excludedSCWindows.count)")
 
                 // Build display-screen pairs
-                timing?("build display-screen pairs begin displays=\(displays.count)")
                 var pairs: [(SCDisplay, NSScreen)] = []
                 for display in displays {
                     if let screen = screens.first(where: { nsScreen in
@@ -337,10 +298,8 @@ class ScreenCaptureManager {
                         pairs.append((display, screen))
                     }
                 }
-                timing?("build display-screen pairs end pairs=\(pairs.count)")
 
                 // Capture all displays concurrently
-                timing?("SCScreenshot capture group begin pairs=\(pairs.count)")
                 let captures = await withTaskGroup(
                     of: ScreenCapture?.self, returning: [ScreenCapture].self
                 ) { group in
@@ -349,7 +308,6 @@ class ScreenCaptureManager {
                         group.addTask {
                             if #available(macOS 14.0, *) {
                                 // SCScreenshotManager: single-shot API, no stream overhead
-                                timing?("SCScreenshotManager capture begin display=\(index)")
                                 let filter = SCContentFilter(
                                     display: display, excludingWindows: excludedSCWindows)
                                 let config = SCStreamConfiguration()
@@ -364,10 +322,8 @@ class ScreenCaptureManager {
                                         contentFilter: filter, configuration: config
                                     )
                                 else {
-                                    timing?("SCScreenshotManager capture failed display=\(index)")
                                     return nil
                                 }
-                                timing?("SCScreenshotManager capture end display=\(index) pixels=\(image.width)x\(image.height)")
                                 return ScreenCapture(screen: screen, image: image)
                             } else {
                                 // macOS 12.3–13.x: use CGWindowListCreateImage which returns
@@ -381,16 +337,13 @@ class ScreenCaptureManager {
                                     y: mainHeight - screen.frame.origin.y - screen.frame.height,
                                     width: screen.frame.width,
                                     height: screen.frame.height)
-                                timing?("fallback CGWindowListCreateImage begin display=\(index)")
                                 guard
                                     let image = CGWindowListCreateImage(
                                         cgRect, .optionAll, kCGNullWindowID, .bestResolution
                                     )
                                 else {
-                                    timing?("fallback CGWindowListCreateImage failed display=\(index)")
                                     return nil
                                 }
-                                timing?("fallback CGWindowListCreateImage end display=\(index) pixels=\(image.width)x\(image.height)")
                                 return ScreenCapture(screen: screen, image: image)
                             }
                         }
@@ -403,11 +356,9 @@ class ScreenCaptureManager {
                     }
                     return results
                 }
-                timing?("SCScreenshot capture group end captures=\(captures.count)")
 
                 await MainActor.run { completion(captures) }
             } catch {
-                timing?("captureAllScreens error \(error.localizedDescription)")
                 #if DEBUG
                     NSLog("macshot: screen capture error: \(error.localizedDescription)")
                 #endif

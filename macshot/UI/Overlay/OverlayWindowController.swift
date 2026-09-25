@@ -84,11 +84,6 @@ class OverlayWindowController {
 
     weak var overlayDelegate: OverlayWindowControllerDelegate?
     var capturedWindowTitle: String?
-    var timingMark: ((String) -> Void)? {
-        didSet {
-            overlayView?.timingMark = timingMark
-        }
-    }
 
     private var overlayView: OverlayView?
     private var rootView: ScreenshotOverlayRootView?
@@ -151,7 +146,6 @@ class OverlayWindowController {
         view.frame = NSRect(origin: .zero, size: screen.frame.size)
         view.autoresizingMask = [.width, .height]
         view.overlayDelegate = self
-        view.timingMark = timingMark
 
         let rootView = ScreenshotOverlayRootView(
             frame: NSRect(origin: .zero, size: screen.frame.size),
@@ -187,20 +181,15 @@ class OverlayWindowController {
     /// for setScreenshot() to install one.
     func showOverlay() {
         guard let window = overlayWindow else { return }
-        timingMark?("showOverlay begin appActive=\(NSApp.isActive)")
         // A real capture is being presented — enable mouse interaction.
         // (Idle/warmed panels are click-through; see setupWindow.)
         window.ignoresMouseEvents = false
         rootView?.layoutSubtreeIfNeeded()
-        timingMark?("after layoutSubtreeIfNeeded")
         overlayView?.displayIfNeeded()
-        timingMark?("after displayIfNeeded")
         window.makeKeyAndOrderFront(nil)
-        timingMark?("after makeKeyAndOrderFront isVisible=\(window.isVisible) isKey=\(window.isKeyWindow)")
         if let view = overlayView {
             window.makeFirstResponder(view)
         }
-        timingMark?("after makeFirstResponder")
         // Window is now key — resetCursorRects (called by AppKit on key change)
         // installs the crosshair rect. No need to NSCursor.set() imperatively.
     }
