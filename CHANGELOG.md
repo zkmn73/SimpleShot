@@ -14,6 +14,7 @@ First SimpleShot release: a minimal, fully local macOS screenshot and annotation
 - **English only** — all other localizations were removed.
 - **Snapping is always on** — annotation alignment guides, selection edge snapping to image boundaries (hold `Option` to bypass) and the enhanced browser/Electron element snapping no longer have settings.
 - **Default save folder is `~/Downloads`** — screenshots save there without asking for a folder first. Choose another folder in Settings at any time.
+- **Capture Last Area removed** — the menu item, hotkey slot, `simpleshot://capture-last` command and the stored selection rectangle are gone.
 - **No diagnostic logs** — the capture timing log, the termination log and all `os_log` tracing were removed; the app writes no log files.
 - **OCR "AI Search" button removed** — recognized text is no longer sent to a web search from the OCR window.
 - **Mouse cursor is never captured** — the "Capture mouse cursor in screenshot" option was removed.
@@ -32,7 +33,7 @@ First SimpleShot release: a minimal, fully local macOS screenshot and annotation
 
 ### Kept
 
-- Region, full-screen, last-area, quick and OCR & QR capture with window snap, boundary snap, resolution presets and multi-monitor support.
+- Region, full-screen, quick and OCR & QR capture with window snap, boundary snap, resolution presets and multi-monitor support.
 - Scroll capture.
 - Annotation tools: Pencil, Line, Arrow, Rectangle, Ellipse, Marker, Text, Number, Censor (pixelate, blur, solid, erase), Highlight, Loupe, Color Picker and Measure.
 - Copy and save (PNG, JPEG, HEIC, WebP) and the standalone editor window with crop, flip, Add Capture and paste.

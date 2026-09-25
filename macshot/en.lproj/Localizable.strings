@@ -209,7 +209,6 @@
 "Presets" = "Presets";
 
 /* Hotkey Labels */
-"Capture Last Area" = "Capture Last Area";
 
 /* Recording — Input Monitoring Permission */
 "SimpleShot needs Accessibility permission to snap to individual interface elements. Please grant access in System Settings, then try again." = "SimpleShot needs Accessibility permission to snap to individual interface elements. Please grant access in System Settings, then try again.";
@@ -252,7 +251,6 @@
 "Open an image file in the editor" = "Open an image file in the editor";
 "Open this settings window" = "Open this settings window";
 "Quick capture (uses your Enter action)" = "Quick capture (uses your Enter action)";
-"Re-capture the last selected area" = "Re-capture the last selected area";
 "Screenshots only — captured window title (blank otherwise)" = "Screenshots only — captured window title (blank otherwise)";
 "Show available filename tokens" = "Show available filename tokens";
 "Show supported URL scheme commands" = "Show supported URL scheme commands";

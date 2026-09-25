@@ -13,7 +13,6 @@ class HotkeyManager {
         case quickCapture = 7
         case scrollCapture = 8
         case openFromClipboard = 9
-        case captureLastArea = 10
 
         var keyCodeKey: String {
             switch self {
@@ -23,7 +22,6 @@ class HotkeyManager {
             case .quickCapture: return "hotkeyQuickCaptureKeyCode"
             case .scrollCapture: return "hotkeyScrollCaptureKeyCode"
             case .openFromClipboard: return "hotkeyOpenClipboardKeyCode"
-            case .captureLastArea: return "hotkeyCaptureLastAreaKeyCode"
             }
         }
 
@@ -35,7 +33,6 @@ class HotkeyManager {
             case .quickCapture: return "hotkeyQuickCaptureModifiers"
             case .scrollCapture: return "hotkeyScrollCaptureModifiers"
             case .openFromClipboard: return "hotkeyOpenClipboardModifiers"
-            case .captureLastArea: return "hotkeyCaptureLastAreaModifiers"
             }
         }
 
@@ -51,7 +48,6 @@ class HotkeyManager {
             case .quickCapture: return L("Quick Capture")
             case .scrollCapture: return L("Scroll Capture")
             case .openFromClipboard: return L("Open from Clipboard")
-            case .captureLastArea: return L("Capture Last Area")
             }
         }
 
@@ -63,13 +59,12 @@ class HotkeyManager {
             case .quickCapture: return UInt32(kVK_ANSI_S)
             case .scrollCapture: return 0
             case .openFromClipboard: return 0  // no default hotkey
-            case .captureLastArea: return 0    // no default hotkey
             }
         }
 
         var defaultModifiers: UInt32 {
             switch self {
-            case .scrollCapture, .openFromClipboard, .captureLastArea: return 0
+            case .scrollCapture, .openFromClipboard: return 0
             default: return UInt32(cmdKey | shiftKey)
             }
         }
@@ -108,7 +103,7 @@ class HotkeyManager {
     }
 
     /// Register all hotkeys with their callbacks.
-    func registerAll(captureArea: @escaping () -> Void, captureFullScreen: @escaping () -> Void, captureOCR: @escaping () -> Void, quickCapture: @escaping () -> Void, scrollCapture: @escaping () -> Void, openFromClipboard: @escaping () -> Void, captureLastArea: @escaping () -> Void) {
+    func registerAll(captureArea: @escaping () -> Void, captureFullScreen: @escaping () -> Void, captureOCR: @escaping () -> Void, quickCapture: @escaping () -> Void, scrollCapture: @escaping () -> Void, openFromClipboard: @escaping () -> Void) {
         unregisterAll()
         register(slot: .captureArea, callback: captureArea)
         register(slot: .captureFullScreen, callback: captureFullScreen)
@@ -116,7 +111,6 @@ class HotkeyManager {
         register(slot: .quickCapture, callback: quickCapture)
         register(slot: .scrollCapture, callback: scrollCapture)
         register(slot: .openFromClipboard, callback: openFromClipboard)
-        register(slot: .captureLastArea, callback: captureLastArea)
     }
 
     private func installEventHandler() {

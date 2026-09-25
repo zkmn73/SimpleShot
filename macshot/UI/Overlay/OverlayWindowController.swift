@@ -335,7 +335,6 @@ class OverlayWindowController {
     /// what makes the next capture instant, since WindowServer's per-window
     /// composition cache survives `orderOut`).
     func dismiss() {
-        saveSelectionIfNeeded()
         overlayView?.reset()
         overlayView?.screenshotImage = nil
         overlayView?.captureSourceImage = nil
@@ -366,15 +365,6 @@ class OverlayWindowController {
         overlayWindow?.orderOut(nil)
         overlayWindow?.close()
         overlayWindow = nil
-    }
-
-    private func saveSelectionIfNeeded() {
-        guard let view = overlayView, view.state == .selected,
-            view.selectionRect.width > 1, view.selectionRect.height > 1
-        else { return }
-        UserDefaults.standard.set(NSStringFromRect(view.selectionRect), forKey: "lastSelectionRect")
-        UserDefaults.standard.set(
-            NSStringFromRect(screen.frame), forKey: "lastSelectionScreenFrame")
     }
 
     private func captureRegion() -> NSImage? {

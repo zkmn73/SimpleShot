@@ -52,7 +52,6 @@ enum SettingsPortability {
         "saveDirectory", "saveDirectoryBookmark",
         "recordingSaveDirectory", "recordingSaveDirectoryBookmark",
         // Selection geometry / last-used resolution: tied to this machine's displays.
-        "lastSelectionRect", "lastSelectionScreenFrame",
         "preSelectionResolutionPresetKind", "preSelectionResolutionPresetAspect",
         "preSelectionResolutionPresetWidth", "preSelectionResolutionPresetHeight",
         // Hardware device identifiers.

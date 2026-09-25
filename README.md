@@ -42,7 +42,7 @@ Upgrade with `brew upgrade --cask simpleshot`, remove with `brew uninstall --cas
 ## Features
 
 **Capture**
-- Region, full-screen, last-area and quick capture from global hotkeys or the menu bar
+- Region, full-screen and quick capture from global hotkeys or the menu bar
 - Window snap: hover a window and click to capture it exactly (`Tab` toggles snap, `F` selects the full screen)
 - Boundary snap to strong edges while dragging (hold `Option` to bypass)
 - Exact pixel size and aspect-ratio presets, editable while selecting
@@ -79,7 +79,7 @@ Upgrade with `brew upgrade --cask simpleshot`, remove with `brew uninstall --cas
 | `Cmd+Shift+F` | Capture full screen                        |
 | `Cmd+Shift+S` | Quick capture (uses your Enter action)     |
 | `Cmd+Shift+T` | Capture OCR & QR                           |
-| unassigned    | Scroll capture, capture last area, open from clipboard |
+| unassigned    | Scroll capture, open from clipboard |
 
 **During capture**
 
@@ -107,7 +107,6 @@ Enable it in Settings > General.
 | --------------------------------- | ------------------------------- |
 | `simpleshot://capture`            | Start area capture              |
 | `simpleshot://capture-fullscreen` | Capture the full screen         |
-| `simpleshot://capture-last`       | Re-capture the last area        |
 | `simpleshot://quick-capture`      | Quick capture                   |
 | `simpleshot://ocr`                | Capture area and read text/QR   |
 | `simpleshot://scroll-capture`     | Start scroll capture            |

@@ -222,7 +222,6 @@ TextEditingCanvas                — Coordinate transforms + annotation storage 
 - Drawing: `currentStrokeWidth`, `numberStrokeWidth`, `markerStrokeWidth`
 - Hotkey: `hotkeyKeyCode`, `hotkeyModifiers`
 - Output: `saveDirectory`, `autoCopyToClipboard`, `playCopySound`
-- Selection: `lastSelectionRect`, `lastSelectionScreenFrame`, `rememberLastSelection`
 - Thumbnails: `showFloatingThumbnail`, `thumbnailStacking`, `thumbnailAutoDismissSeconds`
 - Image: `imageFormat` (png/jpeg/heic/webp), `imageQuality` (0.0–1.0), `downscaleRetina` (bool)
 - Recording: `recordingFormat` (mp4/gif), `recordingFPS`, `recordingOnStop`

@@ -692,21 +692,10 @@ class OverlayView: NSView {
         }
     }
 
-    // Capture-target snapping. Preserve the old Boolean preference as a
-    // migration fallback for existing users.
+    // Capture-target snapping mode (Tab cycles it). Defaults to `.window`.
     var snapMode: SnapMode {
-        get {
-            let defaults = UserDefaults.standard
-            if defaults.object(forKey: "captureSnapMode") != nil,
-               let mode = SnapMode(rawValue: defaults.integer(forKey: "captureSnapMode")) {
-                return mode
-            }
-            return (defaults.object(forKey: "windowSnapEnabled") as? Bool ?? true) ? .window : .off
-        }
-        set {
-            UserDefaults.standard.set(newValue.rawValue, forKey: "captureSnapMode")
-            UserDefaults.standard.set(newValue != .off, forKey: "windowSnapEnabled")
-        }
+        get { SnapMode(rawValue: UserDefaults.standard.integer(forKey: "captureSnapMode")) ?? .window }
+        set { UserDefaults.standard.set(newValue.rawValue, forKey: "captureSnapMode") }
     }
 
     // Boundary snapping — snap the selection's dragged edges to strong color

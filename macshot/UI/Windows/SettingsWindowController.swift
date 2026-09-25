@@ -48,7 +48,6 @@ class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSWindowD
     private var savePathField: NSTextField!
     private var saveActionPopup: NSPopUpButton!
     private var ocrActionPopup: NSPopUpButton!
-    // rememberSelectionCheckbox removed — selection is always saved for "Capture Last Area"
     private var launchAtLoginCheckbox: NSButton!
     private var hideMenuBarIconCheckbox: NSButton!
     private var doubleClickToCopyCheckbox: NSButton!
@@ -1305,7 +1304,6 @@ class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSWindowD
         let commands: [(String, String)] = [
             ("simpleshot://capture",             L("Start area capture")),
             ("simpleshot://capture-fullscreen",  L("Capture the full screen")),
-            ("simpleshot://capture-last",        L("Re-capture the last selected area")),
             ("simpleshot://quick-capture",       L("Quick capture (uses your Enter action)")),
             ("simpleshot://ocr",                 L("Capture area and read text/QR codes")),
             ("simpleshot://scroll-capture",      L("Start scroll capture")),

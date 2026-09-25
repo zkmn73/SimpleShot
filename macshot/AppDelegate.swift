@@ -11,7 +11,6 @@ enum CaptureMenuItemID: String, CaseIterable {
     case captureScreen = "captureScreen"
     case captureOCR = "captureOCR"
     case quickCapture = "quickCapture"
-    case captureLastArea = "captureLastArea"
     case scrollCapture = "scrollCapture"
 
     static let defaultOrder: [CaptureMenuItemID] = [
@@ -19,7 +18,6 @@ enum CaptureMenuItemID: String, CaseIterable {
         .captureScreen,
         .captureOCR,
         .quickCapture,
-        .captureLastArea,
         .scrollCapture,
     ]
 
@@ -29,7 +27,6 @@ enum CaptureMenuItemID: String, CaseIterable {
         case .captureScreen: return L("Capture Screen")
         case .captureOCR: return L("Capture OCR & QR")
         case .quickCapture: return L("Quick Capture")
-        case .captureLastArea: return L("Capture Last Area")
         case .scrollCapture: return L("Scroll Capture")
         }
     }
@@ -40,7 +37,6 @@ enum CaptureMenuItemID: String, CaseIterable {
         case .captureScreen: return "desktopcomputer"
         case .captureOCR: return "text.viewfinder"
         case .quickCapture: return "square.and.arrow.down"
-        case .captureLastArea: return "arrow.counterclockwise.circle"
         case .scrollCapture: return "scroll"
         }
     }
@@ -51,7 +47,6 @@ enum CaptureMenuItemID: String, CaseIterable {
         case .captureScreen: return .captureFullScreen
         case .captureOCR: return .captureOCR
         case .quickCapture: return .quickCapture
-        case .captureLastArea: return .captureLastArea
         case .scrollCapture: return .scrollCapture
         }
     }
@@ -615,7 +610,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         case .captureScreen: action = #selector(captureFullScreen)
         case .captureOCR: action = #selector(captureOCR)
         case .quickCapture: action = #selector(quickCapture)
-        case .captureLastArea: action = #selector(captureLastArea)
         case .scrollCapture: action = #selector(scrollCapture)
         }
 
@@ -647,9 +641,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             },
             openFromClipboard: { [weak self] in
                 DispatchQueue.main.async { self?.openImageFromClipboard() }
-            },
-            captureLastArea: { [weak self] in
-                self?.perform(#selector(AppDelegate.captureLastAreaFromHotkey))
             }
         )
     }
@@ -785,23 +776,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         startCapture(fromMenu: fromMenu)
     }
 
-    /// Open the capture overlay with the last selection area pre-applied.
-    /// If no previous selection exists, falls back to a normal capture.
-    @objc private func captureLastArea() {
-        beginCaptureLastArea(fromMenu: true)
-    }
-
-    @objc private func captureLastAreaFromHotkey() {
-        beginCaptureLastArea(fromMenu: false)
-    }
-
-    private func beginCaptureLastArea(fromMenu: Bool) {
-        guard canStartCapture else { return }
-        pendingRestoreLastArea = true
-        startCapture(fromMenu: fromMenu)
-    }
-    private var pendingRestoreLastArea: Bool = false
-
     @objc private func setDelaySeconds(_ sender: NSMenuItem) {
         UserDefaults.standard.set(sender.tag, forKey: "captureDelaySeconds")
         // Update checkmarks
@@ -925,7 +899,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         pendingOCRMode = false
         pendingQuickCaptureMode = false
         pendingScrollCaptureMode = false
-        pendingRestoreLastArea = false
     }
 
     private func performCapture(fromMenu: Bool) {
@@ -1004,11 +977,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         applyFullScreen: Bool
     ) {
         if captures.isEmpty {
-            // This accepted capture is ending without a selection, so nothing
-            // consumes the remaining pending flags. Clear them here so they don't
-            // strand into the next capture (e.g. pendingRestoreLastArea, which
-            // performCapture doesn't clear). See issue #276.
-            pendingRestoreLastArea = false
             dismissOverlays(refocusPreviousApp: true)
             showOnboarding()
             return
@@ -1028,31 +996,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             }
         }
 
-        applyPendingRestoredSelectionIfNeeded()
-    }
-
-    private func applyPendingRestoredSelectionIfNeeded() {
-        guard pendingRestoreLastArea else { return }
-        pendingRestoreLastArea = false
-        restoreLastSelection(controllers: overlayControllers)
-    }
-
-    /// Apply the stored last selection rect to the matching overlay controller.
-    private func restoreLastSelection(controllers: [OverlayWindowController]) {
-        guard let rectStr = UserDefaults.standard.string(forKey: "lastSelectionRect"),
-              let screenStr = UserDefaults.standard.string(forKey: "lastSelectionScreenFrame") else { return }
-        let savedRect = NSRectFromString(rectStr)
-        let savedScreenFrame = NSRectFromString(screenStr)
-        guard savedRect.width > 1, savedRect.height > 1 else { return }
-        for controller in controllers where controller.screen.frame == savedScreenFrame {
-            controller.applySelection(savedRect)
-            // The install loop made the LAST overlay it showed the key window,
-            // but keyboard handling (Cmd+C, F, Enter) is per-window and gated
-            // on that window's own selection state — so key focus must follow
-            // the overlay that received the restored selection (#281).
-            controller.showOverlay()
-            break
-        }
     }
 
     /// Returns the title of the frontmost window via CGWindowList (requires Screen Recording permission).
@@ -1336,7 +1279,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     /// Handle simpleshot:// URL scheme actions from external tools (Raycast, Alfred, etc.).
     /// Usage: `open simpleshot://capture`, `open simpleshot://ocr`, etc.
     private static let screenCaptureURLActions: Set<String> = [
-        "capture", "capture-fullscreen", "capture-last", "quick-capture",
+        "capture", "capture-fullscreen", "quick-capture",
         "ocr", "scroll-capture",
     ]
 
@@ -1349,7 +1292,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         case "ocr":                 captureOCR()
         case "scroll-capture":      scrollCapture()
         case "settings":            openSettings()
-        case "capture-last":        captureLastArea()
         case "open":
             if let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
                let path = components.queryItems?.first(where: { $0.name == "file" })?.value {
