@@ -217,7 +217,7 @@ LaunchCleaner                    — One sweep rule in LaunchCleanup
 ### Persistence (UserDefaults)
 Only remembered choices are stored, and nothing is written as a side effect of taking a screenshot.
 - **Output:** `imageFormat` (png/jpeg/heic/webp), `imageQuality`, `downscaleRetina`, `saveDirectory` + `saveDirectoryBookmark` (only after the user picks a folder; default is `~/Downloads`), `filenameTemplate`, `useWindowTitleInFilename`, `quickCaptureMode`, `quickCaptureOpenEditor`, `closeEditorAfterCopy`, `ocrAction`, `autoCopyOCRText`
-- **Capture:** `captureDelaySeconds`, `captureSnapMode`, `doubleClickToCopy`, `hideCaptureInstructions`, `scrollAutoScrollEnabled`, `scrollAutoScrollSpeed`, `scrollFrozenDetection`, `scrollMaxHeight`, resolution preset keys (`keepAspectRatio*`, `resolutionUnitIsPoints`, preselection preset keys)
+- **Capture:** `captureDelaySeconds`, `captureSnapMode`, `hideCaptureInstructions`, `scrollAutoScrollEnabled`, `scrollAutoScrollSpeed`, `scrollFrozenDetection`, `scrollMaxHeight`, resolution preset keys (`keepAspectRatio*`, `resolutionUnitIsPoints`, preselection preset keys)
 - **Hotkeys:** per slot key code, modifiers and disabled flag (`HotkeyManager.HotkeySlot`); editor undo/redo chords
 - **Annotation styles:** `currentStrokeWidth`, `numberStrokeWidth`, `markerStrokeWidth`, `loupeSize`, `lastUsedColor`, `lastUsedColorOpacity`, `customColors`, line/arrow/rect styles, text formatting, `numberFormat`, `censorMode`, pencil smoothing, highlight dim/dashed keys, outline colors
 - **App:** `launchAtLogin`, `hideMenuBarIcon`, `urlSchemeEnabled`, `suppressMoveToApplications`, `enabledRedactTypes`

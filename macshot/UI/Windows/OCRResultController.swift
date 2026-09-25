@@ -66,7 +66,7 @@ class OCRResultController: NSObject {
             let imgView = NSImageView(frame: previewContainer.bounds.insetBy(dx: 12, dy: 12))
             imgView.image = image
             imgView.imageScaling = .scaleProportionallyUpOrDown
-            imgView.imageAlignment = .alignCenter
+            imgView.imageAlignment = .alignTop
             imgView.wantsLayer = true
             imgView.layer?.cornerRadius = 6
             imgView.layer?.masksToBounds = true
@@ -87,44 +87,10 @@ class OCRResultController: NSObject {
         let rightX = previewW + gap
         let rightW = W - rightX
         let footerH: CGFloat = 52
-        let headerH: CGFloat = 52
-
-        // Header bar (language selector + stats)
-        let header = NSView(frame: NSRect(x: rightX, y: H - headerH, width: rightW, height: headerH))
-        header.autoresizingMask = [.width, .minYMargin]
-        cv.addSubview(header)
-
-        let headerRow = NSStackView(frame: NSRect(x: 12, y: 12, width: rightW - 24, height: 28))
-        headerRow.orientation = .horizontal
-        headerRow.alignment = .centerY
-        headerRow.distribution = .fill
-        headerRow.spacing = 8
-        headerRow.autoresizingMask = [.width]
-        header.addSubview(headerRow)
-
-        let spacer = NSView()
-        spacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
-        spacer.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-        headerRow.addArrangedSubview(spacer)
-
-        // Char/word count label
-        let charCount = text.count
-        let wordCount = text.split(whereSeparator: { $0.isWhitespace || $0.isNewline }).count
-        let countLbl = NSTextField(labelWithString: String(format: L("%d chars · %d words"), charCount, wordCount))
-        countLbl.font = NSFont.systemFont(ofSize: 11)
-        countLbl.textColor = .tertiaryLabelColor
-        countLbl.alignment = .right
-        countLbl.lineBreakMode = .byTruncatingTail
-        countLbl.setContentHuggingPriority(.required, for: .horizontal)
-        countLbl.setContentCompressionResistancePriority(.required, for: .horizontal)
-        headerRow.addArrangedSubview(countLbl)
-        self.charCountLabel = countLbl
-
-        // Header separator
-        let headerSep = NSBox(frame: NSRect(x: rightX, y: H - headerH - 1, width: rightW, height: 1))
-        headerSep.boxType = .separator
-        headerSep.autoresizingMask = [.width, .minYMargin]
-        cv.addSubview(headerSep)
+        // The first line's cap height sits `ascender - capHeight` below the line fragment's top,
+        // so shrink the top inset by that gap to put the glyph tops level with the preview image (12pt inset).
+        let textFont = NSFont.monospacedSystemFont(ofSize: 13, weight: .regular)
+        let textInset = NSSize(width: 14, height: 12 - (textFont.ascender - textFont.capHeight))
 
         // Footer separator
         let footerSep = NSBox(frame: NSRect(x: rightX, y: footerH, width: rightW, height: 1))
@@ -136,6 +102,19 @@ class OCRResultController: NSObject {
         let footer = NSView(frame: NSRect(x: rightX, y: 0, width: rightW, height: footerH))
         footer.autoresizingMask = [.width]
         cv.addSubview(footer)
+
+        // Char/word count, left-aligned with the recognized text
+        let charCount = text.count
+        let wordCount = text.split(whereSeparator: { $0.isWhitespace || $0.isNewline }).count
+        let countLbl = NSTextField(labelWithString: String(format: L("%d chars · %d words"), charCount, wordCount))
+        countLbl.font = NSFont.systemFont(ofSize: 11)
+        countLbl.textColor = .tertiaryLabelColor
+        countLbl.lineBreakMode = .byTruncatingTail
+        let countX = textInset.width + 5  // text inset + default line fragment padding
+        countLbl.frame = NSRect(x: countX, y: (footerH - 16) / 2, width: rightW - 110 - countX - 8, height: 16)
+        countLbl.autoresizingMask = [.width]
+        footer.addSubview(countLbl)
+        self.charCountLabel = countLbl
 
         // Copy button (primary, right-aligned)
         let copyBtn = NSButton(title: L("Copy") + "  ⌘↩", target: self, action: #selector(copyAll))
@@ -152,7 +131,7 @@ class OCRResultController: NSObject {
 
         // Scrollable text view
         let textAreaY = footerH + 1
-        let textAreaH = H - headerH - 1 - footerH - 1 - qrSectionH
+        let textAreaH = H - footerH - 1 - qrSectionH
         let scrollView = NSScrollView(frame: NSRect(x: rightX, y: textAreaY + qrSectionH, width: rightW, height: textAreaH))
         scrollView.autoresizingMask = [.width, .height]
         scrollView.hasVerticalScroller = true
@@ -165,8 +144,8 @@ class OCRResultController: NSObject {
         tv.isSelectable = true
         tv.isRichText = false
         tv.allowsUndo = true
-        tv.font = NSFont.monospacedSystemFont(ofSize: 13, weight: .regular)
-        tv.textContainerInset = NSSize(width: 14, height: 14)
+        tv.font = textFont
+        tv.textContainerInset = textInset
         tv.isVerticallyResizable = true
         tv.isHorizontallyResizable = false
         tv.textContainer?.widthTracksTextView = true

@@ -123,7 +123,7 @@ class ScreenCaptureManager {
         let captures = await withTaskGroup(
             of: ScreenCapture?.self, returning: [ScreenCapture].self
         ) { group in
-            for (index, pair) in pairs.enumerated() {
+            for pair in pairs {
                 let (display, screen) = pair
                 group.addTask {
                     // Capture the whole display, excluding nothing: transient UI
@@ -177,7 +177,7 @@ class ScreenCaptureManager {
             of: ScreenCapture?.self,
             returning: [ScreenCapture].self
         ) { group in
-            for (index, screen) in screens.enumerated() {
+            for screen in screens {
                 group.addTask {
                     let appKitFrame = screen.frame
                     let rect = CGRect(
@@ -200,7 +200,6 @@ class ScreenCaptureManager {
                         let output = result.output,
                         let image = output.sdrImage ?? output.hdrImage
                     else {
-                        let reason = result.error?.localizedDescription ?? "no image returned"
                         return nil
                     }
                     return ScreenCapture(screen: screen, image: image)
@@ -303,7 +302,7 @@ class ScreenCaptureManager {
                 let captures = await withTaskGroup(
                     of: ScreenCapture?.self, returning: [ScreenCapture].self
                 ) { group in
-                    for (index, pair) in pairs.enumerated() {
+                    for pair in pairs {
                         let (display, screen) = pair
                         group.addTask {
                             if #available(macOS 14.0, *) {

@@ -50,7 +50,6 @@ class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSWindowD
     private var ocrActionPopup: NSPopUpButton!
     private var launchAtLoginCheckbox: NSButton!
     private var hideMenuBarIconCheckbox: NSButton!
-    private var doubleClickToCopyCheckbox: NSButton!
     private var hideCaptureInstructionsCheckbox: NSButton!
     private var filenameTemplateField: NSTextField!
     private var filenameTemplatePreview: NSTextField!
@@ -523,7 +522,6 @@ class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSWindowD
         stack.setCustomSpacing(12, after: stack.arrangedSubviews.last!)
 
         // Checkboxes
-        doubleClickToCopyCheckbox = NSButton(checkboxWithTitle: L("Double-click selection to copy"), target: self, action: #selector(doubleClickToCopyChanged(_:)))
         hideCaptureInstructionsCheckbox = NSButton(checkboxWithTitle: L("Hide capture instructions"), target: self, action: #selector(hideCaptureInstructionsChanged(_:)))
         filenameTemplateField = NSTextField()
         filenameTemplateField.placeholderString = FilenameFormatter.defaultTemplate
@@ -537,9 +535,6 @@ class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSWindowD
         filenameTemplatePreview.font = NSFont.systemFont(ofSize: 10)
         filenameTemplatePreview.textColor = .secondaryLabelColor
         filenameTemplatePreview.lineBreakMode = .byTruncatingMiddle
-
-        stack.addArrangedSubview(indented(doubleClickToCopyCheckbox))
-        stack.setCustomSpacing(6, after: stack.arrangedSubviews.last!)
 
         stack.addArrangedSubview(indented(hideCaptureInstructionsCheckbox))
         stack.setCustomSpacing(20, after: stack.arrangedSubviews.last!)
@@ -1092,7 +1087,6 @@ class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSWindowD
 
         hideMenuBarIconCheckbox.state = UserDefaults.standard.bool(forKey: "hideMenuBarIcon") ? .on : .off
 
-        doubleClickToCopyCheckbox.state = (UserDefaults.standard.object(forKey: "doubleClickToCopy") as? Bool ?? true) ? .on : .off
         hideCaptureInstructionsCheckbox.state = UserDefaults.standard.bool(forKey: "hideCaptureInstructions") ? .on : .off
         filenameTemplateField.stringValue = UserDefaults.standard.string(forKey: FilenameFormatter.userDefaultsKey) ?? FilenameFormatter.defaultTemplate
         updateFilenamePreview()
@@ -1225,9 +1219,6 @@ class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSWindowD
     }
     @objc private func scrollFrozenDetectionChanged(_ sender: NSButton) {
         UserDefaults.standard.set(sender.state == .on, forKey: "scrollFrozenDetection")
-    }
-    @objc private func doubleClickToCopyChanged(_ sender: NSButton) {
-        UserDefaults.standard.set(sender.state == .on, forKey: "doubleClickToCopy")
     }
     @objc private func hideCaptureInstructionsChanged(_ sender: NSButton) {
         UserDefaults.standard.set(sender.state == .on, forKey: "hideCaptureInstructions")
