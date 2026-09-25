@@ -17,6 +17,10 @@ on:
         description: 'Tag to build (e.g. v1.0.0)'
         required: true
 
+# Creating the GitHub Release needs write access to repository contents.
+permissions:
+  contents: write
+
 env:
   APP_NAME: SimpleShot
   BUNDLE_ID: com.zkmn73.simpleshot
