@@ -87,7 +87,7 @@ class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSWindowD
             backing: .buffered,
             defer: false
         )
-        window.title = "\(BuildVariant.displayName) \(L("Settings"))"
+        window.title = "\(AppInfo.displayName) \(L("Settings"))"
         window.center()
         window.isReleasedWhenClosed = false
         // Window is non-resizable (no .resizable in styleMask), so content size
@@ -166,7 +166,7 @@ class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSWindowD
             view.bottomAnchor.constraint(equalTo: container.bottomAnchor),
         ])
         currentTabID = id
-        window?.title = "\(BuildVariant.displayName) \(L("Settings")) — \(L(Self.tabDefs.first(where: { $0.id == id })?.label ?? ""))"
+        window?.title = "\(AppInfo.displayName) \(L("Settings")) — \(L(Self.tabDefs.first(where: { $0.id == id })?.label ?? ""))"
     }
 
     @objc private func toolbarTabSelected(_ sender: NSToolbarItem) {
@@ -1016,7 +1016,7 @@ class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSWindowD
         stack.setCustomSpacing(12, after: icon)
 
         // App name
-        let name = NSTextField(labelWithString: BuildVariant.displayName)
+        let name = NSTextField(labelWithString: AppInfo.displayName)
         name.font = NSFont.systemFont(ofSize: 22, weight: .bold)
         name.textColor = .labelColor
         stack.addArrangedSubview(name)
@@ -1037,15 +1037,6 @@ class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSWindowD
         desc.alignment = .center
         stack.addArrangedSubview(desc)
         stack.setCustomSpacing(20, after: desc)
-
-        #if OFFLINE
-        let offlineNote = NSTextField(wrappingLabelWithString: L("Offline build: upload and cloud storage integrations are removed. Screenshots and recordings stay local unless you share or save them yourself."))
-        offlineNote.font = NSFont.systemFont(ofSize: 12)
-        offlineNote.textColor = .secondaryLabelColor
-        offlineNote.alignment = .center
-        stack.addArrangedSubview(offlineNote)
-        stack.setCustomSpacing(20, after: offlineNote)
-        #endif
 
         // License
         let license = NSTextField(labelWithString: L("Licensed under the GPLv3"))

@@ -13,20 +13,9 @@ Native macOS screenshot & annotation tool inspired by Flameshot. Built with Swif
 - **Permissions:** Screen Recording (Info.plist has Privacy - Screen Capture Usage Description)
 - **Xcode:** File system synchronized groups — just create .swift files in `macshot/` and Xcode picks them up automatically
 
-## Build Variants
+## Build & Distribution
 
-macshot has two release variants:
-
-- **Normal:** product name `macshot`, bundle id `com.zkmn73.simpleshot`, Sparkle feed `appcast.xml`, release asset `MacShot.dmg`.
-- **Offline:** product name `macshot Offline`, bundle id `com.zkmn73.simpleshot.offline`, Sparkle feed `appcast-offline.xml`, release asset `MacShot-Offline.dmg`.
-
-The offline build is selected with the `OFFLINE` Swift compilation condition. Use `BuildVariant.isOffline` / `BuildVariant.displayName` for runtime variant checks and display names. Upload and cloud storage integrations must be compiled out of the offline build with `#if !OFFLINE`, including upload UI, upload shortcuts, upload settings, upload context menu items, and uploader implementations.
-
-The release workflow builds both variants from the same tag. It patches the offline app's `SUFeedURL` to `appcast-offline.xml`, removes the Google OAuth URL scheme from the offline app, signs both apps, packages both DMGs, notarizes both DMGs, and writes both appcasts. Do not point the offline app at the normal appcast or vice versa; Sparkle updates must stay variant-specific so offline users never update into the normal app.
-
-Beta handling is shared: beta items get `<sparkle:channel>beta</sparkle:channel>`, and users opt in through the existing "Check for beta updates" setting. Stable offline releases will appear to offline users through `appcast-offline.xml` once a stable offline item exists.
-
-Homebrew status: beta releases skip Homebrew. Stable releases update the normal cask and generate `macshot-offline` in the personal tap. The official Homebrew cask remains normal-only unless a separate `macshot-offline` cask is submitted later.
+SimpleShot ships as a single app: product name `SimpleShot`, bundle id `com.zkmn73.simpleshot`, release asset `SimpleShot.dmg`. There are no build variants and no in-app updater — users install and update through the Homebrew cask in the personal tap (`brew install --cask zkmn73/tap/simpleshot`, `brew upgrade`). Use `AppInfo.displayName` for the app's display name.
 
 ## Architecture
 
@@ -285,7 +274,6 @@ Copy to clipboard, Save to file (PNG/JPEG/HEIC/WebP), Pin (floating always-on-to
 - **Color Opacity:** Adjustable per annotation via custom color picker
 - **Smooth Pencil Strokes:** Toggle in settings
 - **Zoom:** 0.1x–8x, scroll/pinch, pan, clickable label to edit percentage
-- **Sparkle Auto-Updates:** Automatic update checks via Sparkle framework
 - **Permission Onboarding:** First-run guide for granting Screen Recording permission
 
 ## Coding Conventions
@@ -294,7 +282,7 @@ Copy to clipboard, Save to file (PNG/JPEG/HEIC/WebP), Pin (floating always-on-to
 - **Use proper AppKit components:** NSPopover for popovers, NSView subclasses for toolbar buttons and strips, NSSlider/NSSegmentedControl/NSButton for controls, NSScrollView for editor zoom/pan, NSTextView for text editing. Avoid reimplementing standard UI components with manual `draw()` + coordinate hit-testing.
 - **Strict concurrency:** CI builds with Xcode 16+ and `-Owholemodule` which enforces strict Swift concurrency. Any code using `@MainActor`-isolated SwiftUI APIs (e.g. `ImageRenderer`) must itself be `@MainActor`. Always mark classes/functions that touch SwiftUI rendering with `@MainActor`. Calling `@MainActor`-isolated methods (e.g. on AppDelegate) from non-`@MainActor` classes requires `MainActor.assumeIsolated { }`. **Local Debug builds do NOT catch these errors.** Before tagging a release, always verify with a Release build: `xcodebuild -scheme macshot -configuration Release build 2>&1 | grep "error:"`
 - **Tool handler pattern:** New annotation tools should implement `AnnotationToolHandler` protocol in `UI/Tools/`, not add switch cases to OverlayView. The handler's `start`/`update`/`finish` methods use `AnnotationCanvas` to access shared state.
-- Apple frameworks: ScreenCaptureKit, Vision, CoreImage, AVFoundation + Sparkle for auto-updates + Swift-WebP for WebP encoding
+- Apple frameworks: ScreenCaptureKit, Vision, CoreImage, AVFoundation + Swift-WebP for WebP encoding
 - SF Symbols for toolbar icons
 - Minimal allocations during mouse tracking (reuse paths, avoid per-mouseMoved object creation)
 - `[weak self]` in all closures to avoid retain cycles
@@ -334,7 +322,7 @@ Copy to clipboard, Save to file (PNG/JPEG/HEIC/WebP), Pin (floating always-on-to
 
 ## Tests
 
-- `scripts/run-tests.sh` runs everything; add `--offline` for the offline variant, and pass `ClassName` or `ClassName/testName` to narrow it. It reports failures and preserves the full log/result bundle on failure. Set `MACSHOT_KEEP_TEST_RESULTS=1` to preserve successful results too. Empty/all-skipped runs are errors.
+- `scripts/run-tests.sh` runs everything; pass `ClassName` or `ClassName/testName` to narrow it. It reports failures and preserves the full log/result bundle on failure. Set `MACSHOT_KEEP_TEST_RESULTS=1` to preserve successful results too. Empty/all-skipped runs are errors.
 - The `macshotTests` target compiles the app sources directly (a synchronized group over `macshot/`, minus `main.swift`), so there is **no host app**: tests run headless, with no Screen Recording permission and no window server dependency. `internal` symbols are reachable without `@testable import`; `private` ones are not.
 - Shared helpers live in `macshotTests/TestSupport.swift`: `withDefaults` (isolated UserDefaults), `ImageProbe` (scale-independent fixture images + pixel probes — never build fixtures with `lockFocus`, it produces 2x buffers on Retina and 1x in CI), `TestKeyEvent` (synthesized `NSEvent`s), and `Reflect`/`FieldDescriber` (compare every stored property of a value at once).
 - Logic that is worth testing but buried in a permission-gated class should be extracted rather than left untested — see `ScrollFrameAnalyzer` and `RecordingEngine.cropRect(for:displayBounds:)`.
@@ -350,51 +338,12 @@ Copy to clipboard, Save to file (PNG/JPEG/HEIC/WebP), Pin (floating always-on-to
 
 ## Releasing
 
-### Workflow: `.github/workflows/build-release.yml`
+Workflow: `.github/workflows/build-release.yml`. It runs on a tag push (`v*.*.*`) or manual `workflow_dispatch` with an existing tag. It builds, signs with Developer ID, packages `SimpleShot.dmg`, notarizes and staples it, creates the GitHub Release, and rewrites `Casks/simpleshot.rb` in the tap repo (`TAP_REPO` in the workflow, default `zkmn73/homebrew-tap`).
 
-CI triggers on tag push (`v*.*.*` or `v*.*.*-beta.*`) or manual `workflow_dispatch`. The workflow builds, signs, notarizes, creates a DMG, updates Sparkle appcast, creates a GitHub Release, and (for stable only) updates Homebrew.
+Required secrets: `DEVELOPER_ID_CERT_P12`, `DEVELOPER_ID_CERT_PASSWORD`, `ASC_API_KEY`, `ASC_API_KEY_ID`, `ASC_API_ISSUER_ID`, `HOMEBREW_TAP_TOKEN` (PAT with write access to the tap repo).
 
-### Stable release
+1. Add a `## [x.y.z]` entry to `CHANGELOG.md` (used as release notes; if missing, notes are generated from commits).
+2. Tag and push: `git tag v1.0.0 && git push origin master --tags`
+3. CI does the rest. `MARKETING_VERSION` / `CURRENT_PROJECT_VERSION` in `project.pbxproj` are only for local builds; CI overrides them from the tag and run number.
 
-1. **Add a CHANGELOG.md entry** for the new version — CI extracts it for GitHub Release notes.
-2. **Tag and push:** `git tag v3.8.0 && git push origin main --tags`
-3. CI handles the rest: DMG, GitHub Release, appcast update (replaces all items with just the new stable), Homebrew cask update.
-
-### Beta release
-
-1. **Add a CHANGELOG.md entry** (e.g. `## [3.8.0-beta.3] - 2026-04-06`).
-2. **Tag with `-beta.N` suffix:** `git tag v3.8.0-beta.3 && git push origin v3.8.0-beta.3`
-3. CI auto-detects beta from the tag and:
-   - Adds `<sparkle:channel>beta</sparkle:channel>` to the appcast item (invisible to stable users)
-   - Preserves the existing stable item in the appcast
-   - Marks the GitHub Release as **pre-release**
-   - **Skips** Homebrew tap and cask updates
-
-Beta users opt in via Preferences > "Check for beta updates". This sets `allowedChannels(for:)` to `["beta"]` in `SPUUpdaterDelegate`.
-
-### Sparkle versioning
-
-- `sparkle:version` (what Sparkle compares) = `github.run_number` — a monotonically increasing integer per CI build. This avoids all semver/pre-release comparison issues.
-- `sparkle:shortVersionString` (what the user sees) = the human-readable version from the tag (e.g. `3.8.0-beta.3`).
-- `MARKETING_VERSION` = tag version (display). `CURRENT_PROJECT_VERSION` = run number (build number).
-- The stable appcast item from older builds still uses the old version string (e.g. `3.7.0`) for `sparkle:version`. Sparkle's comparator parses `3.7.0` as `3` when compared to a plain integer, so any run number > 3 is seen as newer. This works.
-
-### Appcast safety
-
-- CI validates the generated appcast XML with `python3 ET.parse()` before committing. If invalid, the build fails and the broken XML never reaches users.
-- Appcast is served from `https://raw.githubusercontent.com/sw33tLie/macshot/main/appcast.xml` (CDN-cached, ~5 min TTL).
-- Stable item extraction uses `python3 xml.etree.ElementTree` with `ET.register_namespace('sparkle', ...)` to preserve the `sparkle:` prefix.
-
-### Manual trigger (fallback)
-
-If tag push doesn't trigger CI (e.g. after rapid tag create/delete), use:
-```
-gh workflow run build-release.yml --ref main -f tag=v3.8.0-beta.3
-```
-This dispatches from main (which has `workflow_dispatch` support) and reads the tag from the input parameter. The tag must already exist on the remote.
-
-### Notes
-
-- `MARKETING_VERSION` in `project.pbxproj` is only used for local dev builds. CI always overrides it.
-- Never rapidly create/delete tags — GitHub throttles tag push events and may suppress triggers for 15-30 minutes.
-- The workflow was renamed from `release.yml` to `build-release.yml`.
+Never rapidly create/delete tags — GitHub throttles tag push events. If a tag push doesn't trigger CI, use `gh workflow run build-release.yml --ref master -f tag=v1.0.0`.

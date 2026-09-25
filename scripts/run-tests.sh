@@ -1,6 +1,6 @@
 #!/bin/bash
 # Run headless tests. Failures retain the full log and xcresult for inspection.
-# Usage: scripts/run-tests.sh [--offline] [ClassName[/testName] ...]
+# Usage: scripts/run-tests.sh [ClassName[/testName] ...]
 set -uo pipefail
 
 cd "$(dirname "$0")/.." || exit 1
@@ -18,11 +18,7 @@ test_args=(
   CODE_SIGNING_ALLOWED=NO
 )
 for test_filter in "$@"; do
-  if [[ "$test_filter" == --offline ]]; then
-    test_args+=('SWIFT_ACTIVE_COMPILATION_CONDITIONS=$(inherited) OFFLINE')
-  else
-    test_args+=(-only-testing:"macshotTests/$test_filter")
-  fi
+  test_args+=(-only-testing:"macshotTests/$test_filter")
 done
 
 xcodebuild "${test_args[@]}" test > "$test_log" 2>&1

@@ -185,25 +185,3 @@ final class DirectorySweeperTests: XCTestCase {
         XCTAssertTrue(exists("one.png") && exists("two.png"))
     }
 }
-
-/// Build-variant flags decide whether upload UI exists at all.
-final class BuildVariantTests: XCTestCase {
-
-    func testTheVariantIsSelfConsistent() {
-        XCTAssertFalse(BuildVariant.displayName.isEmpty)
-        if BuildVariant.isOffline {
-            XCTAssertTrue(BuildVariant.displayName.lowercased().contains("offline"),
-                          "the offline build should say so in its name")
-        } else {
-            XCTAssertFalse(BuildVariant.displayName.lowercased().contains("offline"))
-        }
-    }
-
-    func testUploadSettingsOnlyExistInTheOnlineBuild() {
-        #if OFFLINE
-        XCTAssertTrue(BuildVariant.isOffline)
-        #else
-        XCTAssertFalse(BuildVariant.isOffline)
-        #endif
-    }
-}

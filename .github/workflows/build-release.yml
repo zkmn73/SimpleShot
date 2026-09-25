@@ -1,20 +1,31 @@
 name: Build, Sign & Release
 
-# Triggers on tag push or manual dispatch
+# Triggers on a version tag push (v1.2.3) or manually for an existing tag.
+#
+# Required repository secrets:
+#   DEVELOPER_ID_CERT_P12 / DEVELOPER_ID_CERT_PASSWORD  Developer ID Application certificate (.p12, base64) + password
+#   ASC_API_KEY / ASC_API_KEY_ID / ASC_API_ISSUER_ID      App Store Connect API key (.p8, base64) for notarization
+#   HOMEBREW_TAP_TOKEN                                    Personal access token with write access to the tap repo
 on:
   push:
     tags:
       - "v*.*.*"
-      - "v*.*.*-beta.*"
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Tag to build (e.g. v3.8.0-beta.2)'
+        description: 'Tag to build (e.g. v1.0.0)'
         required: true
+
+env:
+  APP_NAME: SimpleShot
+  BUNDLE_ID: com.zkmn73.simpleshot
+  # Personal Homebrew tap that hosts the cask (repo "homebrew-tap" => `brew tap zkmn73/tap`).
+  TAP_REPO: zkmn73/homebrew-tap
+  CASK_TOKEN: simpleshot
 
 jobs:
   release:
-    runs-on: macos-26        # Xcode 26 + macOS 26 SDK (needed for NSGlassEffectView / Liquid Glass)
+    runs-on: macos-26
     timeout-minutes: 60
 
     steps:
@@ -23,13 +34,9 @@ jobs:
         uses: actions/checkout@v5
         with:
           ref: ${{ github.event.inputs.tag || github.ref }}
-          token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
 
-      # ── 1b. Select Xcode 26 (macOS 26 SDK) ─────────────────────────────────
       - name: Select Xcode
         run: |
-          # Pick the highest installed Xcode 26.x so the macOS 26 SDK
-          # (NSGlassEffectView) is available.
           XC=$(ls -d /Applications/Xcode_26*.app 2>/dev/null | sort -V | tail -1)
           if [ -z "$XC" ]; then XC=$(ls -d /Applications/Xcode*.app | sort -V | tail -1); fi
           echo "Using $XC"
@@ -39,17 +46,9 @@ jobs:
       # ── 2. Parse version from tag ──────────────────────────────────────────
       - name: Set version
         run: |
-          # Use manual input tag if workflow_dispatch, otherwise use the pushed tag
           TAG="${{ github.event.inputs.tag || github.ref_name }}"
-          VERSION="${TAG#v}"   # strip leading 'v'
-          BUILD_NUMBER="${{ github.run_number }}"
-          echo "VERSION=$VERSION" >> $GITHUB_ENV
-          echo "BUILD_NUMBER=$BUILD_NUMBER" >> $GITHUB_ENV
-          if [[ "$VERSION" == *"-beta"* ]]; then
-            echo "IS_BETA=true" >> $GITHUB_ENV
-          else
-            echo "IS_BETA=false" >> $GITHUB_ENV
-          fi
+          echo "VERSION=${TAG#v}" >> $GITHUB_ENV
+          echo "BUILD_NUMBER=${{ github.run_number }}" >> $GITHUB_ENV
 
       # ── 3. Import Developer ID certificate into a temporary keychain ───────
       - name: Import signing certificate
@@ -89,7 +88,7 @@ jobs:
           rm /tmp/cert.p12
 
       # ── 4. Resolve SPM packages + Build ───────────────────────────────────
-      - name: Build normal and offline apps
+      - name: Build app
         run: |
           xcodebuild \
             -project macshot.xcodeproj \
@@ -113,168 +112,55 @@ jobs:
             CURRENT_PROJECT_VERSION="$BUILD_NUMBER" \
             build
 
-          xcodebuild \
-            -project macshot.xcodeproj \
-            -scheme macshot \
-            -configuration Release \
-            -derivedDataPath build-offline \
-            CODE_SIGN_IDENTITY="" \
-            CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGNING_ALLOWED=NO \
-            MARKETING_VERSION="$VERSION" \
-            CURRENT_PROJECT_VERSION="$BUILD_NUMBER" \
-            SWIFT_ACTIVE_COMPILATION_CONDITIONS="OFFLINE" \
-            PRODUCT_BUNDLE_IDENTIFIER="com.zkmn73.simpleshot.offline" \
-            PRODUCT_NAME="macshot Offline" \
-            INFOPLIST_KEY_CFBundleDisplayName="macshot Offline" \
-            INFOPLIST_KEY_CFBundleName="macshot Offline" \
-            INFOPLIST_KEY_SUFeedURL="https://raw.githubusercontent.com/sw33tLie/macshot/main/appcast-offline.xml" \
-            build
+          test -d "build/Build/Products/Release/$APP_NAME.app"
 
-          python3 << 'PYEOF'
-          import plistlib
-          from pathlib import Path
-
-          plist_path = Path("build-offline/Build/Products/Release/macshot Offline.app/Contents/Info.plist")
-          plist = plistlib.loads(plist_path.read_bytes())
-          expected_bundle_id = "com.zkmn73.simpleshot.offline"
-          expected_feed_url = "https://raw.githubusercontent.com/sw33tLie/macshot/main/appcast-offline.xml"
-          plist["SUFeedURL"] = expected_feed_url
-          plist["CFBundleURLTypes"] = [
-              item for item in plist.get("CFBundleURLTypes", [])
-              if item.get("CFBundleURLName") != "Google OAuth"
-          ]
-          if plist.get("CFBundleIdentifier") != expected_bundle_id:
-              raise SystemExit(f"Offline bundle id mismatch: {plist.get('CFBundleIdentifier')}")
-          if plist.get("SUFeedURL") != expected_feed_url:
-              raise SystemExit(f"Offline Sparkle feed mismatch: {plist.get('SUFeedURL')}")
-          if any(item.get("CFBundleURLName") == "Google OAuth" for item in plist.get("CFBundleURLTypes", [])):
-              raise SystemExit("Offline build still contains Google OAuth URL scheme")
-          plist_path.write_bytes(plistlib.dumps(plist))
-          PYEOF
-
-      # ── 5. Sign the .apps with Developer ID ───────────────────────────────
-      - name: Sign apps
+      # ── 5. Sign the .app with Developer ID ────────────────────────────────
+      - name: Sign app
         run: |
-          python3 << 'PYEOF'
-          import plistlib
-          from pathlib import Path
+          APP="build/Build/Products/Release/$APP_NAME.app"
 
-          entitlements = plistlib.loads(Path("macshot/macshot.entitlements").read_bytes())
-          entitlements["com.apple.security.temporary-exception.mach-lookup.global-name"] = [
-              "com.zkmn73.simpleshot.offline-spks",
-              "com.zkmn73.simpleshot.offline-spki",
-          ]
-          Path("/tmp/macshot-offline.entitlements").write_bytes(plistlib.dumps(entitlements))
-          PYEOF
-
-          sign_app() {
-            local APP="$1"
-            local ENTITLEMENTS="$2"
-
-            # Sparkle's XPC services (Installer.xpc, Downloader.xpc) must NOT be sandboxed.
-            # They ship with empty entitlements so they can write to /Applications to replace
-            # the app bundle during updates. We must sign them WITHOUT the app's sandbox
-            # entitlements, and we must not use --deep on the outer app (which would re-sign
-            # them with the parent's entitlements).
-            #
-            # Signing order: innermost → outermost.
-
-            find "$APP/Contents" -name "*.xpc" -print0 | while IFS= read -r -d '' xpc; do
-              echo "Signing XPC: $xpc"
-              codesign --force --options runtime \
-                --sign "$SIGNING_IDENTITY" \
-                --keychain "$KEYCHAIN_PATH" "$xpc"
-            done
-
-            find "$APP/Contents" -name "*.app" -print0 | while IFS= read -r -d '' helper; do
-              echo "Signing helper: $helper"
-              codesign --force --options runtime \
-                --sign "$SIGNING_IDENTITY" \
-                --keychain "$KEYCHAIN_PATH" "$helper"
-            done
-
-            local AUTOUPDATE="$APP/Contents/Frameworks/Sparkle.framework/Versions/B/Autoupdate"
-            if [ -f "$AUTOUPDATE" ]; then
-              echo "Signing Autoupdate"
-              codesign --force --options runtime \
-                --sign "$SIGNING_IDENTITY" \
-                --keychain "$KEYCHAIN_PATH" "$AUTOUPDATE"
-            fi
-
-            find "$APP/Contents" -name "*.dylib" -print0 | while IFS= read -r -d '' f; do
-              echo "Signing dylib: $f"
-              codesign --force --options runtime \
-                --sign "$SIGNING_IDENTITY" \
-                --keychain "$KEYCHAIN_PATH" "$f"
-            done
-
-            find "$APP/Contents" -name "*.framework" -print0 | while IFS= read -r -d '' f; do
-              echo "Signing framework: $f"
-              codesign --force --options runtime \
-                --sign "$SIGNING_IDENTITY" \
-                --keychain "$KEYCHAIN_PATH" "$f"
-            done
-
-            echo "Signing main app: $APP"
+          # Sign any embedded code first (innermost to outermost), then the app itself.
+          find "$APP/Contents" \( -name "*.dylib" -o -name "*.framework" \) -print0 | while IFS= read -r -d '' f; do
+            echo "Signing: $f"
             codesign --force --options runtime \
               --sign "$SIGNING_IDENTITY" \
-              --keychain "$KEYCHAIN_PATH" \
-              --entitlements "$ENTITLEMENTS" \
-              "$APP"
+              --keychain "$KEYCHAIN_PATH" "$f"
+          done
 
-            codesign --verify --deep --strict "$APP"
-            echo "✅ Signing verified: $APP"
+          codesign --force --options runtime \
+            --sign "$SIGNING_IDENTITY" \
+            --keychain "$KEYCHAIN_PATH" \
+            --entitlements macshot/macshot.entitlements \
+            "$APP"
 
-            while IFS= read -r -d '' xpc; do
-              ENT=$(codesign -d --entitlements - "$xpc" 2>&1 || true)
-              if echo "$ENT" | grep -q "app-sandbox"; then
-                echo "❌ ERROR: $xpc has sandbox entitlements — updates will fail!"
-                exit 1
-              fi
-              echo "✅ $(basename "$xpc"): no sandbox (correct)"
-            done < <(find "$APP/Contents" -name "*.xpc" -print0)
-          }
+          codesign --verify --deep --strict "$APP"
+          echo "✅ Signing verified: $APP"
 
-          sign_app "build/Build/Products/Release/macshot.app" "macshot/macshot.entitlements"
-          sign_app "build-offline/Build/Products/Release/macshot Offline.app" "/tmp/macshot-offline.entitlements"
-
-      # ── 6. Package into DMGs ───────────────────────────────────────────────
-      - name: Package DMGs
+      # ── 6. Package into a DMG ──────────────────────────────────────────────
+      - name: Package DMG
         run: |
           brew install create-dmg
 
-          package_dmg() {
-            local APP="$1"
-            local DMG="$2"
-            local VOLNAME="$3"
-            local STAGING="$4"
-            local APP_NAME
-            APP_NAME="$(basename "$APP")"
+          STAGING="/tmp/dmg-staging"
+          rm -rf "$STAGING"
+          mkdir -p "$STAGING"
+          cp -R "build/Build/Products/Release/$APP_NAME.app" "$STAGING/"
 
-            rm -rf "$STAGING"
-            mkdir -p "$STAGING"
-            cp -R "$APP" "$STAGING/"
-
-            # create-dmg returns exit code 2 if it can't set the volume icon
-            # (no .icns at the root), which is fine — the app icon shows up anyway.
-            create-dmg \
-              --volname "$VOLNAME" \
-              --background "assets/dmg-background.png" \
-              --window-pos 200 120 \
-              --window-size 600 400 \
-              --icon-size 100 \
-              --icon "$APP_NAME" 150 185 \
-              --app-drop-link 450 185 \
-              --no-internet-enable \
-              --hide-extension "$APP_NAME" \
-              "$DMG" \
-              "$STAGING" \
-              || [ $? -eq 2 ]
-          }
-
-          package_dmg "build/Build/Products/Release/macshot.app" "MacShot.dmg" "macshot" "/tmp/dmg-staging-normal"
-          package_dmg "build-offline/Build/Products/Release/macshot Offline.app" "MacShot-Offline.dmg" "macshot Offline" "/tmp/dmg-staging-offline"
+          # create-dmg returns exit code 2 if it can't set the volume icon
+          # (no .icns at the root), which is fine — the app icon shows up anyway.
+          create-dmg \
+            --volname "$APP_NAME" \
+            --background "assets/dmg-background.png" \
+            --window-pos 200 120 \
+            --window-size 600 400 \
+            --icon-size 100 \
+            --icon "$APP_NAME.app" 150 185 \
+            --app-drop-link 450 185 \
+            --no-internet-enable \
+            --hide-extension "$APP_NAME.app" \
+            "$APP_NAME.dmg" \
+            "$STAGING" \
+            || [ $? -eq 2 ]
 
       # ── 7. Notarize ────────────────────────────────────────────────────────
       - name: Notarize
@@ -287,277 +173,83 @@ jobs:
           echo "$ASC_API_KEY_BASE64" | base64 --decode \
             > ~/.appstoreconnect/private_keys/AuthKey_${ASC_API_KEY_ID}.p8
 
-          for dmg in MacShot.dmg MacShot-Offline.dmg; do
-            xcrun notarytool submit "$dmg" \
-              --key ~/.appstoreconnect/private_keys/AuthKey_${ASC_API_KEY_ID}.p8 \
-              --key-id "$ASC_API_KEY_ID" \
-              --issuer "$ASC_API_ISSUER_ID" \
-              --wait \
-              --timeout 20m
+          xcrun notarytool submit "$APP_NAME.dmg" \
+            --key ~/.appstoreconnect/private_keys/AuthKey_${ASC_API_KEY_ID}.p8 \
+            --key-id "$ASC_API_KEY_ID" \
+            --issuer "$ASC_API_ISSUER_ID" \
+            --wait \
+            --timeout 20m
 
-            xcrun stapler staple "$dmg"
-          done
-
+          xcrun stapler staple "$APP_NAME.dmg"
           echo "✅ Notarization complete"
 
           rm -f ~/.appstoreconnect/private_keys/AuthKey_${ASC_API_KEY_ID}.p8
 
-      # ── 8. Get SHA256 for Homebrew ─────────────────────────────────────────
+      # ── 8. SHA256 for Homebrew ─────────────────────────────────────────────
       - name: Compute SHA256
         run: |
-          SHA256=$(shasum -a 256 MacShot.dmg | awk '{print $1}')
-          OFFLINE_SHA256=$(shasum -a 256 MacShot-Offline.dmg | awk '{print $1}')
+          SHA256=$(shasum -a 256 "$APP_NAME.dmg" | awk '{print $1}')
           echo "SHA256=$SHA256" >> $GITHUB_ENV
-          echo "OFFLINE_SHA256=$OFFLINE_SHA256" >> $GITHUB_ENV
           echo "SHA256: $SHA256"
-          echo "OFFLINE_SHA256: $OFFLINE_SHA256"
 
-      # ── 9. Extract changelog entry for this version ───────────────────────
+      # ── 9. Release notes from CHANGELOG.md (falls back to generated notes) ─
       - name: Extract release notes
         run: |
           awk "/^## \[$VERSION\]/{found=1; next} found && /^## \[/{exit} found{print}" \
             CHANGELOG.md > release_notes.md
           cat release_notes.md
 
-      # ── 10. Sign DMG for Sparkle and update appcast ───────────────────────
-      - name: Write appcast helper scripts
-        run: |
-          python3 << 'PYEOF'
-          import textwrap, pathlib
-          pathlib.Path("/tmp/extract_stable.py").write_text(textwrap.dedent("""\
-              import pathlib, sys, xml.etree.ElementTree as ET
-              ET.register_namespace('sparkle', 'http://www.andymatuschak.org/xml-namespaces/sparkle')
-              ns = {'sparkle': 'http://www.andymatuschak.org/xml-namespaces/sparkle'}
-              source, output = sys.argv[1:3]
-              stable = []
-              if pathlib.Path(source).exists():
-                  tree = ET.parse(source)
-                  for item in tree.findall('.//item'):
-                      if item.find('sparkle:channel', ns) is None:
-                          stable.append(ET.tostring(item, encoding='unicode'))
-              with open(output, 'w') as f:
-                  f.write('\\n'.join(stable))
-          """))
-          pathlib.Path("/tmp/build_item.py").write_text(textwrap.dedent("""\
-              import sys
-              output = sys.argv[1]
-              version, build_number, date, channel, html, url, size, sig = sys.argv[2:10]
-              channel_line = f'    <sparkle:channel>{channel}</sparkle:channel>' if channel else ''
-              with open(output, 'w') as f:
-                  f.write(f'''<item>
-                  <title>v{version}</title>
-                  <pubDate>{date}</pubDate>
-                  <sparkle:version>{build_number}</sparkle:version>
-                  <sparkle:shortVersionString>{version}</sparkle:shortVersionString>
-                  <sparkle:minimumSystemVersion>12.3</sparkle:minimumSystemVersion>
-              {channel_line}
-                  <description><![CDATA[
-                    <style>
-                      body {{ font-family: -apple-system, sans-serif; font-size: 13px; padding: 12px; }}
-                      h3 {{ font-size: 14px; margin: 12px 0 6px 0; }}
-                      h3:first-child {{ margin-top: 0; }}
-                      ul {{ padding-left: 18px; margin: 4px 0; }}
-                      li {{ margin: 4px 0; line-height: 1.5; }}
-                    </style>
-                    {html}
-                  ]]></description>
-                  <enclosure
-                      url="{url}"
-                      length="{size}"
-                      type="application/octet-stream"
-                      sparkle:edSignature="{sig}"
-                  />
-              </item>''')
-          """))
-          pathlib.Path("/tmp/assemble_appcast.py").write_text(textwrap.dedent("""\
-              import sys, os
-              is_beta = sys.argv[1] == 'true'
-              stable_path, new_item_path, output_path, title, description = sys.argv[2:7]
-              stable = ''
-              if is_beta and os.path.exists(stable_path):
-                  stable = open(stable_path).read().strip()
-              new_item = open(new_item_path).read().strip()
-              parts = [p for p in [stable, new_item] if p]
-              items = '\\n'.join(parts)
-              with open(output_path, 'w') as f:
-                  f.write(f'''<?xml version="1.0" encoding="utf-8"?>
-              <rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle">
-                  <channel>
-                      <title>{title}</title>
-                      <link>https://github.com/sw33tLie/macshot</link>
-                      <description>{description}</description>
-              {items}
-                  </channel>
-              </rss>
-              ''')
-          """))
-          PYEOF
-
-      - name: Update Sparkle appcasts
-        env:
-          SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
-        run: |
-          # Download Sparkle tools
-          SPARKLE_VERSION="2.6.4"
-          curl -L -o /tmp/Sparkle.tar.xz \
-            "https://github.com/sparkle-project/Sparkle/releases/download/${SPARKLE_VERSION}/Sparkle-${SPARKLE_VERSION}.tar.xz"
-          mkdir -p /tmp/sparkle
-          tar -xf /tmp/Sparkle.tar.xz -C /tmp/sparkle
-
-          echo "$SPARKLE_PRIVATE_KEY" > /tmp/sparkle_key
-          DATE=$(date -R)
-
-          if [ "$IS_BETA" = "true" ]; then
-            git fetch origin main:refs/remotes/origin/main
-            git show origin/main:appcast.xml > appcast.xml 2>/dev/null || true
-            git show origin/main:appcast-offline.xml > appcast-offline.xml 2>/dev/null || true
-          fi
-
-          # Convert release notes markdown to HTML for Sparkle update dialog
-          RELEASE_HTML=""
-          if [ -s release_notes.md ]; then
-            RELEASE_HTML=$(sed -E \
-              -e 's/^### (.+)/<\/ul><h3>\1<\/h3><ul>/' \
-              -e 's/^- \*\*([^*]+)\*\* [-–] (.+)/<li><b>\1<\/b> — \2<\/li>/' \
-              -e 's/^- \*\*([^*]+)\*\*(.*)/<li><b>\1<\/b>\2<\/li>/' \
-              -e 's/^- (.+)/<li>\1<\/li>/' \
-              release_notes.md | tr '\n' ' ')
-            # Clean up: remove leading </ul>, add trailing </ul>
-            RELEASE_HTML=$(echo "$RELEASE_HTML" | sed -E \
-              -e 's|^ *</ul> *||' \
-              -e 's| *$|</ul>|')
-          fi
-
-          # Build the new <item> block
-          CHANNEL=""
-          if [ "$IS_BETA" = "true" ]; then
-            CHANNEL="beta"
-          fi
-
-          update_appcast() {
-            local VARIANT="$1"
-            local DMG="$2"
-            local APPCAST="$3"
-            local TITLE="$4"
-            local DESCRIPTION="$5"
-            local ITEM_PATH="/tmp/new_item_${VARIANT}.xml"
-            local STABLE_PATH="/tmp/stable_items_${VARIANT}.xml"
-
-            SIGN_OUTPUT=$(/tmp/sparkle/bin/sign_update "$DMG" --ed-key-file /tmp/sparkle_key)
-            echo "Sparkle signature output for $DMG: $SIGN_OUTPUT"
-
-            ED_SIG=$(echo "$SIGN_OUTPUT" | sed -n 's/.*edSignature="\([^"]*\)".*/\1/p')
-            FILESIZE=$(stat -f%z "$DMG")
-            DOWNLOAD_URL="https://github.com/sw33tLie/macshot/releases/download/v${VERSION}/${DMG}"
-
-            python3 /tmp/build_item.py "$ITEM_PATH" "$VERSION" "$BUILD_NUMBER" "$DATE" "$CHANNEL" "$RELEASE_HTML" "$DOWNLOAD_URL" "$FILESIZE" "$ED_SIG"
-
-            if [ "$IS_BETA" = "true" ] && [ -f "$APPCAST" ]; then
-              python3 /tmp/extract_stable.py "$APPCAST" "$STABLE_PATH" 2>/dev/null || echo "" > "$STABLE_PATH"
-            else
-              echo "" > "$STABLE_PATH"
-            fi
-
-            python3 /tmp/assemble_appcast.py "$IS_BETA" "$STABLE_PATH" "$ITEM_PATH" "$APPCAST" "$TITLE" "$DESCRIPTION"
-
-            python3 -c "import sys, xml.etree.ElementTree as ET; ET.parse(sys.argv[1])" "$APPCAST" || {
-              echo "❌ ERROR: $APPCAST is not valid XML — aborting to protect user updates"
-              exit 1
-            }
-            echo "✅ $APPCAST generated and validated"
-            cat "$APPCAST"
-          }
-
-          update_appcast "normal" "MacShot.dmg" "appcast.xml" "macshot" "macshot updates"
-          update_appcast "offline" "MacShot-Offline.dmg" "appcast-offline.xml" "macshot Offline" "macshot Offline updates"
-          rm -f /tmp/sparkle_key
-
-      # ── 11. Create GitHub Release ──────────────────────────────────────────
+      # ── 10. Create GitHub Release ──────────────────────────────────────────
       - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          PRERELEASE_FLAG=""
-          if [ "$IS_BETA" = "true" ]; then
-            PRERELEASE_FLAG="--prerelease"
+          if [ -s release_notes.md ]; then
+            NOTES_FLAG="--notes-file release_notes.md"
+          else
+            NOTES_FLAG="--generate-notes"
           fi
           if gh release view "v$VERSION" >/dev/null 2>&1; then
-            gh release upload "v$VERSION" MacShot.dmg MacShot-Offline.dmg --clobber
-            gh release edit "v$VERSION" \
-              --title "v$VERSION" \
-              --notes-file release_notes.md \
-              $PRERELEASE_FLAG
+            gh release upload "v$VERSION" "$APP_NAME.dmg" --clobber
           else
-            gh release create "v$VERSION" MacShot.dmg MacShot-Offline.dmg \
+            gh release create "v$VERSION" "$APP_NAME.dmg" \
               --title "v$VERSION" \
-              --notes-file release_notes.md \
-              $PRERELEASE_FLAG
+              $NOTES_FLAG
           fi
 
-      # ── 12. Commit appcasts to main ────────────────────────────────────────
-      - name: Commit appcasts
-        run: |
-          git config user.name  "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          # Save the generated appcasts before switching branches
-          cp appcast.xml /tmp/appcast.xml
-          cp appcast-offline.xml /tmp/appcast-offline.xml
-          git fetch origin main:refs/remotes/origin/main
-          # Force the switch: the generated appcasts are already saved above, and
-          # a plain checkout aborts with "local changes would be overwritten" when
-          # the appcasts differ between the built ref and main (e.g. the tag was
-          # cut before the previous release's appcast commit landed on main).
-          git checkout -f -B main origin/main
-          cp /tmp/appcast.xml appcast.xml
-          cp /tmp/appcast-offline.xml appcast-offline.xml
-          git add appcast.xml appcast-offline.xml
-          git diff --cached --quiet && echo "No changes" || {
-            git commit -m "ci: update appcasts for v${VERSION}"
-            git push origin main
-          }
-
-      # ── 13. Update Homebrew casks (personal tap) ───────────────────────────
-      - name: Update Homebrew casks
-        if: env.IS_BETA == 'false'
+      # ── 11. Update the Homebrew cask in the personal tap ───────────────────
+      - name: Update Homebrew tap
         env:
           GH_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
         run: |
-          git clone https://x-access-token:${GH_TOKEN}@github.com/sw33tLie/homebrew-macshot.git /tmp/tap
+          git clone "https://x-access-token:${GH_TOKEN}@github.com/${TAP_REPO}.git" /tmp/tap
+          mkdir -p /tmp/tap/Casks
 
-          sed -i '' \
-            -e "s/version \".*\"/version \"$VERSION\"/" \
-            -e "s/sha256 \".*\"/sha256 \"$SHA256\"/" \
-            /tmp/tap/Casks/macshot.rb
+          cat > "/tmp/tap/Casks/${CASK_TOKEN}.rb" <<EOF
+          cask "${CASK_TOKEN}" do
+            version "${VERSION}"
+            sha256 "${SHA256}"
 
-          OFFLINE_CASK="/tmp/tap/Casks/macshot-offline.rb"
-          cat > "$OFFLINE_CASK" <<EOF
-          cask "macshot-offline" do
-            version "$VERSION"
-            sha256 "$OFFLINE_SHA256"
-
-            url "https://github.com/sw33tLie/macshot/releases/download/v#{version}/MacShot-Offline.dmg"
-            name "macshot Offline"
-            desc "Native macOS screenshot tool without upload integrations"
-            homepage "https://github.com/sw33tLie/macshot"
+            url "https://github.com/${GITHUB_REPOSITORY}/releases/download/v#{version}/${APP_NAME}.dmg"
+            name "${APP_NAME}"
+            desc "Minimal native macOS screenshot and annotation tool"
+            homepage "https://github.com/${GITHUB_REPOSITORY}"
 
             livecheck do
-              url "https://raw.githubusercontent.com/sw33tLie/macshot/main/appcast-offline.xml"
-              strategy :sparkle do |items|
-                items.find { |item| item.channel.nil? }&.short_version
-              end
+              url :url
+              strategy :github_latest
             end
 
-            auto_updates true
             depends_on macos: :monterey
 
-            app "macshot Offline.app"
+            app "${APP_NAME}.app"
 
-            uninstall quit: "com.zkmn73.simpleshot.offline"
+            uninstall quit: "${BUNDLE_ID}"
 
             zap trash: [
-              "~/Library/Application Scripts/com.zkmn73.simpleshot.offline",
-              "~/Library/Containers/com.zkmn73.simpleshot.offline",
-              "~/Library/Preferences/com.zkmn73.simpleshot.offline.plist",
+              "~/Library/Application Scripts/${BUNDLE_ID}",
+              "~/Library/Containers/${BUNDLE_ID}",
+              "~/Library/Preferences/${BUNDLE_ID}.plist",
             ]
           end
           EOF
@@ -565,26 +257,13 @@ jobs:
           cd /tmp/tap
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add Casks/macshot.rb Casks/macshot-offline.rb
+          git add "Casks/${CASK_TOKEN}.rb"
           git diff --cached --quiet && echo "No Homebrew changes" || {
-            git commit -m "macshot $VERSION"
+            git commit -m "${CASK_TOKEN} ${VERSION}"
             git push
           }
 
-      # ── 14. Bump homebrew-cask (official) ──────────────────────────────────
-      - name: Bump homebrew-cask
-        if: env.IS_BETA == 'false'
-        env:
-          HOMEBREW_GITHUB_API_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
-        run: |
-          brew tap homebrew/cask 2>/dev/null || true
-          brew bump-cask-pr macshot \
-            --version "$VERSION" \
-            --sha256 "$SHA256" \
-            --no-browse \
-            || echo "⚠️ homebrew-cask bump failed (cask may not exist yet or is already up to date)"
-
-      # ── 15. Cleanup keychain ────────────────────────────────────────────────
+      # ── 12. Cleanup keychain ───────────────────────────────────────────────
       - name: Cleanup keychain
         if: always()
         run: |

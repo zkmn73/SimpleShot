@@ -492,7 +492,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         let alert = NSAlert()
         alert.messageText = "Move to Applications folder?"
-        alert.informativeText = "\(BuildVariant.displayName) is running from a disk image. Move it to your Applications folder for auto-updates and best experience."
+        alert.informativeText = "\(AppInfo.displayName) is running from a disk image. Move it to your Applications folder for the best experience."
         alert.addButton(withTitle: "Move to Applications")
         alert.addButton(withTitle: "Not Now")
         alert.showsSuppressionButton = true
@@ -504,7 +504,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
         guard response == .alertFirstButtonReturn else { return }
 
-        let dest = URL(fileURLWithPath: "/Applications/\(BuildVariant.displayName).app")
+        let dest = URL(fileURLWithPath: "/Applications/\(AppInfo.displayName).app")
         let src = URL(fileURLWithPath: bundlePath)
         do {
             // Remove old version if present

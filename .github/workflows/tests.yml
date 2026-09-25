@@ -5,7 +5,7 @@ name: Tests
 # permission or a logged-in GUI session.
 on:
   push:
-    branches: [main]
+    branches: [master]
   pull_request:
   workflow_dispatch:
 
@@ -52,23 +52,6 @@ jobs:
             | { grep -E "Test (Suite|Case|session)|error:|warning: .*(deprecated|unused)|\*\*" || true; }
           exit ${PIPESTATUS[0]}
 
-      # The offline variant is a shipping product with upload code compiled
-      # out, so the suite has to build and pass there too.
-      - name: Run unit tests (offline variant)
-        run: |
-          set -o pipefail
-          xcodebuild test \
-            -scheme macshotTests \
-            -configuration Debug \
-            -destination 'platform=macOS' \
-            -resultBundlePath OfflineTestResults.xcresult \
-            -parallel-testing-enabled NO \
-            CODE_SIGNING_ALLOWED=NO \
-            SWIFT_ACTIVE_COMPILATION_CONDITIONS='$(inherited) OFFLINE' \
-            | tee xcodebuild-test-offline.log \
-            | { grep -E "Executed .* tests|error:|\*\*" || true; }
-          exit ${PIPESTATUS[0]}
-
       - name: Summarize failures
         if: always()
         run: |
@@ -94,9 +77,7 @@ jobs:
           name: test-results
           path: |
             TestResults.xcresult
-            OfflineTestResults.xcresult
             xcodebuild-test.log
-            xcodebuild-test-offline.log
           retention-days: 7
 
   # The release build uses -Owholemodule with strict concurrency, which Debug
@@ -115,7 +96,7 @@ jobs:
           if [ -z "$XC" ]; then XC=$(ls -d /Applications/Xcode*.app | sort -V | tail -1); fi
           sudo xcode-select -s "$XC/Contents/Developer"
 
-      - name: Build Release (normal variant)
+      - name: Build Release
         run: |
           set -o pipefail
           xcodebuild build \
@@ -123,17 +104,5 @@ jobs:
             -configuration Release \
             -destination 'platform=macOS' \
             CODE_SIGNING_ALLOWED=NO \
-            | { grep -E "error:|\*\* BUILD" || true; }
-          exit ${PIPESTATUS[0]}
-
-      - name: Build Release (offline variant)
-        run: |
-          set -o pipefail
-          xcodebuild build \
-            -scheme macshot \
-            -configuration Release \
-            -destination 'platform=macOS' \
-            CODE_SIGNING_ALLOWED=NO \
-            SWIFT_ACTIVE_COMPILATION_CONDITIONS='$(inherited) OFFLINE' \
             | { grep -E "error:|\*\* BUILD" || true; }
           exit ${PIPESTATUS[0]}

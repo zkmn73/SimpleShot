@@ -544,7 +544,6 @@
 "Trigger SimpleShot from Raycast, Alfred, Shortcuts, or any tool that opens URLs." = "Trigger SimpleShot from Raycast, Alfred, Shortcuts, or any tool that opens URLs.";
 "URL scheme info" = "URL scheme info";
 "Settings" = "Settings";
-"Offline build: upload and cloud storage integrations are removed. Screenshots and recordings stay local unless you share or save them yourself." = "Offline build: upload and cloud storage integrations are removed. Screenshots and recordings stay local unless you share or save them yourself.";
 
 /* Settings import/export (issues #265, #280) */
 "Settings Backup" = "Settings Backup";
