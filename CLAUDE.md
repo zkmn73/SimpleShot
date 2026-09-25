@@ -340,7 +340,7 @@ Copy to clipboard, Save to file (PNG/JPEG/HEIC/WebP), Pin (floating always-on-to
 
 Workflow: `.github/workflows/build-release.yml`. It runs on a tag push (`v*.*.*`) or manual `workflow_dispatch` with an existing tag. It builds, signs with Developer ID, packages `SimpleShot.dmg`, notarizes and staples it, creates the GitHub Release, and rewrites `Casks/simpleshot.rb` in the tap repo (`TAP_REPO` in the workflow, default `zkmn73/homebrew-tap`).
 
-Required secrets: `DEVELOPER_ID_CERT_P12`, `DEVELOPER_ID_CERT_PASSWORD`, `ASC_API_KEY`, `ASC_API_KEY_ID`, `ASC_API_ISSUER_ID`, `HOMEBREW_TAP_TOKEN` (PAT with write access to the tap repo).
+Required secret: `HOMEBREW_TAP_TOKEN` (PAT with write access to the tap repo). Optional, need a paid Apple Developer account: `DEVELOPER_ID_CERT_P12`, `DEVELOPER_ID_CERT_PASSWORD`, `ASC_API_KEY`, `ASC_API_KEY_ID`, `ASC_API_ISSUER_ID`. Without the certificate secret the workflow ad-hoc signs, skips notarization, and the cask strips the quarantine flag in a `postflight`.
 
 1. Add a `## [x.y.z]` entry to `CHANGELOG.md` (used as release notes; if missing, notes are generated from commits).
 2. Tag and push: `git tag v1.0.0 && git push origin master --tags`

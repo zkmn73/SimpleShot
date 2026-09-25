@@ -3,9 +3,10 @@ name: Build, Sign & Release
 # Triggers on a version tag push (v1.2.3) or manually for an existing tag.
 #
 # Required repository secrets:
+#   HOMEBREW_TAP_TOKEN                                    Personal access token with write access to the tap repo
+# Optional (needs a paid Apple Developer account; without them the app is ad-hoc signed, not notarized):
 #   DEVELOPER_ID_CERT_P12 / DEVELOPER_ID_CERT_PASSWORD  Developer ID Application certificate (.p12, base64) + password
 #   ASC_API_KEY / ASC_API_KEY_ID / ASC_API_ISSUER_ID      App Store Connect API key (.p8, base64) for notarization
-#   HOMEBREW_TAP_TOKEN                                    Personal access token with write access to the tap repo
 on:
   push:
     tags:
@@ -27,6 +28,10 @@ jobs:
   release:
     runs-on: macos-26
     timeout-minutes: 60
+    env:
+      # With a Developer ID certificate secret the app is signed and notarized.
+      # Without one it is ad-hoc signed and the Homebrew cask strips the quarantine flag.
+      HAS_SIGNING: ${{ secrets.DEVELOPER_ID_CERT_P12 != '' }}
 
     steps:
       # ── 1. Checkout ────────────────────────────────────────────────────────
@@ -52,6 +57,7 @@ jobs:
 
       # ── 3. Import Developer ID certificate into a temporary keychain ───────
       - name: Import signing certificate
+        if: env.HAS_SIGNING == 'true'
         env:
           CERT_P12_BASE64:  ${{ secrets.DEVELOPER_ID_CERT_P12 }}
           CERT_PASSWORD:    ${{ secrets.DEVELOPER_ID_CERT_PASSWORD }}
@@ -114,8 +120,20 @@ jobs:
 
           test -d "build/Build/Products/Release/$APP_NAME.app"
 
-      # ── 5. Sign the .app with Developer ID ────────────────────────────────
-      - name: Sign app
+      # ── 5a. Ad-hoc sign (no Apple Developer account) ──────────────────────
+      - name: Sign app (ad-hoc)
+        if: env.HAS_SIGNING != 'true'
+        run: |
+          APP="build/Build/Products/Release/$APP_NAME.app"
+          codesign --force --deep --sign - \
+            --entitlements macshot/macshot.entitlements \
+            "$APP"
+          codesign --verify --deep --strict "$APP"
+          echo "✅ Ad-hoc signed: $APP"
+
+      # ── 5b. Sign the .app with Developer ID ───────────────────────────────
+      - name: Sign app (Developer ID)
+        if: env.HAS_SIGNING == 'true'
         run: |
           APP="build/Build/Products/Release/$APP_NAME.app"
 
@@ -164,6 +182,7 @@ jobs:
 
       # ── 7. Notarize ────────────────────────────────────────────────────────
       - name: Notarize
+        if: env.HAS_SIGNING == 'true'
         env:
           ASC_API_KEY_BASE64: ${{ secrets.ASC_API_KEY }}
           ASC_API_KEY_ID:     ${{ secrets.ASC_API_KEY_ID }}
@@ -225,6 +244,21 @@ jobs:
           git clone "https://x-access-token:${GH_TOKEN}@github.com/${TAP_REPO}.git" /tmp/tap
           mkdir -p /tmp/tap/Casks
 
+          # Unsigned builds are quarantined by Gatekeeper; strip the flag on install.
+          POSTFLIGHT=""
+          if [ "$HAS_SIGNING" != "true" ]; then
+            POSTFLIGHT=$(cat <<'RUBY'
+
+            postflight do
+              system_command "/usr/bin/xattr",
+                             args: ["-dr", "com.apple.quarantine", "#{appdir}/SimpleShot.app"]
+            end
+
+            caveats "This build is not notarized. Screen Recording permission must be granted again after each upgrade."
+          RUBY
+            )
+          fi
+
           cat > "/tmp/tap/Casks/${CASK_TOKEN}.rb" <<EOF
           cask "${CASK_TOKEN}" do
             version "${VERSION}"
@@ -243,7 +277,7 @@ jobs:
             depends_on macos: :monterey
 
             app "${APP_NAME}.app"
-
+          ${POSTFLIGHT}
             uninstall quit: "${BUNDLE_ID}"
 
             zap trash: [
@@ -265,6 +299,6 @@ jobs:
 
       # ── 12. Cleanup keychain ───────────────────────────────────────────────
       - name: Cleanup keychain
-        if: always()
+        if: always() && env.HAS_SIGNING == 'true'
         run: |
           security delete-keychain "$KEYCHAIN_PATH" 2>/dev/null || true
