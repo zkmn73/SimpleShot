@@ -125,10 +125,6 @@
 "Units" = "Units";
 "Hold Space to move. Release to annotate and edit" = "Hold Space to move. Release to annotate and edit";
 "Hold Space to move. Release to finish" = "Hold Space to move. Release to finish";
-"OCR & QR Capture:" = "OCR & QR Capture:";
-"Show window + copy to clipboard" = "Show window + copy to clipboard";
-"Show window only" = "Show window only";
-"Copy to clipboard only" = "Copy to clipboard only";
 "Enter / Quick Capture:" = "Enter / Quick Capture:";
 "Save action:" = "Save action:";
 "Save to default folder" = "Save to default folder";

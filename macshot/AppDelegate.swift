@@ -1145,27 +1145,21 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             VisionOCR.performTextAndQRCodeRecognition(cgImage: cgImage) { [weak self] result in
                 DispatchQueue.main.async {
                     guard let self else { return }
-                    let ocrAction = UserDefaults.standard.integer(forKey: "ocrAction")
-                    let shouldCopy = ocrAction == 0 || ocrAction == 2
-                    let shouldShowWindow = ocrAction == 0 || ocrAction == 1
-
-                    if shouldCopy && !result.copyText.isEmpty {
+                    if !result.copyText.isEmpty {
                         NSPasteboard.general.clearContents()
                         NSPasteboard.general.setString(result.copyText, forType: .string)
                     }
 
-                    if shouldShowWindow {
-                        self.ocrController?.close()
-                        let ocr = OCRResultController(text: result.text, image: image, qrCodes: result.qrCodes)
-                        // Drop our reference when the window closes (incl. red-X),
-                        // but only if it's still this controller (a newer OCR run
-                        // may have replaced it).
-                        ocr.onClose = { [weak self, weak ocr] in
-                            if self?.ocrController === ocr { self?.ocrController = nil }
-                        }
-                        self.ocrController = ocr
-                        ocr.show()
+                    self.ocrController?.close()
+                    let ocr = OCRResultController(text: result.text, image: image, qrCodes: result.qrCodes)
+                    // Drop our reference when the window closes (incl. red-X),
+                    // but only if it's still this controller (a newer OCR run
+                    // may have replaced it).
+                    ocr.onClose = { [weak self, weak ocr] in
+                        if self?.ocrController === ocr { self?.ocrController = nil }
                     }
+                    self.ocrController = ocr
+                    ocr.show()
                 }
             }
         }
@@ -1410,26 +1404,21 @@ extension AppDelegate: OverlayWindowControllerDelegate {
     }
 
     func overlayDidRequestOCR(_ controller: OverlayWindowController, result: OCRScanResult, image: NSImage?) {
-        // OCR & QR action: 0 = window + copy (default), 1 = window only, 2 = copy only
-        let ocrAction = UserDefaults.standard.integer(forKey: "ocrAction")
-        let shouldCopy = ocrAction == 0 || ocrAction == 2
-        let shouldShowWindow = ocrAction == 0 || ocrAction == 1
-        dismissOverlays(refocusPreviousApp: !shouldShowWindow)
+        // The results window follows, so don't hand focus back to the previous app.
+        dismissOverlays(refocusPreviousApp: false)
 
-        if shouldCopy && !result.copyText.isEmpty {
+        if !result.copyText.isEmpty {
             NSPasteboard.general.clearContents()
             NSPasteboard.general.setString(result.copyText, forType: .string)
         }
 
-        if shouldShowWindow {
-            ocrController?.close()
-            let ocr = OCRResultController(text: result.text, image: image, qrCodes: result.qrCodes)
-            ocr.onClose = { [weak self, weak ocr] in
-                if self?.ocrController === ocr { self?.ocrController = nil }
-            }
-            ocrController = ocr
-            ocr.show()
+        ocrController?.close()
+        let ocr = OCRResultController(text: result.text, image: image, qrCodes: result.qrCodes)
+        ocr.onClose = { [weak self, weak ocr] in
+            if self?.ocrController === ocr { self?.ocrController = nil }
         }
+        ocrController = ocr
+        ocr.show()
     }
 
     func overlayDidRequestScrollCapture(_ controller: OverlayWindowController, rect: NSRect, screen: NSScreen) {

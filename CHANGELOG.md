@@ -17,6 +17,7 @@ First SimpleShot release: a minimal, fully local macOS screenshot and annotation
 - **Capture Last Area removed** — the menu item, hotkey slot, `simpleshot://capture-last` command and the stored selection rectangle are gone.
 - **No diagnostic logs** — the capture timing log, the termination log and all `os_log` tracing were removed; the app writes no log files.
 - **OCR "AI Search" button removed** — recognized text is no longer sent to a web search from the OCR window.
+- **OCR & QR always shows the results window and copies the text** — the "OCR & QR Capture" action option was removed.
 - **Double-click to copy removed** — double-clicking inside a selection no longer copies the capture, and its setting is gone.
 - **Selection dimming is always on** — the "Disable shadow outside selection" option was removed.
 - **Mouse cursor is never captured** — the "Capture mouse cursor in screenshot" option was removed.

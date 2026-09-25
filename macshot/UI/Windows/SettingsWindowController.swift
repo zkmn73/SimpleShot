@@ -47,7 +47,6 @@ class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSWindowD
     private var recordingCommandAction: EditorCommandShortcutManager.Action?
     private var savePathField: NSTextField!
     private var saveActionPopup: NSPopUpButton!
-    private var ocrActionPopup: NSPopUpButton!
     private var launchAtLoginCheckbox: NSButton!
     private var hideMenuBarIconCheckbox: NSButton!
     private var hideCaptureInstructionsCheckbox: NSButton!
@@ -255,7 +254,7 @@ class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSWindowD
         stack.alignment = .leading
         stack.spacing = 0
         stack.translatesAutoresizingMaskIntoConstraints = false
-        stack.edgeInsets = NSEdgeInsets(top: 16, left: 20, bottom: 16, right: 20)
+        stack.edgeInsets = NSEdgeInsets(top: 0, left: 20, bottom: 16, right: 20)
         return (scroll, stack)
     }
 
@@ -506,20 +505,7 @@ class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSWindowD
 
         closeEditorAfterCopyCheckbox = NSButton(checkboxWithTitle: L("Close editor after copying"), target: self, action: #selector(closeEditorAfterCopyChanged(_:)))
         stack.addArrangedSubview(indented(closeEditorAfterCopyCheckbox))
-        stack.setCustomSpacing(8, after: stack.arrangedSubviews.last!)
-
-        // OCR & QR action dropdown
-        ocrActionPopup = NSPopUpButton()
-        ocrActionPopup.addItems(withTitles: [
-            L("Show window + copy to clipboard"),
-            L("Show window only"),
-            L("Copy to clipboard only"),
-        ])
-        ocrActionPopup.target = self
-        ocrActionPopup.action = #selector(ocrActionChanged(_:))
-
-        stack.addArrangedSubview(labeledRow(L("OCR & QR Capture:"), controls: [ocrActionPopup]))
-        stack.setCustomSpacing(12, after: stack.arrangedSubviews.last!)
+        stack.setCustomSpacing(6, after: stack.arrangedSubviews.last!)
 
         // Checkboxes
         hideCaptureInstructionsCheckbox = NSButton(checkboxWithTitle: L("Hide capture instructions"), target: self, action: #selector(hideCaptureInstructionsChanged(_:)))
@@ -578,8 +564,9 @@ class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSWindowD
         }
 
         stack.addArrangedSubview(labeledRow(L("Filename:"), controls: [filenameTemplateField, filenameInfoIcon]))
-        // Same width as the dropdowns above instead of stretching across the window.
-        filenameTemplateField.widthAnchor.constraint(equalTo: ocrActionPopup.widthAnchor).isActive = true
+        // Fixed width instead of stretching across the window: fits the default template
+        // with room to spare; longer templates scroll and the preview shows the result.
+        filenameTemplateField.widthAnchor.constraint(equalToConstant: 230).isActive = true
         stack.setCustomSpacing(2, after: stack.arrangedSubviews.last!)
         stack.addArrangedSubview(indented(filenameTemplatePreview))
         stack.setCustomSpacing(8, after: stack.arrangedSubviews.last!)
@@ -1073,13 +1060,6 @@ class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSWindowD
         savePathField.stringValue = SaveDirectoryAccess.displayPath
         selectSaveAction(SaveActionPreference.current)
 
-        // Migrate legacy bool to new int setting
-        if UserDefaults.standard.object(forKey: "ocrAction") == nil {
-            let legacyAutoCopy = UserDefaults.standard.object(forKey: "autoCopyOCRText") as? Bool ?? true
-            UserDefaults.standard.set(legacyAutoCopy ? 0 : 1, forKey: "ocrAction")
-        }
-        ocrActionPopup.selectItem(at: UserDefaults.standard.integer(forKey: "ocrAction"))
-
         // rememberSelectionCheckbox removed
 
         let launchAtLogin = UserDefaults.standard.bool(forKey: "launchAtLogin")
@@ -1171,9 +1151,6 @@ class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSWindowD
         }
     }
 
-    @objc private func ocrActionChanged(_ sender: NSPopUpButton) {
-        UserDefaults.standard.set(sender.indexOfSelectedItem, forKey: "ocrAction")
-    }
     @objc private func saveActionChanged(_ sender: NSPopUpButton) {
         guard let raw = sender.selectedItem?.representedObject as? Int,
               let action = SaveActionPreference(rawValue: raw) else { return }
