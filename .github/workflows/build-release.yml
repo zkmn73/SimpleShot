@@ -24,7 +24,7 @@ permissions:
 env:
   APP_NAME: SimpleShot
   BUNDLE_ID: com.zkmn73.simpleshot
-  # Personal Homebrew tap that hosts the cask (repo "homebrew-tap" => `brew tap zkmn73/tap`).
+  # Personal Homebrew tap that hosts the cask (repo "homebrew-tap" => tap name `zkmn73/tap`).
   TAP_REPO: zkmn73/homebrew-tap
   CASK_TOKEN: simpleshot
 

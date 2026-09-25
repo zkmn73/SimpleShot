@@ -20,9 +20,11 @@
 **Homebrew (recommended):**
 
 ```bash
-brew tap zkmn73/tap
-brew install --cask simpleshot
+brew trust zkmn73/tap
+brew install --cask zkmn73/tap/simpleshot
 ```
+
+Recent Homebrew versions only load casks from third-party taps you have trusted, which is what `brew trust` does. Older versions don't have the command; on those, `brew install --cask zkmn73/tap/simpleshot` is enough.
 
 Upgrade with `brew upgrade --cask simpleshot`, remove with `brew uninstall --cask --zap simpleshot`.
 
