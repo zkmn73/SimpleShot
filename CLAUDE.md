@@ -1,348 +1,284 @@
-# macshot
+# SimpleShot
 
-Native macOS screenshot & annotation tool inspired by Flameshot. Built with Swift + AppKit. No Qt, no Electron.
+Native macOS screenshot & annotation tool. Swift + AppKit, no Qt, no Electron. SimpleShot is a deliberately minimal fork of [macshot](https://github.com/sw33tLie/macshot); the internal names (`macshot/` source folder, `macshot.xcodeproj`, scheme `macshot`, `macshotTests/`, Swift type names) still carry the upstream name on purpose. The product, bundle id and everything user-visible say SimpleShot.
+
+## Project Direction
+
+**Keep it minimal.** Region / full-screen capture, basic annotation, copy / save, and nothing that needs a network. When in doubt, remove rather than add.
+
+- No network access (the app has no network entitlement), no accounts, no in-app updater (updates go through Homebrew), no telemetry, no log files.
+- Prefer fixed, sensible defaults over new settings. A new setting or customization needs a strong reason.
+- English only. There is a single `en.lproj/Localizable.strings`.
+- One build, no variants. Use `AppInfo.displayName` for the display name.
+
+**Removed on purpose — do not reintroduce unless asked:** cloud upload (imgbb / Google Drive / S3), screenshot history, screen recording and the video editor, Pin to screen, Beautify / image effects / Invert Colors / Remove Background, Share, translation, Sparkle auto-update and the beta channel, multi-language localization, the floating thumbnail, capture sound, single-key tool shortcuts, toolbar theme and menu bar customization, the Tools settings tab, Capture Last Area, mouse cursor capture, OCR "AI Search", diagnostic logs, the Offline build variant, and the toggles for snap guides / boundary snap / browser element snap / selection dimming.
+
+**Kept as inert internals:** `AnnotationTool` has implicit raw values, so cases are never deleted. `translateOverlay` is retired but still decodes; `stamp` is only created by the editor's Add Capture; `select`, `crop` and `blur` are not toolbar tools. Never reorder or remove cases.
 
 ## Project Setup
 
 - **Language:** Swift 5.0
-- **UI:** AppKit (all windows created in code, storyboard is minimal — just app entry + main menu)
-- **Min Target:** macOS 12.3+ (Monterey)
-- **Bundle ID:** com.zkmn73.simpleshot
-- **Sandbox:** Enabled (entitlements: files.user-selected.read-write, files.bookmarks.app-scope, files.downloads.read-write; no network)
-- **LSUIElement:** YES (menu bar only app, no dock icon — switches to `.regular` when editor windows are open)
-- **Permissions:** Screen Recording (Info.plist has Privacy - Screen Capture Usage Description)
-- **Xcode:** File system synchronized groups — just create .swift files in `macshot/` and Xcode picks them up automatically
+- **UI:** AppKit, all windows created in code (the storyboard is just the app entry + main menu)
+- **Min target:** macOS 12.3 (Monterey)
+- **Bundle ID:** `com.zkmn73.simpleshot` (tests: `com.zkmn73.simpleshotTests`)
+- **Sandbox:** enabled. Entitlements: `files.user-selected.read-write`, `files.bookmarks.app-scope`, `files.downloads.read-write`, plus a `mach-lookup` exception for `com.apple.axserver` (Accessibility from the sandbox). No network.
+- **LSUIElement:** YES (menu bar app, no Dock icon; switches to `.regular` while editor windows are open)
+- **Permissions:** Screen Recording (required); Accessibility (optional, for scroll capture and element snapping)
+- **Dependencies:** Swift-WebP (WebP encoding). Everything else is Apple frameworks: ScreenCaptureKit, Vision, CoreImage.
+- **Xcode:** file-system-synchronized groups. Just create `.swift` files in `macshot/` and Xcode picks them up.
+- **App icon:** Icon Composer bundle `macshot/AppIcon.icon` (a legacy `.appiconset` makes macOS 26 draw a gray plate behind the icon). Menu bar icon: `Assets.xcassets/StatusBarIcon` (template image). Logo: `assets/logo.svg`.
 
 ## Build & Distribution
 
-SimpleShot ships as a single app: product name `SimpleShot`, bundle id `com.zkmn73.simpleshot`, release asset `SimpleShot.dmg`. There are no build variants and no in-app updater — users install and update through the Homebrew cask in the personal tap (`brew install --cask zkmn73/tap/simpleshot`, `brew upgrade`). Use `AppInfo.displayName` for the app's display name.
+One app: product `SimpleShot`, release asset `SimpleShot.dmg`. Users install and update through the Homebrew cask in the personal tap:
+
+```bash
+brew trust zkmn73/tap
+brew install --cask zkmn73/tap/simpleshot
+```
+
+Releases are ad-hoc signed and not notarized unless the Developer ID secrets are configured (see Releasing).
 
 ## Architecture
 
-Menu bar agent app. No main window. Global hotkey (Cmd+Shift+X) or menu bar click triggers screen capture → fullscreen overlay → selection → annotation → output.
+Menu bar agent app. No main window. A global hotkey (default `Cmd+Shift+X`) or the menu bar triggers screen capture → fullscreen overlay → selection → annotation → output (copy / save / OCR / editor).
 
 ### File Structure
 
 ```
 macshot/
 ├── main.swift                          # App entry point
-├── AppDelegate.swift                   # App lifecycle, status bar, hotkey, capture orchestration
+├── AppDelegate.swift                   # Lifecycle, status bar menu, hotkeys, URL scheme, capture orchestration
+├── AppIcon.icon/                       # Icon Composer app icon
 │
 ├── Model/
-│   ├── Annotation.swift                # Data model + drawing for all annotation types
-│   └── LenientDecoding.swift           # Backward/forward-compatible Codable helpers
+│   ├── Annotation.swift                # Annotation class + AnnotationTool enum; each annotation draws itself
+│   ├── AnnotationCodable.swift         # CodableAnnotation: (de)serialization of annotations
+│   ├── LenientDecoding.swift           # Backward/forward-compatible Codable helpers
+│   └── SavedCaptureValidation.swift    # Bounds/limits applied when decoding saved annotation data
 │
 ├── Capture/
-│   ├── ScreenCaptureManager.swift      # Multi-screen capture via ScreenCaptureKit (async/await)
-│   ├── RecordingEngine.swift           # Screen recording to durable MP4 originals
+│   ├── ScreenCaptureManager.swift      # Multi-screen capture via ScreenCaptureKit (+ CGWindowList fallback)
 │   ├── ScrollCaptureController.swift   # Scroll capture with SAD-based stitching
 │   ├── ScrollFrameAnalyzer.swift       # Pure pixel comparison: frozen header + scrollbar detection
-│   ├── GIFExporter.swift              # Edited timeline → timestamped GIF frames
-│   └── GIFEncoder.swift               # Bounded-memory streaming GIF writer
+│   └── SafeNumerics.swift              # NaN/inf-safe numeric conversions
 │
 ├── Services/
-│   ├── ImageEncoder.swift              # PNG/JPEG/HEIC/WebP encoding, clipboard copy, resolution scaling
-│   ├── BeautifyRenderer.swift          # Gradient frame / background beautification (linear + mesh gradients)
-│   ├── AutoRedactor.swift              # PII regex detection + Vision OCR → redaction annotations
-│   ├── TranslationOverlay.swift        # OCR → translate → overlay annotations
-│   ├── TranslationService.swift        # Google Translate API wrapper
-│   ├── VisionOCR.swift                 # Vision text recognition request factory
-│   ├── HotkeyManager.swift            # Global keyboard shortcut (Carbon RegisterEventHotKey)
-│   ├── KeyboardShortcutMatcher.swift   # Layout-aware character matching for shortcuts
-│   ├── ToolShortcutManager.swift       # Single-key overlay tool shortcuts
-│   ├── EditorCommandShortcutManager.swift  # Configurable undo/redo chords
+│   ├── ImageEncoder.swift              # PNG/JPEG/HEIC/WebP encoding, clipboard copy, Retina downscale
+│   ├── ImageSaveService.swift          # Save-to-folder / save panel flows, failure reporting
+│   ├── SaveDirectoryAccess.swift       # Default ~/Downloads + security-scoped bookmark for a chosen folder
 │   ├── FilenameFormatter.swift         # Filename templates ({date}, {window}, {random}, …)
+│   ├── FilenameSanitizer.swift         # Single-component, length-capped filenames
+│   ├── AtomicMediaSave.swift           # Atomic publish of saved files (stage on destination volume, rename)
+│   ├── MediaExportCoordinator.swift    # Tracks in-flight saves so Quit waits for them
+│   ├── ApplicationTerminationCoordinator.swift  # Drains pending work, then retries Quit
+│   ├── HotkeyManager.swift             # Global hotkeys (Carbon RegisterEventHotKey)
+│   ├── KeyboardShortcutMatcher.swift   # Layout-aware character matching for shortcuts
+│   ├── EditorCommandShortcutManager.swift  # Configurable undo/redo chords
+│   ├── VisionOCR.swift                 # Vision text/QR recognition request factory
+│   ├── AutoRedactor.swift              # PII regex detection + Vision → redaction annotations (Censor tool)
+│   ├── PIIRedactionPlanner.swift       # Pure planning of what to redact
+│   ├── BoundarySnapIndex.swift         # Image-edge index for selection boundary snapping
+│   ├── DeferredRestoration.swift       # Hidden-window bookkeeping across overlapping capture cycles
+│   ├── ScreenFallback.swift            # NSScreen.preferred: safe screen lookup when macOS reports no display
 │   ├── SettingsPortability.swift       # Settings export/import + the secret filter
-│   ├── Localization.swift             # English-only L("…") lookup
-│   ├── ScreenshotHistory.swift         # Local history in ~/Library/Application Support/
-│   └── SaveDirectoryAccess.swift       # Security-scoped bookmark for save directory
-│
-├── Upload/
-│   ├── UploadPayload.swift             # Streamed upload bodies (chunking, incremental SHA256, multipart on disk)
-│   ├── ImgbbUploader.swift             # imgbb image upload
-│   ├── GoogleDriveUploader.swift       # Google Drive OAuth2 upload
-│   └── S3Uploader.swift               # S3-compatible upload
+│   ├── LaunchCleanup.swift             # Sweeps stale tmp files at launch
+│   ├── TmpScratchDirectory.swift       # Short-lived tmp files for drag/share
+│   ├── AppInfo.swift                   # AppInfo.displayName
+│   └── Localization.swift              # English-only L("…") lookup
 │
 ├── UI/
 │   ├── Overlay/
 │   │   ├── OverlayView.swift           # Base canvas: selection, drawing, annotation rendering, input routing
-│   │   ├── OverlayView+Popovers.swift  # Popover factories + auto-redact/translate action helpers
-│   │   ├── OverlayView+Recording.swift # Recording HUD, mouse highlight monitor
-│   │   ├── OverlayView+ScrollCaptureHUD.swift  # Scroll capture progress bar + stop button
-│   │   ├── OverlayView+WindowSnapping.swift    # Window detection + snap highlight drawing
-│   │   ├── OverlayWindowController.swift       # One per screen: fullscreen borderless overlay window
+│   │   ├── OverlayView+Popovers.swift  # Popover factories
+│   │   ├── OverlayView+WindowSnapping.swift  # Window/element detection + snap highlight (Tab cycles modes)
+│   │   ├── OverlayWindowController.swift     # One per screen: pooled fullscreen borderless overlay window
+│   │   ├── ResolutionBoxView.swift / ResolutionPresets.swift  # Selection size box + aspect/pixel presets
+│   │   ├── ScrollCaptureHUDView.swift / ScrollCapturePreviewPanel.swift  # Scroll capture HUD + live preview
 │   │   └── ColorWheelRenderer.swift    # Radial color wheel for right-click quick color pick
-│   │
 │   ├── Editor/
 │   │   ├── EditorView.swift            # OverlayView subclass: NSScrollView mode, no selection chrome
 │   │   ├── DetachedEditorWindowController.swift  # Standalone editor window (resizable, titled)
-│   │   ├── EditorTopBarView.swift      # NSView with crop, flip, zoom buttons
-│   │   ├── CenteringClipView.swift     # NSClipView subclass that centers document when smaller than clip
-│   │   └── VideoEditorWindowController.swift  # Standalone video editor (trim, export, upload)
-│   │
+│   │   ├── EditorTopBarView.swift      # Crop, flip, Add Capture, zoom buttons
+│   │   └── CenteringClipView.swift     # Centers the document when smaller than the clip view
 │   ├── Toolbar/
-│   │   ├── ToolbarDefinitions.swift    # ToolbarButtonAction enum, ToolbarButton struct, ToolbarLayout constants
-│   │   ├── ToolbarButtonView.swift     # NSView for a single toolbar button (hover, press, selection states)
-│   │   ├── ToolbarStripView.swift      # NSView container for horizontal/vertical button rows
-│   │   └── ToolOptionsRowView.swift    # NSView-based tool options bar (sliders, segments, text formatting)
-│   │
+│   │   ├── ToolbarDefinitions.swift    # ToolbarButtonAction, ToolbarButton, ToolbarLayout (fixed theme colors)
+│   │   ├── ToolbarButtonView.swift     # One toolbar button (hover, press, selection states)
+│   │   ├── ToolbarStripView.swift      # Horizontal/vertical button strip
+│   │   └── ToolOptionsRowView.swift    # Tool options bar (sliders, segments, text formatting)
 │   ├── Tools/
 │   │   ├── AnnotationToolHandler.swift # AnnotationToolHandler + AnnotationCanvas protocols, shared helpers
-│   │   ├── PencilToolHandler.swift     # Freeform draw with Chaikin smoothing
-│   │   ├── MarkerToolHandler.swift     # Highlighter (semi-transparent wide stroke)
-│   │   ├── LineToolHandler.swift       # Straight line with 45° snap
-│   │   ├── ArrowToolHandler.swift      # Arrow with styles (single, thick, double, open, tail)
-│   │   ├── RectangleToolHandler.swift  # Rectangle with corner radius, fill style, line style
-│   │   ├── FilledRectangleToolHandler.swift  # Opaque filled rectangle (redact)
-│   │   ├── EllipseToolHandler.swift    # Ellipse with fill style
-│   │   ├── PixelateToolHandler.swift   # Pixelate region
-│   │   ├── BlurToolHandler.swift       # Gaussian blur region
-│   │   ├── LoupeToolHandler.swift      # Click-to-place 2x magnifier
-│   │   ├── MeasureToolHandler.swift    # Pixel ruler with 45° snap
-│   │   ├── NumberToolHandler.swift     # Auto-incrementing numbered circle
-│   │   ├── StampToolHandler.swift      # Emoji/image stamp + StampEmojis data
-│   │   ├── ScopedUndoTextView.swift    # NSTextView with view-owned undo history
-│   │   └── TextEditingController.swift # Text tool: NSTextView lifecycle, formatting, commit, cancel
-│   │
-│   ├── Popover/
-│   │   ├── PopoverHelper.swift         # Static helper for showing/dismissing NSPopovers
-│   │   ├── ColorPickerView.swift       # Custom color picker: swatches, HSB gradient, opacity, custom slots
-│   │   ├── ListPickerView.swift        # Reusable list picker with checkmark selection
-│   │   ├── EmojiPickerView.swift       # Emoji grid with category tabs
-│   │   └── GradientPickerView.swift    # Beautify gradient style swatch grid
-│   │
+│   │   ├── *ToolHandler.swift          # Pencil, Marker, Line, Arrow, Rectangle, FilledRectangle, Ellipse,
+│   │   │                               # Pixelate (Censor), Loupe, Measure, Number, Highlight, Stamp
+│   │   ├── TextEditingController.swift # Text tool: NSTextView lifecycle, formatting, commit, cancel
+│   │   ├── OutlineTextRenderer.swift   # Outlined text attributes/layout manager
+│   │   └── ScopedUndoTextView.swift    # NSTextView with view-owned undo history
+│   ├── Popover/                        # PopoverHelper, ColorPickerView, ListPickerView, FontPickerView,
+│   │                                   # ResolutionPresetsView, EmojiPickerView (stamp only)
 │   └── Windows/
-│       ├── PinWindowController.swift          # Floating always-on-top pinned screenshot
-│       ├── FloatingThumbnailController.swift  # Auto-dismiss thumbnail after capture
-│       ├── PreferencesWindowController.swift  # Settings: General, Tools, Recording tabs
-│       ├── OCRResultController.swift          # Text recognition results window with translation
-│       ├── HistoryOverlayController.swift     # Recent captures visual overlay panel
-│       ├── UploadToastController.swift        # Upload progress/success toast
-│       ├── RecordingControlView.swift         # Click-through recording control overlay
-│       ├── RecordingToastView.swift           # Toast notification after recording completes
-│       ├── CountdownView.swift                # Delay capture countdown display
-│       └── PermissionOnboardingController.swift  # First-run permission guide
+│       ├── SettingsWindowController.swift     # Settings: General, Capture, Shortcuts, About
+│       ├── OCRResultController.swift          # OCR text + QR code results window
+│       ├── PermissionOnboardingController.swift  # First-run Screen Recording guide
+│       ├── UploadToastController.swift        # Generic toast (name is legacy; used for failure toasts)
+│       └── CountdownView.swift                # Delay-capture countdown
 │
-├── Info.plist
-├── Assets.xcassets/
+├── Info.plist, macshot.entitlements
+├── Assets.xcassets/                    # StatusBarIcon, Logo, PermissionsGuide, AccentColor
+├── en.lproj/Localizable.strings        # The only strings table
 └── Base.lproj/Main.storyboard
 ```
 
 ### Component Overview
 
 #### AppDelegate — Entry Point & Orchestrator
-- NSStatusItem in menu bar with "Capture Screen", "Recent Captures", "Preferences...", "Quit"
-- Registers global hotkey via HotkeyManager
-- On trigger: ScreenCaptureManager captures all screens → creates one OverlayWindowController per screen
-- Implements `OverlayWindowControllerDelegate` — handles confirm, cancel, pin, OCR, recording, scroll capture, upload, delay
-- Manages: `overlayControllers[]`, `thumbnailControllers[]`, `pinControllers[]`, `ocrController`, `recordingEngine`, `scrollCaptureController`
+- `NSStatusItem` menu: Capture Area, Capture Screen, Capture OCR & QR, Quick Capture, Scroll Capture, Capture Delay, Open Image…, Open from Clipboard, Settings…, Quit.
+- Registers global hotkeys via `HotkeyManager`. Defaults: `Cmd+Shift+X` area, `Cmd+Shift+F` full screen, `Cmd+Shift+S` quick capture, `Cmd+Shift+T` OCR & QR. Scroll capture and Open from Clipboard have no default.
+- Handles the `simpleshot://` URL scheme (`capture`, `capture-fullscreen`, `quick-capture`, `ocr`, `scroll-capture`, `settings`, `open?file=`).
+- On trigger: `ScreenCaptureManager` captures all screens → one `OverlayWindowController` per screen (pooled and pre-warmed).
+- Implements `OverlayWindowControllerDelegate`: confirm, cancel, OCR, scroll capture, cross-screen selection sync.
+- Manages `overlayControllers[]`, `ocrController`, `scrollCaptureController`.
+- "Quick Capture" confirms as soon as the selection is made, then copies and/or saves according to the "Enter / Quick Capture" setting.
 
 #### OverlayView — The Main Interaction Surface
-The core canvas view. Handles selection state machine, annotation rendering, input routing, and toolbar positioning. Tool-specific creation/update/finish logic is delegated to `AnnotationToolHandler` implementations in `UI/Tools/`.
+The core canvas view: selection state machine, annotation rendering, input routing, toolbar positioning. Tool creation/update/finish logic lives in `AnnotationToolHandler`s in `UI/Tools/`.
 
 **State machine:** `idle` → `selecting` → `selected`
 
-**Zoom system:** 0.1x–8x (min 1.0x in overlay, 0.1x in editor), scroll/pinch to zoom, pan while zoomed, clickable zoom label
+**Snapping:** window / element / off modes (`Tab` cycles, persisted as `captureSnapMode`); boundary snap of selection edges (hold `Option` to bypass); annotation alignment guides. The three latter are always on.
 
-**Toolbars:** Real NSView-based toolbar strips (`ToolbarStripView` + `ToolbarButtonView`) positioned by OverlayView. Tool-specific options in `ToolOptionsRowView` with real NSSlider/NSSegmentedControl/NSButton controls. Popovers use `NSPopover` via `PopoverHelper`.
+**Zoom:** 0.1x–8x (min 1.0x in the overlay, 0.1x in the editor), scroll/pinch, pan while zoomed.
 
-**Editor mode (EditorView subclass):** `EditorView` is a subclass of `OverlayView` that overrides behavior via clean override points. Uses NSScrollView for zoom/pan/centering. The old `isDetached` flag is removed — use `isEditorMode` computed property instead.
+**Toolbars:** real NSView strips (`ToolbarStripView` + `ToolbarButtonView`) positioned by `OverlayView`. Bottom toolbar: 13 tools, color, undo/redo. Right toolbar: Cancel, Move Selection, Open in Editor Window, Copy, Save, OCR, Scroll Capture. Tool options in `ToolOptionsRowView`. Popovers use `NSPopover` via `PopoverHelper`.
+
+**Editor mode (`EditorView` subclass):** overrides behavior through clean override points and uses `NSScrollView` for zoom/pan/centering. Use the `isEditorMode` computed property.
 
 **CRITICAL — Overlay vs Editor coordinate rules:**
-- **Never use `bounds` for image-to-pixel mapping.** Always use `captureDrawRect` (returns `bounds` in overlay, `selectionRect` in editor).
-- **Never use raw view-space points for annotation positions.** Always convert via `viewToCanvas()` first.
-- **Never call `viewToCanvas()` on a point that's already in canvas space.** `startAnnotation(at:)` receives canvas-space points — don't double-convert inside it.
-- **When positioning NSViews (e.g. NSTextView for text tool),** convert canvas coords back to view coords via `canvasToView()`.
+- **Never use `bounds` for image-to-pixel mapping.** Always use `captureDrawRect` (`bounds` in the overlay, `selectionRect` in the editor).
+- **Never use raw view-space points for annotation positions.** Convert via `viewToCanvas()` first.
+- **Never call `viewToCanvas()` on a point that's already in canvas space.** `startAnnotation(at:)` receives canvas-space points.
+- **When positioning NSViews (e.g. the text tool's NSTextView),** convert canvas coordinates back with `canvasToView()`.
 - **`compositedImage()`** renders at `captureDrawRect.size`, not `bounds.size`.
-- **`sourceImageBounds`** for pixelate/blur/loupe must be set to `captureDrawRect`, not `bounds`.
-- **For Vision API region crops** (OCR, barcode, auto-redact), draw the screenshot at `captureDrawRect` size, not `bounds` size.
-- **Cursor management** is fully imperative (no cursor rects) via `updateCursorForPoint()` + `mouseMoved`. Each window only sets cursors when the mouse is actually over it (prevents cross-window flicker on multi-monitor).
+- **`sourceImageBounds`** for pixelate/blur/loupe must be `captureDrawRect`, not `bounds`.
+- **For Vision region crops** (OCR, barcode, auto-redact), draw the screenshot at `captureDrawRect` size.
+- **Cursor management** is fully imperative (`updateCursorForPoint()` + `mouseMoved`, no cursor rects). Each window only sets cursors when the mouse is actually over it, which prevents cross-window flicker on multi-monitor.
 
 **Drawing pipeline in `draw(_:)`:**
-1. Background: screenshot image (full-screen in overlay, centered in editor via NSScrollView)
-2. Dark overlay mask (except inside selection) — skipped in editor
-3. Selection rectangle with 8 resize handles — skipped in editor
-4. Annotations rendered with cached composite when not actively drawing
-5. Toolbars positioned (real NSView subviews, not drawn inline)
-6. Zoom label (fades out)
-7. Recording/scroll capture HUD overlays
+1. Background: screenshot (full-screen in the overlay, centered in the editor via NSScrollView)
+2. Dark overlay mask outside the selection (always drawn; skipped in the editor)
+3. Selection rectangle with 8 resize handles (skipped in the editor)
+4. Annotations, using a cached composite when not actively drawing
+5. Snap guides
+6. Toolbars positioned (real NSView subviews, not drawn inline)
+7. Zoom label (fades out) and scroll capture HUD
 
 #### Tool Handler Architecture
-Each annotation tool's creation logic (start/update/finish) is extracted into an `AnnotationToolHandler` implementation. OverlayView dispatches through `toolHandlers[currentTool]` in `startAnnotation`, `updateAnnotation`, `finishAnnotation`.
+Each annotation tool's creation logic (start/update/finish) is an `AnnotationToolHandler`. `OverlayView` dispatches through `toolHandlers[currentTool]` in `startAnnotation`, `updateAnnotation`, `finishAnnotation`.
 
-**`AnnotationCanvas` protocol** — the interface tool handlers use to access OverlayView state (colors, stroke width, annotations, undo stack, snap guides, etc.) without coupling to the full class.
-
-**`TextEditingCanvas` protocol** — additional interface for `TextEditingController` to access coordinate transforms and commit annotations.
-
-Tools not extracted (handled directly in OverlayView): `select` (annotation interaction system), `colorSampler` (touches private color state), `crop` (editor-only image manipulation), `text` start/click detection (but all formatting/commit/cancel logic is in `TextEditingController`).
+- **`AnnotationCanvas`** — the interface handlers use to reach `OverlayView` state (colors, stroke width, annotations, undo stack, snap guides…) without coupling to the whole class.
+- **`TextEditingCanvas`** — extra interface for `TextEditingController` (coordinate transforms, commit).
+- Not extracted (handled in `OverlayView`): `select` (annotation interaction), `colorSampler`, `crop` (editor-only), and text start/click detection.
 
 #### Annotation — Data Model + Drawing
-Class (not struct) with `clone()` for safe copying. Lives in `Model/Annotation.swift`.
+A class (not a struct) with `clone()` for safe copying, in `Model/Annotation.swift`. Each annotation draws itself via `draw(in:)` and has `hitTest(point:threshold:)`, `move(dx:dy:)`, `isMovable`, `boundingRect`, `drawSelectionHighlight()`.
 
-**Tools (AnnotationTool enum, 18 cases):**
-```
-pencil, line, arrow, rectangle, filledRectangle, ellipse, marker,
-text, number, stamp, pixelate, blur, measure, loupe, select,
-translateOverlay, crop, colorSampler
-```
+`AnnotationTool` cases, in declaration order (never reorder): `pencil, line, arrow, rectangle, filledRectangle, ellipse, marker, text, number, pixelate, blur, measure, loupe, select, translateOverlay, crop, colorSampler, stamp, highlight`.
 
-**Each annotation draws itself** via `draw(in:)`. Has `hitTest(point:threshold:)`, `move(dx:dy:)`, `isMovable`, `boundingRect`, `drawSelectionHighlight()`.
+Toolbar tools (13): Pencil, Line, Arrow, Rectangle, Ellipse, Marker, Text, Number, Censor (`pixelate` + `CensorMode`: pixelate / blur / solid / erase, plus auto-redact), Highlight (spotlight), Loupe, Color Picker, Measure.
 
 #### DetachedEditorWindowController — Standalone Editor
-- Opens from overlay ("Open in Editor Window" button) or from thumbnail/pin "Edit" action
-- Creates: NSScrollView → CenteringClipView → EditorView (documentView)
-- Container view holds scroll view + EditorTopBarView
-- `chromeParentView` set BEFORE `applySelection` so toolbars go in container (not document view)
-- Static `activeControllers[]` array keeps instances alive; switches activation policy to `.regular` when open, `.accessory` when all closed
+- Opens from the overlay's "Open in Editor Window" button, Quick Capture with "Also open in Editor", the menu's Open Image… / Open from Clipboard, or `simpleshot://open`.
+- Builds `NSScrollView` → `CenteringClipView` → `EditorView` (documentView); a container view holds the scroll view and `EditorTopBarView` (crop, flip, Add Capture, zoom).
+- `chromeParentView` is set BEFORE `applySelection` so toolbars go in the container, not the document view.
+- Static `activeControllers[]` keeps instances alive; the activation policy is `.regular` while any are open and `.accessory` once all are closed.
 
 ### Protocols
 
 ```
 OverlayWindowControllerDelegate  — OverlayWindowController → AppDelegate
 OverlayViewDelegate              — OverlayView → OverlayWindowController / DetachedEditorWindowController
-PinWindowControllerDelegate      — PinWindowController → AppDelegate
 AnnotationToolHandler            — Tool creation/update/finish lifecycle
 AnnotationCanvas                 — OverlayView state interface for tool handlers
 TextEditingCanvas                — Coordinate transforms + annotation storage for TextEditingController
+LaunchCleaner                    — One sweep rule in LaunchCleanup
 ```
 
 ### Undo/Redo
 
-`UndoEntry` enum: `.added(Annotation)`, `.deleted(Annotation, Int)`, `.imageTransform(...)`. Stacks: `undoStack` / `redoStack`. Batch undo via `groupID` (e.g. auto-redact creates multiple annotations with same groupID, all undone together).
+`UndoEntry` enum: `.added(Annotation)`, `.deleted(Annotation, Int)`, `.imageTransform(...)`, plus property-change entries. Stacks: `undoStack` / `redoStack`. Batch undo via `groupID` (e.g. auto-redact creates several annotations with one groupID, undone together).
 
-**CRITICAL — transient `NSTextView` undo ownership:** `UndoManager` keeps undo-operation targets unowned. A disposable editable `NSTextView` that obtains the window's shared undo manager through the responder chain can therefore leave `_undoRedoTextOperation:` entries pointing at a deallocated view; the next Cmd+Z may crash in `_NSUndoStack popAndInvoke`. Every editable app-created text view with `allowsUndo = true` must use `ScopedUndoTextView` (or subclass it), never a plain `NSTextView`. Call `discardUndoHistory()` before removing and releasing an editing session. Read-only text views that cannot register editing actions are exempt. Do not move transient text editing back onto a window-level undo manager.
+**CRITICAL — transient `NSTextView` undo ownership:** `UndoManager` keeps undo-operation targets unowned. A disposable editable `NSTextView` that obtains the window's shared undo manager through the responder chain can leave `_undoRedoTextOperation:` entries pointing at a deallocated view; the next Cmd+Z may crash in `_NSUndoStack popAndInvoke`. Every editable app-created text view with `allowsUndo = true` must be a `ScopedUndoTextView` (or subclass), never a plain `NSTextView`. Call `discardUndoHistory()` before removing and releasing an editing session. Read-only text views are exempt. Do not move transient text editing back onto a window-level undo manager.
 
 ### Coordinate Systems
-- **Overlay:** View coordinates = screen frame, bottom-left origin (AppKit)
-- **Editor:** EditorView inside NSScrollView — `isInsideScrollView` makes all transforms identity. NSScrollView handles zoom/pan/centering.
-- **ScreenCaptureKit:** Top-left origin, needs conversion from AppKit bottom-left for recording crop rects
-- **Annotation coords:** Always relative to the overlay/editor view — shifted when transferring between overlay and editor
+- **Overlay:** view coordinates = screen frame, bottom-left origin (AppKit).
+- **Editor:** `EditorView` inside `NSScrollView` — `isInsideScrollView` makes all transforms identity; `NSScrollView` handles zoom/pan/centering.
+- **ScreenCaptureKit / CGWindowList / Accessibility:** top-left origin; convert from AppKit bottom-left.
+- **Annotation coordinates:** always relative to the overlay/editor view; shifted when moving between overlay and editor.
 
 ### Persistence (UserDefaults)
-- Drawing: `currentStrokeWidth`, `numberStrokeWidth`, `markerStrokeWidth`
-- Hotkey: `hotkeyKeyCode`, `hotkeyModifiers`
-- Output: `saveDirectory`, `autoCopyToClipboard`, `playCopySound`
-- Thumbnails: `showFloatingThumbnail`, `thumbnailStacking`, `thumbnailAutoDismissSeconds`
-- Image: `imageFormat` (png/jpeg/heic/webp), `imageQuality` (0.0–1.0), `downscaleRetina` (bool)
-- Recording: `recordingFormat` (mp4/gif), `recordingFPS`, `recordingOnStop`
-- History: `historySize`
-- Tools: `enabledTools`, `knownToolRawValues`
-- Features: `imgbbAPIKey`, `beautifyEnabled`, `beautifyStyleIndex`, `beautifyMode`, `beautifyPadding`, `beautifyCornerRadius`, `beautifyShadowRadius`, `pencilSmoothEnabled`, `loupeSize`, `stampSize`, `translateTargetLang`
-- Styles: `currentLineStyle`, `currentArrowStyle`, `currentRectFillStyle`, `currentRectCornerRadius`
-- Upload: `uploadProvider` (imgbb/gdrive), `googleDriveRefreshToken`, `gdriveFolderName` (Drive destination folder, defaults to "macshot"), `uploadConfirmEnabled`
+Only remembered choices are stored, and nothing is written as a side effect of taking a screenshot.
+- **Output:** `imageFormat` (png/jpeg/heic/webp), `imageQuality`, `downscaleRetina`, `saveDirectory` + `saveDirectoryBookmark` (only after the user picks a folder; default is `~/Downloads`), `filenameTemplate`, `useWindowTitleInFilename`, `quickCaptureMode`, `quickCaptureOpenEditor`, `closeEditorAfterCopy`, `ocrAction`, `autoCopyOCRText`
+- **Capture:** `captureDelaySeconds`, `captureSnapMode`, `doubleClickToCopy`, `hideCaptureInstructions`, `scrollAutoScrollEnabled`, `scrollAutoScrollSpeed`, `scrollFrozenDetection`, `scrollMaxHeight`, resolution preset keys (`keepAspectRatio*`, `resolutionUnitIsPoints`, preselection preset keys)
+- **Hotkeys:** per slot key code, modifiers and disabled flag (`HotkeyManager.HotkeySlot`); editor undo/redo chords
+- **Annotation styles:** `currentStrokeWidth`, `numberStrokeWidth`, `markerStrokeWidth`, `loupeSize`, `lastUsedColor`, `lastUsedColorOpacity`, `customColors`, line/arrow/rect styles, text formatting, `numberFormat`, `censorMode`, pencil smoothing, highlight dim/dashed keys, outline colors
+- **App:** `launchAtLogin`, `hideMenuBarIcon`, `urlSchemeEnabled`, `suppressMoveToApplications`, `enabledRedactTypes`
 
 ### Threading Model
-- **Capture:** Async/await TaskGroup for concurrent multi-display capture
-- **Recording:** SCStream output on background thread, main actor for state updates
-- **Scroll capture:** Background throttle/settlement timers, serialized captureAndStitch
-- **OCR:** VNImageRequestHandler on background thread, results to main
-- **Upload:** URLSession background task
-- **GIF:** Frame encoding on background thread
-- **UI:** All drawing, state changes, and user interaction on main thread
-
-## Features
-
-### Core
-- Multi-screen capture (one overlay per screen, concurrent ScreenCaptureKit calls)
-- Rubber-band selection with 8-point resize handles
-- Full-screen capture (single click without drag)
-- Remember last selection rectangle
-
-### Annotation Tools (18)
-Pencil, Line, Arrow, Rectangle, Filled Rectangle, Ellipse, Marker/Highlighter, Text (rich formatting), Number (auto-incrementing), Stamp/Emoji, Pixelate, Blur, Measure (pixel ruler), Loupe (2x magnifier), Select & Edit, Translate Overlay, Crop (editor only), Color Sampler
-
-- **Line styles:** Solid, dashed, dotted
-- **Arrow styles:** Single, thick, double, open, tail
-- **Annotation rotation:** Rotate shapes via handle, Shift to snap to 90°
-- **Bend control points:** Draggable cubic bezier curve on lines and arrows
-- **Stamp tool:** Place emoji or custom images, load from file
-
-### Output Actions
-Copy to clipboard, Save to file (PNG/JPEG/HEIC/WebP), Pin (floating always-on-top), OCR with translation (30+ languages), Upload to imgbb or Google Drive (OAuth2), Remove background (VNGenerateForegroundInstanceMaskRequest), Open in editor, Beautify (30 gradient styles including 7 mesh gradients on macOS 15+), Flip horizontal/vertical
-
-### Advanced
-- **Editor Window:** Standalone resizable window for post-capture editing, full annotation tools, zoom 0.1x–8x via NSScrollView
-- **Video Editor:** Standalone video editor window for trimming, exporting, and uploading recorded videos
-- **Screen Recording:** MP4/GIF, annotation mode during recording, configurable FPS (up to 120fps), mouse click highlighting, system audio capture
-- **Scroll Capture:** Automatic scroll detection + stitching via SAD matching
-- **Auto-Redact:** Right-click filled rect → regex patterns (emails, phones, SSN, credit cards, IPs, AWS keys, bearer tokens)
-- **Barcode/QR Detection:** Live Vision detection with decoded payload, open/copy actions
-- **Floating Thumbnail:** Stackable, draggable, auto-dismiss, quick actions
-- **Screenshot History:** Local storage with thumbnails, "Recent Captures" menu, visual history overlay panel
-- **Delay Capture:** Configurable countdown (3s, 5s, 10s)
-- **Color Opacity:** Adjustable per annotation via custom color picker
-- **Smooth Pencil Strokes:** Toggle in settings
-- **Zoom:** 0.1x–8x, scroll/pinch, pan, clickable label to edit percentage
-- **Permission Onboarding:** First-run guide for granting Screen Recording permission
+- **Capture:** async/await `TaskGroup` for concurrent multi-display capture
+- **Scroll capture:** background throttle/settlement timers, serialized capture-and-stitch
+- **OCR:** `VNImageRequestHandler` on a background thread, results delivered on main
+- **Image encoding/saving:** off the main thread; in-flight saves are registered with `MediaExportCoordinator`
+- **UI:** all drawing, state changes and user interaction on the main thread
 
 ## Coding Conventions
 
-- Pure AppKit, no SwiftUI except `BeautifyRenderer` which uses SwiftUI `MeshGradient` + `ImageRenderer` for mesh gradient rendering (macOS 15+ only, guarded with `@available`)
-- **Use proper AppKit components:** NSPopover for popovers, NSView subclasses for toolbar buttons and strips, NSSlider/NSSegmentedControl/NSButton for controls, NSScrollView for editor zoom/pan, NSTextView for text editing. Avoid reimplementing standard UI components with manual `draw()` + coordinate hit-testing.
-- **Strict concurrency:** CI builds with Xcode 16+ and `-Owholemodule` which enforces strict Swift concurrency. Any code using `@MainActor`-isolated SwiftUI APIs (e.g. `ImageRenderer`) must itself be `@MainActor`. Always mark classes/functions that touch SwiftUI rendering with `@MainActor`. Calling `@MainActor`-isolated methods (e.g. on AppDelegate) from non-`@MainActor` classes requires `MainActor.assumeIsolated { }`. **Local Debug builds do NOT catch these errors.** Before tagging a release, always verify with a Release build: `xcodebuild -scheme macshot -configuration Release build 2>&1 | grep "error:"`
-- **Tool handler pattern:** New annotation tools should implement `AnnotationToolHandler` protocol in `UI/Tools/`, not add switch cases to OverlayView. The handler's `start`/`update`/`finish` methods use `AnnotationCanvas` to access shared state.
-- Apple frameworks: ScreenCaptureKit, Vision, CoreImage, AVFoundation + Swift-WebP for WebP encoding
-- SF Symbols for toolbar icons
-- Minimal allocations during mouse tracking (reuse paths, avoid per-mouseMoved object creation)
-- `[weak self]` in all closures to avoid retain cycles
-- Tear down overlay windows and images promptly after capture
-- UserDefaults for all preferences (no Core Data, no plist files)
-- Annotation is a class (reference type) for mutation during drag/resize — use `clone()` for safe copies. **When adding new properties to Annotation, update four places:** the property declaration, `clone()`, `CodableAnnotation` in `AnnotationCodable.swift` (the struct field, `toCodable`, `fromCodable`, and a line in its `init(from:)`), and the census in `macshotTests/AnnotationPersistenceTests.swift`. The compiler won't catch a missing field — annotations silently lose data on clone or history reload — but the census test will: it reflects over every stored property and fails naming the new one.
-- **Persisted models must decode leniently.** Swift's synthesized `init(from:)` requires a key for every non-optional property *even when it has a default value*, so adding a field silently breaks every file written by an older build. Any `Codable` type that is written to disk or UserDefaults needs a hand-written `init(from:)` using `decode(_:or:)` / `decodeOptional(_:)` from `Model/LenientDecoding.swift`, and arrays of them should decode through `LenientArrayDecoder` so one corrupt entry doesn't discard the file. This applies to `CodableAnnotation`, `CaptureEditState`, `ScreenshotHistory.IndexEntry`, and anything new that joins them.
-- **History cleanup is conservative.** Missing or salvaged indexes do not establish orphanhood. `HistoryFileCleanup` only reclaims old unreferenced thumbnails/previews using a captured cutoff; captures, raw images, annotations and edit state remain for recovery. Explicit retention/deletion owns those files. Index identifiers must remain UUIDs, extensions must be recognized image types, and duplicate rows must be removed before enforcing retention.
-- **History writes are transactions.** `HistoryImageSnapshot` owns composited/raw pixels and serialized annotations before enqueueing. `HistoryStorage` serializes saves, deletion and retention; a new immutable revision becomes current only after atomic index publication. Do not publish unwritten rows or delete the previous revision before success. Resolve preview URLs on the main actor, decode bounded pixels in ImageIO on the worker, and discard obsolete preview completions. Quit drains pending history writes.
-- **Reopen editable history as a unit.** Use `loadEditableCapture`; if an existing sidecar or annotation cannot be restored, use the flattened capture rather than exposing raw pixels with an omitted annotation/effect. `AnnotationSerializer` still supports lenient salvage for callers that explicitly want it. `SavedCaptureValidation` validates embedded PNG dimensions before decoding, bounds saved numeric settings, and rejects impossible canvas geometry. Keep the full capture available when editable data exceeds these limits. See `docs/history-recovery.md` for the revision layout and downgrade limitations.
-- **History queues retain a bounded amount of snapshot data.** Admission counts pixel buffers and serialized sidecars, with defaults of 512 MiB and 32 pending saves. A single oversized capture may save alone. Report saturation through the normal failed-save completion and visible error; never silently drop a queued capture or replace a committed revision. Release reservations on both success and failure before invoking the caller's completion.
-- **Clipboard HTML is formatting-only.** Generate import markup through `ClipboardHTML` after local parsing with external entities disabled. Copy only supported tags and validated style values; never pass source markup, resource attributes, declarations or arbitrary CSS to AppKit's HTML importer. Apply rich-input byte limits before parsing and text limits before layout, preserving composed characters when truncating.
-- **Editor saves keep their original state.** Capture the image, cloned annotations, edit state and editor revision together before showing a save panel or starting an asynchronous output. Save completion must not combine an older image with current annotations, overwrite an already submitted newer history edit, mark subsequent edits clean, or close the editor after failure.
-- **Filenames are single components.** Both rendered templates and direct recording names use `FilenameSanitizer`. Template expansion is one pass: window titles containing `{date}` or `{random}` stay literal. Preserve complete Unicode characters while capping UTF-8 length, and sanitize again at the direct recording boundary.
-- **Report failures the user can't otherwise see.** A capture that fails to save or a recording that produces no file used to disappear silently (a `#if DEBUG` log at most). Anything that can lose a user's capture must surface: `ImageSaveService.onFailure` is wired to `AppDelegate.showFailureToast(_:)` at launch, and the recording completion handler reports its error the same way. Never swallow such a failure into an ignored `false` completion.
-- **Recording originals are durable.** `RecordingSessionStore` gives each take a unique Application Support folder. Do not delete or sweep these on editor close or failed export. `AtomicMediaSave` stages output on the destination volume and publishes it atomically; keep heavy copying off the main thread and preserve the old destination on failure.
-- **Exports outlive their windows.** Register media exports, audio mixes and recording copies with `MediaExportCoordinator`. Retain their input/directory leases until the worker actually completes, including cancellation. Gate atomic publication with `MediaExportCancellation.beginPublication` so a completed save cannot be reported as cancelled. `ApplicationTerminationCoordinator` keeps the normal event loop running while work drains, then retries Quit; `terminateLater` stalled MainActor completions in the native macOS 27 probe.
-- **Video sources stay stable.** Open through `VideoSourceSnapshot` and `PreparedVideoSource`; use the working `mediaURL` for reads and `originalURL` for names. A later save can replace the public file without changing the active timeline's input. Prepared assets and thumbnail callbacks retain the read lease. Clipboard URLs need their own published copy so closing the editor cannot remove their backing file. Only the snapshot service cleans temporary working folders, honoring live-reader locks; durable original backups are never part of that sweep.
-- **Offline bitrate targets differ from capture.** Medium/Low MP4 exports use `VideoExportEncodingPlan`, with source metadata loaded during preparation. Do not apply live-recording bitrate minimums or estimate size by multiplying input bytes by a quality percentage. For comparable H.264 sources with near-uniform cadence, estimates use the same target settings and edited duration as export, including audio. Omit estimates for sparse or unknown cadence, different codecs, High and GIF; fallback encoder budgets are not size predictions. Keep file/track metadata reads out of editor drawing.
-- **Video cadence is not the shortest sample.** Idle heartbeats and final tails produce variable timing. `VideoFrameCadence` stores the intended interval in MP4's supported software metadata field and performs a bounded background timing inspection for unmarked files. Cache that interval during preparation and reuse it for preview, rendering and bitrate targets; preserve it through audio mixing and MP4 exports. Do not derive rendering FPS from a single minimum interval or the average across long idle gaps.
-- **GIF export streams.** Use `GIFExporter` with the processed timeline and an explicit output cadence. `GIFEncoder` consumes presentation timestamps and writes one ImageIO-encoded frame at a time, combining unchanged pixels into holds. Do not accumulate an animation in one ImageIO destination, decimate by guessed source FPS, or spool every frame into scratch PNGs.
-- **Uploads stream, they don't buffer.** A recording is routinely larger than the memory the app can hold, so uploaders take an `UploadPayload` (`.file` for recordings, `.data` for encoded screenshots). `UploadPayload` chunks, hashes incrementally for SigV4, and `MultipartBodyWriter` writes request bodies straight to a temp file. Don't reintroduce `Data(contentsOf:)` on a recording.
-- **Upload bodies and callbacks belong to one job.** Prepare `PreparedUploadBody` off the main actor, hash the bytes while writing that owned body, and retain it through every retry. Never reread the public source for a retry or put progress on a shared uploader property. `UploadJob` participates in the existing quit drain; completion owns source leases until the request finishes. Drive retries reuse one pre-generated file ID and one multipart body. Account/cache changes stay on the main actor, and stale responses must not restore signed-out credentials or folders. Verify requests with local fixtures, not live cloud uploads.
-- **Keyboard shortcuts:** Character-based commands must go through `KeyboardShortcutMatcher`; do not compare raw letter key codes or read `charactersIgnoringModifiers` directly. The matcher follows the character produced by rearranged Latin layouts such as QWERTZ, AZERTY, and Dvorak, while falling back through the user's ASCII-capable layout for non-Latin input sources such as Russian or Arabic. Use `EditorCommandShortcutManager` for configurable Undo/Redo chords and `ToolShortcutManager` plus `KeyboardShortcutMatcher.toolCharacters(for:)` for single-key overlay tools. Raw `event.keyCode` checks are appropriate only for layout-independent non-character keys such as Escape, Return, Tab, Space, Delete, arrows, and function keys. Global Carbon hotkeys remain physical key-code bindings; translate them only for display with `KeyboardShortcutMatcher.currentLayoutCharacter(for:)`, and disable `NSMenuItem` automatic key-equivalent localization after applying an already-translated physical binding.
-- `autoreleasepool` for overlay teardown to prevent memory spikes
-- Extension files (`OverlayView+Feature.swift`) for self-contained feature code that accesses OverlayView state but is logically separate (recording overlays, scroll capture HUD, window snapping, popovers)
-- **Light/dark mode:** The toolbar and popovers always use a dark background regardless of system appearance. `ToolOptionsRowView` and `PopoverHelper` force `NSAppearance(named: .darkAqua)` so system controls render with light text. Never use system-adaptive colors (`.labelColor`, `.secondaryLabelColor`) for text in toolbar/popover contexts without verifying contrast against the dark background. Always test new toolbar UI elements in both light and dark system appearance.
-- **Focus management:** macshot is an `LSUIElement` (menu bar app) that temporarily shows windows. All focus return is handled by `AppDelegate.returnFocusIfNeeded()` — one centralized method. Rules:
-  - `previousApp` is captured in `startCapture()` before the overlay steals focus. Cleared after single use.
-  - `returnFocusIfNeeded()` checks for visible titled windows, switches to `.accessory` policy, activates `previousApp`. When `previousApp` is nil it activates the frontmost non-macshot app instead. It deliberately does **not** call `NSApp.hide(nil)`: that can suspend the Carbon event loop and break global hotkeys.
-  - `dismissOverlays(refocusPreviousApp: true)` (default) calls `returnFocusIfNeeded()`. Pass `false` only when macshot creates floating panels immediately after (pin, upload toast, recording HUD).
-  - **Pattern for pin/upload/OCR-window paths:** an overlay dismiss that creates a floating panel afterward should: (1) save `previousApp` locally, (2) `dismissOverlays(refocusPreviousApp: false)`, (3) create the panel, (4) manually `app.activate(options: .activateIgnoringOtherApps)` on the saved app. See `overlayDidRequestPin` and `overlayDidRequestUpload`. (This originally guarded against the `NSApp.hide(nil)` fallback, which no longer exists; the ordering still gives the panel a clean hand-off.)
-  - Every window close (editor, video editor, OCR, preferences) calls `returnFocusIfNeeded()` — never inline `setActivationPolicy`/`activate` directly.
-  - All floating panels (thumbnails, pins, upload toasts, HUD, overlays) must set `hidesOnDeactivate = false` so they survive app deactivation. Pin windows must use `orderFrontRegardless()` instead of `makeKeyAndOrderFront` to avoid activating macshot.
-  - `NSApp.activate(options: .activateIgnoringOtherApps)` is the only reliable way to switch focus to another app — plain `activate()` and `NSApp.deactivate()` do not reliably transfer focus on macOS 26.
-  - `NSApp.hide(nil)` transfers focus but hides ALL windows and can suspend the Carbon event loop that global hotkeys depend on — don't reintroduce it.
+- **Pure AppKit.** No SwiftUI, no web views. Use proper AppKit components (`NSPopover`, `NSSlider`, `NSSegmentedControl`, `NSScrollView`, `NSTextView`); don't reimplement standard controls with manual `draw()` + hit-testing.
+- **Strict concurrency.** CI builds Release with Xcode 26 and `-Owholemodule`, which enforces strict Swift concurrency; **Debug builds don't catch these errors**. Always verify with a Release build: `xcodebuild -scheme macshot -configuration Release DEVELOPMENT_TEAM="" CODE_SIGN_STYLE=Automatic build 2>&1 | grep "error:"`. Calling `@MainActor` methods (e.g. on `AppDelegate`) from non-`@MainActor` code needs `MainActor.assumeIsolated { }`.
+- **Tool handler pattern.** New annotation tools implement `AnnotationToolHandler` in `UI/Tools/`; don't add switch cases to `OverlayView`.
+- **Annotation properties.** When adding a property to `Annotation`, update four places: the declaration, `clone()`, `CodableAnnotation` in `AnnotationCodable.swift` (struct field, `toCodable`, `fromCodable`, and a line in `init(from:)`), and the census in `macshotTests/AnnotationPersistenceTests.swift`. The compiler won't catch a missing field, but the census test will (it reflects over every stored property).
+- **Persisted models decode leniently.** Synthesized `init(from:)` requires every non-optional key even when it has a default, so adding a field breaks files written by older builds. Any `Codable` written to disk or UserDefaults needs a hand-written `init(from:)` using `decode(_:or:)` / `decodeOptional(_:)` from `Model/LenientDecoding.swift`.
+- **Report failures the user can't otherwise see.** A capture that fails to save must not vanish silently. `ImageSaveService.onFailure` is wired to `AppDelegate.showFailureToast(_:)` at launch; never swallow such a failure into an ignored `false` completion.
+- **Filenames are single components.** Rendered templates go through `FilenameSanitizer`. Template expansion is one pass: a window title containing `{date}` stays literal. Preserve complete Unicode characters while capping UTF-8 length.
+- **Saves outlive windows.** Image saves publish atomically (`AtomicMediaSave`) and register with `MediaExportCoordinator`; `ApplicationTerminationCoordinator` lets Quit wait for them. Keep heavy I/O off the main thread and preserve the old destination on failure.
+- **Keyboard shortcuts.** Character-based commands go through `KeyboardShortcutMatcher`; don't compare raw letter key codes or read `charactersIgnoringModifiers` directly. It follows rearranged Latin layouts (QWERTZ, AZERTY, Dvorak) and falls back through an ASCII-capable layout for non-Latin input sources. Use `EditorCommandShortcutManager` for the configurable undo/redo chords. Raw `event.keyCode` is fine only for layout-independent keys (Escape, Return, Tab, Space, Delete, arrows, function keys). Global Carbon hotkeys are physical key-code bindings; translate them only for display with `KeyboardShortcutMatcher.currentLayoutCharacter(for:)`.
+- **No file logging.** Don't add log files or `os_log` tracing. Console-only `print` for genuinely unexpected errors is acceptable.
+- Minimal allocations during mouse tracking (reuse paths, avoid per-`mouseMoved` object creation).
+- `[weak self]` in closures to avoid retain cycles.
+- Tear down overlay windows and images promptly after capture; use `autoreleasepool` for overlay teardown.
+- Extension files (`OverlayView+Feature.swift`) for self-contained feature code that touches `OverlayView` state (window snapping, popovers).
+- **Light/dark mode.** The toolbar and popovers always use a dark background regardless of system appearance. `ToolOptionsRowView` and `PopoverHelper` force `NSAppearance(named: .darkAqua)`. Never use system-adaptive colors (`.labelColor`, `.secondaryLabelColor`) for text in toolbar/popover contexts without verifying contrast. Theme colors come from `ToolbarLayout` and are fixed.
+- **Focus management.** SimpleShot is an `LSUIElement` app that temporarily shows windows. All focus return goes through `AppDelegate.returnFocusIfNeeded()`:
+  - `previousApp` is captured in `startCapture()` before the overlay steals focus, and cleared after single use.
+  - `returnFocusIfNeeded()` checks for visible titled windows, switches to `.accessory`, and activates `previousApp` (or the frontmost non-SimpleShot app if there is none). It deliberately does **not** call `NSApp.hide(nil)`: that hides all windows and can suspend the Carbon event loop, breaking global hotkeys.
+  - `dismissOverlays(refocusPreviousApp: true)` (default) calls it. Pass `false` only when SimpleShot creates a floating panel immediately after; then save `previousApp`, dismiss, create the panel, and `activate(options: .activateIgnoringOtherApps)` the saved app.
+  - Every window close (editor, OCR window, Settings) calls `returnFocusIfNeeded()`; never inline `setActivationPolicy` / `activate`.
+  - All floating panels (overlays, OCR window, toasts, scroll HUD) set `hidesOnDeactivate = false`.
+  - `NSApp.activate(options: .activateIgnoringOtherApps)` is the only reliable way to hand focus to another app on macOS 26; plain `activate()` and `NSApp.deactivate()` are not.
 
 ## Tests
 
-- `scripts/run-tests.sh` runs everything; pass `ClassName` or `ClassName/testName` to narrow it. It reports failures and preserves the full log/result bundle on failure. Set `MACSHOT_KEEP_TEST_RESULTS=1` to preserve successful results too. Empty/all-skipped runs are errors.
-- The `macshotTests` target compiles the app sources directly (a synchronized group over `macshot/`, minus `main.swift`), so there is **no host app**: tests run headless, with no Screen Recording permission and no window server dependency. `internal` symbols are reachable without `@testable import`; `private` ones are not.
-- Shared helpers live in `macshotTests/TestSupport.swift`: `withDefaults` (isolated UserDefaults), `ImageProbe` (scale-independent fixture images + pixel probes — never build fixtures with `lockFocus`, it produces 2x buffers on Retina and 1x in CI), `TestKeyEvent` (synthesized `NSEvent`s), and `Reflect`/`FieldDescriber` (compare every stored property of a value at once).
-- Logic that is worth testing but buried in a permission-gated class should be extracted rather than left untested — see `ScrollFrameAnalyzer` and `RecordingEngine.cropRect(for:displayBounds:)`.
-- `.github/workflows/tests.yml` runs the suite plus a Release build of both variants on every push and PR. The Release build is what catches strict-concurrency errors that Debug builds let through.
+- `scripts/run-tests.sh` runs everything; pass `ClassName` or `ClassName/testName` to narrow it. It reports failures and keeps the full log/result bundle on failure. Set `MACSHOT_KEEP_TEST_RESULTS=1` to keep successful results too. Empty/all-skipped runs are errors.
+- The `macshotTests` target compiles the app sources directly (a synchronized group over `macshot/`, minus `main.swift`), so there is **no host app**: tests run headless, with no Screen Recording permission and no window server. `internal` symbols are reachable without `@testable import`; `private` ones are not.
+- Shared helpers live in `macshotTests/TestSupport.swift`: `withDefaults` (isolated UserDefaults), `ImageProbe` (scale-independent fixture images + pixel probes — never build fixtures with `lockFocus`, it yields 2x buffers on Retina and 1x in CI), `TestKeyEvent` (synthesized `NSEvent`s), and `Reflect` / `FieldDescriber` (compare every stored property at once).
+- Logic worth testing but buried in a permission-gated class should be extracted rather than left untested — see `ScrollFrameAnalyzer`.
+- `LocalizationTests` fails if an `L("…")` key used in code is missing from `en.lproj/Localizable.strings`; add the key whenever you add a new `L("…")`.
+- `.github/workflows/tests.yml` runs the suite plus a Release build on every push to `master` and every PR. The Release build is what catches strict-concurrency errors.
 
 ## Build & Run
 
-- Open `macshot.xcodeproj` in Xcode
-- Build & Run (Cmd+R)
-- Grant Screen Recording permission when prompted
-- App appears as icon in menu bar (no dock icon)
-- Click menu bar icon → "Capture Screen" or use global hotkey (default: Cmd+Shift+X)
+- Open `macshot.xcodeproj` in Xcode and Build & Run (Cmd+R).
+- To keep the Screen Recording permission across rebuilds, build with `DEVELOPMENT_TEAM="" CODE_SIGN_STYLE=Automatic` (Xcode's stable "Sign to Run Locally" identity).
+- The app appears in the menu bar. Click it → "Capture Area", or use the global hotkey (default `Cmd+Shift+X`).
 
 ## Releasing
 
-Workflow: `.github/workflows/build-release.yml`. It runs on a tag push (`v*.*.*`) or manual `workflow_dispatch` with an existing tag. It builds, signs with Developer ID, packages `SimpleShot.dmg`, notarizes and staples it, creates the GitHub Release, and rewrites `Casks/simpleshot.rb` in the tap repo (`TAP_REPO` in the workflow, default `zkmn73/homebrew-tap`).
+Workflow: `.github/workflows/build-release.yml`. It runs on a tag push (`v*.*.*`) or a manual `workflow_dispatch` with an existing tag. It builds, signs, packages `SimpleShot.dmg`, creates the GitHub Release, and rewrites `Casks/simpleshot.rb` in the tap repo (`TAP_REPO` in the workflow, default `zkmn73/homebrew-tap`).
 
-Required secret: `HOMEBREW_TAP_TOKEN` (PAT with write access to the tap repo). Optional, need a paid Apple Developer account: `DEVELOPER_ID_CERT_P12`, `DEVELOPER_ID_CERT_PASSWORD`, `ASC_API_KEY`, `ASC_API_KEY_ID`, `ASC_API_ISSUER_ID`. Without the certificate secret the workflow ad-hoc signs, skips notarization, and the cask strips the quarantine flag in a `postflight`.
+- **Required secret:** `HOMEBREW_TAP_TOKEN` (PAT with write access to the tap repo).
+- **Optional, need a paid Apple Developer account:** `DEVELOPER_ID_CERT_P12`, `DEVELOPER_ID_CERT_PASSWORD`, `ASC_API_KEY`, `ASC_API_KEY_ID`, `ASC_API_ISSUER_ID`. Without the certificate secret the workflow ad-hoc signs, skips notarization, and the cask strips the quarantine flag in a `postflight_steps` block (and warns that Screen Recording must be granted again after each upgrade).
 
+Steps:
 1. Add a `## [x.y.z]` entry to `CHANGELOG.md` (used as release notes; if missing, notes are generated from commits).
-2. Tag and push: `git tag v1.0.0 && git push origin master --tags`
+2. Tag and push: `git tag v1.0.1 && git push origin master --tags`
 3. CI does the rest. `MARKETING_VERSION` / `CURRENT_PROJECT_VERSION` in `project.pbxproj` are only for local builds; CI overrides them from the tag and run number.
 
-Never rapidly create/delete tags — GitHub throttles tag push events. If a tag push doesn't trigger CI, use `gh workflow run build-release.yml --ref master -f tag=v1.0.0`.
+Never rapidly create/delete tags — GitHub throttles tag push events. If a tag push doesn't trigger CI, use `gh workflow run build-release.yml --ref master -f tag=v1.0.1`.
