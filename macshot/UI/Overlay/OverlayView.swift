@@ -216,7 +216,7 @@ class OverlayView: NSView {
         ]
         return Dictionary(uniqueKeysWithValues: handlers.map { ($0.tool, $0) })
     }()
-    var currentTool: AnnotationTool = .arrow
+    var currentTool: AnnotationTool = .select  // Move: drag inside the selection to move it
     var currentColor: NSColor = {
         if let data = UserDefaults.standard.data(forKey: "lastUsedColor"),
            let color = try? NSKeyedUnarchiver.unarchivedObject(ofClass: NSColor.self, from: data) {
@@ -360,16 +360,13 @@ class OverlayView: NSView {
 
     // Toolbars (drawn inline)
     var bottomButtons: [ToolbarButton] = []
-    var rightButtons: [ToolbarButton] = []
     var bottomBarRect: NSRect = .zero
-    var rightBarRect: NSRect = .zero
     var showToolbars: Bool = false {
         didSet {
             if showToolbars && !oldValue {
                 rebuildToolbarLayout()
             } else if !showToolbars && oldValue {
                 bottomStripView?.isHidden = true
-                rightStripView?.isHidden = true
                 toolOptionsRowView?.isHidden = true
                 dismissResolutionBox()
                 optionsRowRect = .zero
@@ -377,7 +374,6 @@ class OverlayView: NSView {
         }
     }
     private var bottomStripView: ToolbarStripView?
-    private var rightStripView: ToolbarStripView?
     private var toolOptionsRowView: ToolOptionsRowView?
 
     /// Intended overlay-space rect of the options row. .zero when the row is hidden.
@@ -1229,7 +1225,12 @@ class OverlayView: NSView {
             cursor.set()
         } else {
             switch currentTool {
-            case .select: NSCursor.arrow.set()
+            case .select:
+                if !isEditorMode && pointIsInSelection(point) {
+                    NSCursor.openHand.set()
+                } else {
+                    NSCursor.arrow.set()
+                }
             default: NSCursor.crosshair.set()
             }
         }
@@ -1258,9 +1259,6 @@ class OverlayView: NSView {
         if !isEditorMode {
             let localPoint = convert(point, from: superview)
             if let strip = bottomStripView, !strip.isHidden, strip.frame.contains(localPoint) {
-                return strip.hitTest(convert(point, to: strip.superview))
-            }
-            if let strip = rightStripView, !strip.isHidden, strip.frame.contains(localPoint) {
                 return strip.hitTest(convert(point, to: strip.superview))
             }
             if let row = toolOptionsRowView, !row.isHidden, row.frame.contains(localPoint) {
@@ -1297,7 +1295,6 @@ class OverlayView: NSView {
 
     private func isOverlayChromeRoot(_ view: NSView) -> Bool {
         if let bottomStripView, view === bottomStripView { return true }
-        if let rightStripView, view === rightStripView { return true }
         if let toolOptionsRowView, view === toolOptionsRowView { return true }
         return false
     }
@@ -1311,7 +1308,6 @@ class OverlayView: NSView {
             // mode they equal the strip frames; in glass mode the strips live in
             // panels (frame is panel-local), so the rects are the only truth.
             if bottomStripView?.isHidden == false, bottomBarRect.contains(point) { return true }
-            if rightStripView?.isHidden == false, rightBarRect.contains(point) { return true }
             if toolOptionsRowView?.isHidden == false, optionsRowRect.width > 1,
                optionsRowRect.contains(point) { return true }
         }
@@ -2131,9 +2127,6 @@ class OverlayView: NSView {
         }
         if toolOptionsRowView?.isHidden == false, optionsRowRect.width > 1, optionsRowRect.height > 1 {
             rects.append(optionsRowRect)
-        }
-        if rightStripView?.isHidden == false {
-            rects.append(rightBarRect)
         }
         return rects.filter { $0.width > 1 && $0.height > 1 }
     }
@@ -3644,7 +3637,7 @@ class OverlayView: NSView {
         } else {
             resetZoom()
         }
-        currentTool = .arrow
+        currentTool = .select
         rebuildToolbarLayout()
         needsDisplay = true
     }
@@ -4317,24 +4310,16 @@ class OverlayView: NSView {
         let movableAnnotations = annotations.contains { $0.isMovable }
         bottomButtons = ToolbarLayout.bottomButtons(
             selectedTool: currentTool, selectedColor: currentColor,
-            hasAnnotations: movableAnnotations, isRecording: isRecording
+            hasAnnotations: movableAnnotations, isRecording: isRecording,
+            isEditorMode: isEditorMode
         )
-        rightButtons = ToolbarLayout.rightButtons(
-            hasAnnotations: movableAnnotations,
-            isRecording: isRecording,
-            isEditorMode: isEditorMode)
 
-        // Create strip views if needed — add to chrome parent (window content) when in scroll view
+        // Create the strip view if needed — add to chrome parent (window content) when in scroll view
         let parent = chromeParentView ?? self
         if bottomStripView == nil {
             let strip = ToolbarStripView(orientation: .horizontal)
             parent.addSubview(strip)
             bottomStripView = strip
-        }
-        if rightStripView == nil {
-            let strip = ToolbarStripView(orientation: .vertical)
-            parent.addSubview(strip)
-            rightStripView = strip
         }
 
         // Update existing buttons if count matches, rebuild only if structure changed
@@ -4348,24 +4333,6 @@ class OverlayView: NSView {
             }
             bottomStripView?.onHover = { [weak self] action, hovered in
                 self?.handleToolbarButtonHover(action, hovered: hovered, strip: self?.bottomStripView)
-            }
-        }
-        if rightStripView?.buttonViews.count == rightButtons.count && rightStripView?.buttonViews.count ?? 0 > 0 {
-            rightStripView?.updateState(from: rightButtons)
-        } else {
-            rightStripView?.setButtons(rightButtons)
-            rightStripView?.onClick = { [weak self] action in self?.handleToolbarAction(action) }
-            rightStripView?.onRightClick = { [weak self] action, view in
-                self?.handleToolbarButtonRightClick(action, anchorView: view)
-            }
-            rightStripView?.onHover = { [weak self] action, hovered in
-                self?.handleToolbarButtonHover(action, hovered: hovered, strip: self?.rightStripView)
-            }
-        }
-        // Move button needs onMouseDown for press-and-drag (synchronous tracking loop)
-        for bv in rightStripView?.buttonViews ?? [] {
-            if case .moveSelection = bv.action, bv.onMouseDown == nil {
-                bv.onMouseDown = { [weak self] _ in self?.handleToolbarAction(.moveSelection) }
             }
         }
 
@@ -4389,19 +4356,16 @@ class OverlayView: NSView {
         updateResolutionBox()
     }
 
-    /// Reposition toolbar strips based on current selection/bounds. Cheap — safe to call from draw().
+    /// Reposition the toolbar strip based on current selection/bounds. Cheap — safe to call from draw().
     private func repositionToolbars() {
-        guard let bottomStrip = bottomStripView, let rightStrip = rightStripView else { return }
+        guard let bottomStrip = bottomStripView else { return }
 
         // In editor mode, let toolbar gap clicks pass through to the image beneath
         bottomStrip.passesThrough = isEditorMode
-        rightStrip.passesThrough = isEditorMode
 
         let visible = showToolbars && state == .selected && !isScrollCapturing
         let bottomHasButtons = bottomStrip.buttonViews.count > 0
         bottomStrip.isHidden = !visible || !bottomHasButtons
-        let rightHasButtons = rightStrip.buttonViews.count > 0
-        rightStrip.isHidden = !visible || !rightHasButtons
         toolOptionsRowView?.isHidden = !visible || !toolHasOptionsRow || !bottomHasButtons
         guard visible else {
             // Toolbars hidden (deselected / scroll capture): dismiss the
@@ -4413,78 +4377,24 @@ class OverlayView: NSView {
         }
 
         let anchorRect = selectionRect
-
-        let rightSize = rightStrip.frame.size
-
         let bottomSize = bottomStrip.frame.size
 
         if isEditorMode {
             let cb = chromeParentView?.bounds ?? bounds
             bottomStrip.frame.origin = NSPoint(x: cb.midX - bottomSize.width / 2, y: 20)
             bottomStrip.autoresizingMask = [.minXMargin, .maxXMargin, .maxYMargin]
-            rightStrip.frame.origin = NSPoint(
-                x: cb.maxX - rightSize.width - 20, y: cb.maxY - rightSize.height - 36)
-            rightStrip.autoresizingMask = [.minXMargin, .minYMargin]
         } else {
             let optRowH: CGFloat = 38  // options row height + gap
 
-            // ── 1. Position right bar (anchored to selection edge) ──
-            let rightMargin: CGFloat = 50
-            let rightFitsRight = anchorRect.maxX < bounds.maxX - rightMargin
-            let rightFitsLeft = anchorRect.minX > bounds.minX + rightMargin
-
-            // For very narrow selections, put the right bar below instead of to the side
-            let selectionTooNarrow = !rightFitsRight && !rightFitsLeft
-                && anchorRect.width < bounds.width * 0.5
-
-            var rx: CGFloat
-            var ry: CGFloat
-
-            if selectionTooNarrow {
-                // Place right bar below the selection, right-aligned
-                rx = anchorRect.maxX - rightSize.width
-                rx = max(bounds.minX + 4, min(rx, bounds.maxX - rightSize.width - 4))
-                ry = anchorRect.minY - rightSize.height - 6
-                ry = max(bounds.minY + 4, min(ry, bounds.maxY - rightSize.height - 4))
-            } else {
-                if rightFitsRight {
-                    rx = anchorRect.maxX + 6
-                } else if rightFitsLeft {
-                    rx = anchorRect.minX - rightSize.width - 6
-                } else {
-                    rx = selectionRect.maxX - rightSize.width - 6
-                }
-                rx = max(bounds.minX + 4, min(rx, bounds.maxX - rightSize.width - 4))
-
-                ry = anchorRect.maxY - rightSize.height
-                ry = max(bounds.minY + 4, min(ry, bounds.maxY - rightSize.height - 4))
-            }
-
-            // ── 2. Choose bottom bar Y, preferring positions that don't overlap right bar ──
+            // Prefer below the selection, then above; the options row sits under the bar.
             let belowY = anchorRect.minY - bottomSize.height - 6
             let belowFits = (belowY - optRowH) >= bounds.minY + 4
             let aboveY = anchorRect.maxY + optRowH + 6
             let aboveFits = (aboveY + bottomSize.height) <= bounds.maxY - 4
 
-            // Helper: does a bottom bar at candidate Y (centered) overlap the right bar?
-            let centeredBx = anchorRect.midX - bottomSize.width / 2
-            let clampedCenteredBx = max(bounds.minX + 4, min(centeredBx, bounds.maxX - bottomSize.width - 4))
-            func wouldOverlapRight(candidateY: CGFloat) -> Bool {
-                let bMinY = candidateY - optRowH
-                let bMaxY = candidateY + bottomSize.height
-                guard bMaxY > ry && bMinY < ry + rightSize.height else { return false }
-                let bMaxX = clampedCenteredBx + bottomSize.width
-                let bMinX = clampedCenteredBx
-                return bMaxX > rx && bMinX < rx + rightSize.width
-            }
-
             var by: CGFloat
-            if belowFits && !wouldOverlapRight(candidateY: belowY) {
+            if belowFits {
                 by = belowY
-            } else if aboveFits && !wouldOverlapRight(candidateY: aboveY) {
-                by = aboveY
-            } else if belowFits {
-                by = belowY  // overlaps but at least fits vertically
             } else if aboveFits {
                 by = aboveY
             } else {
@@ -4492,100 +4402,25 @@ class OverlayView: NSView {
                 by = max(bounds.minY + optRowH + 4, min(by, bounds.maxY - bottomSize.height - 4))
             }
 
-            // ── 3. Position bottom bar X, avoiding right bar if they overlap vertically ──
-            var bx = clampedCenteredBx
-            let bottomMinY = by - optRowH
-            let bottomMaxY = by + bottomSize.height
-            let overlapsVertically = bottomMaxY > ry && bottomMinY < ry + rightSize.height
-
-            if overlapsVertically {
-                // Check if centered bottom bar already clears the right bar horizontally
-                if bx + bottomSize.width <= rx - 4 || bx >= rx + rightSize.width + 4 {
-                    // No overlap — keep both as-is
-                } else {
-                    // Overlap: move the RIGHT bar out of the way, keep bottom bar centered.
-                    // Try pushing right bar further right (past bottom bar's right edge).
-                    let pushRight = bx + bottomSize.width + 4
-                    // Try pushing right bar to the left (before bottom bar's left edge).
-                    let pushLeft = bx - rightSize.width - 4
-
-                    if pushRight + rightSize.width <= bounds.maxX - 4 {
-                        rx = pushRight
-                    } else if pushLeft >= bounds.minX + 4 {
-                        rx = pushLeft
-                    } else {
-                        // Right bar can't dodge horizontally — push it vertically.
-                        // Try below the bottom bar + options row zone.
-                        let rightPushDown = by - optRowH - rightSize.height - 4
-                        if rightPushDown >= bounds.minY + 4 {
-                            ry = rightPushDown
-                        } else {
-                            // Try above the bottom bar
-                            let rightPushUp = by + bottomSize.height + 4
-                            if rightPushUp + rightSize.height <= bounds.maxY - 4 {
-                                ry = rightPushUp
-                            }
-                            // else: truly no room, accept overlap
-                        }
-                    }
-                }
-            }
-
-            // The resolution box is positioned independently from the toolbar
-            // strips. During live selection/annotation resizing it can already
-            // be visible when this method runs, so make the side toolbar treat
-            // it as an obstacle too. Prefer moving the side toolbar farther to
-            // the right; that preserves the user's mental model of "actions sit
-            // beside the selection" when there is still room on that side.
-            if shouldShowResolutionBox(), resolutionBoxRect.width > 1, resolutionBoxRect.height > 1 {
-                let gap: CGFloat = 6
-                let avoidRect = resolutionBoxRect.insetBy(dx: -gap, dy: -gap)
-                let candidate = NSRect(x: rx, y: ry, width: rightSize.width, height: rightSize.height)
-                if candidate.intersects(avoidRect) {
-                    let pushRight = avoidRect.maxX + gap
-                    let pushLeft = avoidRect.minX - rightSize.width - gap
-                    let pushUp = avoidRect.maxY + gap
-                    let pushDown = avoidRect.minY - rightSize.height - gap
-
-                    if pushRight + rightSize.width <= bounds.maxX - 4 {
-                        rx = pushRight
-                    } else if pushLeft >= bounds.minX + 4 {
-                        rx = pushLeft
-                    } else if pushUp + rightSize.height <= bounds.maxY - 4 {
-                        ry = pushUp
-                    } else if pushDown >= bounds.minY + 4 {
-                        ry = pushDown
-                    }
-                }
-            }
-
+            var bx = anchorRect.midX - bottomSize.width / 2
             bx = max(bounds.minX + 4, min(bx, bounds.maxX - bottomSize.width - 4))
-            rx = max(bounds.minX + 4, min(rx, bounds.maxX - rightSize.width - 4))
-            ry = max(bounds.minY + 4, min(ry, bounds.maxY - rightSize.height - 4))
 
-            // Keep the right bar clear of the notch / camera housing. The
-            // resolution box already does this (loweredBelowTopObstructions); the
-            // right strip had no such limit, so its top button could land under
-            // the notch. Push it down so its top edge sits below any top
-            // obstruction it would overlap (using the final rx so the horizontal
-            // overlap test matches the placed strip).
+            // Keep the bar clear of the notch / camera housing.
             let topObstructions = screenTopObstructionRects().map { $0.insetBy(dx: -4, dy: -2) }
             for obstruction in topObstructions {
-                let rightFrame = NSRect(x: rx, y: ry, width: rightSize.width, height: rightSize.height)
-                guard rightFrame.intersects(obstruction) else { continue }
-                ry = min(ry, obstruction.minY - rightSize.height - 2)
+                let barFrame = NSRect(x: bx, y: by, width: bottomSize.width, height: bottomSize.height)
+                guard barFrame.intersects(obstruction) else { continue }
+                by = min(by, obstruction.minY - bottomSize.height - 2)
             }
-            ry = max(bounds.minY + 4, ry)
+            by = max(bounds.minY + 4, by)
 
             bottomStrip.frame.origin = NSPoint(x: bx, y: by)
-            rightStrip.frame.origin = NSPoint(x: rx, y: ry)
         }
 
         // bottomBarRect is the intended OVERLAY-space rect. Build it from the
         // strip's size + the origin we just set (rather than reading back the
         // live frame, which is panel-local when the strip is glass-panel-hosted).
         bottomBarRect = NSRect(origin: bottomStrip.frame.origin, size: bottomStrip.frame.size)
-        rightBarRect = rightStrip.frame
 
         // Position options row — above bottom bar in editor, below in overlay
         if let row = toolOptionsRowView, !row.isHidden {
@@ -5759,6 +5594,11 @@ class OverlayView: NSView {
                 needsDisplay = true
             } else if isDraggingSelection {
                 isDraggingSelection = false
+                boundarySnapGuideX = nil
+                boundarySnapGuideY = nil
+                if let win = window {
+                    updateCursorForPoint(convert(win.mouseLocationOutsideOfEventStream, from: nil))
+                }
                 needsDisplay = true
             } else if isResizingSelection {
                 isResizingSelection = false
@@ -6569,9 +6409,6 @@ class OverlayView: NSView {
         bottomStripView?.clearInteractionState(
             suppressHoverUntilMouseMoved: suppressUntilMouseMoved,
             clearPressed: clearPressed)
-        rightStripView?.clearInteractionState(
-            suppressHoverUntilMouseMoved: suppressUntilMouseMoved,
-            clearPressed: clearPressed)
         needsDisplay = true
     }
 
@@ -6582,8 +6419,8 @@ class OverlayView: NSView {
     }
 
     private func moveSelectionButtonView() -> ToolbarButtonView? {
-        rightStripView?.buttonViews.first {
-            if case .moveSelection = $0.action { return true }
+        bottomStripView?.buttonViews.first {
+            if case .tool(.select) = $0.action { return true }
             return false
         }
     }
@@ -6674,7 +6511,6 @@ class OverlayView: NSView {
 
     private func setToolbarHoverSuppressed(_ suppressed: Bool) {
         bottomStripView?.suppressesHover = suppressed
-        rightStripView?.suppressesHover = suppressed
     }
 
     /// True if `btn` belongs to `strip` (direct subview or via the strip's view
@@ -6871,71 +6707,6 @@ class OverlayView: NSView {
             break
         case .adjustSelection:
             autoAdjustSelection()
-        case .moveSelection:
-            guard let win = window else { break }
-            isToolbarMoveDragActive = true
-            var moveButton = rightStripView?.buttonViews.first {
-                if case .moveSelection = $0.action { return true }
-                return false
-            }
-            setToolbarHoverSuppressed(true)
-            clearToolbarHoverState(suppressUntilMouseMoved: true, clearPressed: false)
-            // Moving breaks window snap — revert to a normal (non-snapped) selection
-            if selectionIsWindowSnap {
-                selectionIsWindowSnap = false
-                snappedWindowID = nil
-                snappedWindowImage = nil
-                rebuildToolbarLayout()
-                setToolbarHoverSuppressed(true)
-                moveButton = rightStripView?.buttonViews.first {
-                    if case .moveSelection = $0.action { return true }
-                    return false
-                }
-            }
-            moveButton?.isPressed = true
-            moveButton?.needsDisplay = true
-            moveButton?.displayIfNeeded()
-            showMoveDragTooltip(anchor: moveButton)
-            needsDisplay = true
-            displayIfNeeded()
-            // Synchronous drag loop: tracks mouse from button press until release.
-            // Convert the current mouse via screen coords (the move button may
-            // live in a glass chrome panel, so events target that window, not the
-            // overlay — we read app-wide events and map by screen location).
-            func overlayPoint(fromScreen screen: NSPoint) -> NSPoint {
-                convert(win.convertPoint(fromScreen: screen), from: nil)
-            }
-            let startPoint = overlayPoint(fromScreen: NSEvent.mouseLocation)
-            let offset = NSPoint(x: startPoint.x - selectionRect.origin.x, y: startPoint.y - selectionRect.origin.y)
-            while true {
-                guard let event = NSApp.nextEvent(matching: [.leftMouseDragged, .leftMouseUp],
-                                                  until: .distantFuture, inMode: .eventTracking, dequeue: true) else { break }
-                let point = overlayPoint(fromScreen: NSEvent.mouseLocation)
-                var moved = selectionRect
-                moved.origin = NSPoint(x: point.x - offset.x, y: point.y - offset.y)
-                // Snap the moved selection to nearby image edges (Option bypasses).
-                selectionRect = boundarySnappedMovedRect(moved, modifiers: event.modifierFlags)
-                updateResolutionBox()  // track the box live during the move drag
-                repositionToolbars()
-                showMoveDragTooltip(anchor: moveButton)
-                needsDisplay = true
-                displayIfNeeded()
-                if event.type == .leftMouseUp { break }
-            }
-            // Clear any boundary-snap guide lines left from the move.
-            boundarySnapGuideX = nil
-            boundarySnapGuideY = nil
-            needsDisplay = true
-            moveButton?.isPressed = false
-            moveButton?.needsDisplay = true
-            moveButton?.displayIfNeeded()
-            clearToolbarHoverState(suppressUntilMouseMoved: true)
-            DispatchQueue.main.async { [weak self] in
-                guard let self else { return }
-                self.clearToolbarHoverState(suppressUntilMouseMoved: true)
-                self.setToolbarHoverSuppressed(false)
-                self.isToolbarMoveDragActive = false
-            }
         case .undo:
             undo()
         case .redo:
@@ -7201,6 +6972,25 @@ class OverlayView: NSView {
                     }
                 }
             }
+        }
+
+        // Move tool (the default): empty space inside the selection drags the whole
+        // selection. Moving breaks a window snap, so it becomes a normal selection.
+        if currentTool == .select && !isEditorMode {
+            if !selectedAnnotations.isEmpty { selectedAnnotations = [] }
+            let viewPoint = canvasToView(point)
+            isDraggingSelection = true
+            dragOffset = NSPoint(
+                x: viewPoint.x - selectionRect.origin.x, y: viewPoint.y - selectionRect.origin.y)
+            if selectionIsWindowSnap {
+                selectionIsWindowSnap = false
+                snappedWindowID = nil
+                snappedWindowImage = nil
+                rebuildToolbarLayout()
+            }
+            NSCursor.closedHand.set()
+            needsDisplay = true
+            return
         }
 
         // Clicking empty space — clear selection and start new annotation
@@ -8556,12 +8346,11 @@ class OverlayView: NSView {
         undoStack.removeAll()
         redoStack.removeAll()
         currentAnnotation = nil
-        currentTool = .arrow
+        currentTool = .select
         numberCounter = 0
         showToolbars = false
         dismissResolutionBox()
         bottomStripView?.isHidden = true
-        rightStripView?.isHidden = true
         toolOptionsRowView?.isHidden = true
         PopoverHelper.dismiss()
         editorTooltipView?.removeFromSuperview()

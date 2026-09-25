@@ -31,7 +31,6 @@ class ToolbarButtonView: NSView {
     }
 
     var onClick: ((ToolbarButtonAction) -> Void)?
-    var onMouseDown: ((ToolbarButtonAction) -> Void)?
     var onRightClick: ((ToolbarButtonAction, NSView) -> Void)?
     var onHover: ((ToolbarButtonAction, Bool) -> Void)?  // (action, isHovered)
 
@@ -58,12 +57,6 @@ class ToolbarButtonView: NSView {
         sfSymbol = data.sfSymbol
         tooltipText = data.tooltip
         hasContextMenu = data.hasContextMenu
-        // Only the move button uses onMouseDown for synchronous drag tracking.
-        // Reset it when a reused slot changes meaning; OverlayView assigns it
-        // again to the current move button after updating the strip.
-        onMouseDown = nil
-        dragForwardTarget = nil
-        forwardingDrag = false
         isPressed = false
         needsDisplay = true
     }
@@ -234,7 +227,6 @@ class ToolbarButtonView: NSView {
         clearPressed: Bool = true
     ) {
         suppressHoverStartPoint = suppress ? NSEvent.mouseLocation : nil
-        forwardingDrag = false
         if clearPressed {
             isPressed = false
         }
@@ -242,37 +234,13 @@ class ToolbarButtonView: NSView {
         needsDisplay = true
     }
 
-    private var forwardingDrag = false
-    /// The view that should receive forwarded drag events (set by onMouseDown handler).
-    var dragForwardTarget: NSView?
-
     override func mouseDown(with event: NSEvent) {
         isPressed = true; needsDisplay = true
-        if onMouseDown != nil {
-            onMouseDown?(action)
-            if dragForwardTarget != nil {
-                forwardingDrag = true
-            }
-            return
-        }
-    }
-
-    override func mouseDragged(with event: NSEvent) {
-        if forwardingDrag, let target = dragForwardTarget {
-            target.mouseDragged(with: event)
-            return
-        }
     }
 
     override func mouseUp(with event: NSEvent) {
         let wasPressed = isPressed
         isPressed = false; needsDisplay = true
-        if forwardingDrag, let target = dragForwardTarget {
-            forwardingDrag = false
-            target.mouseUp(with: event)
-            return
-        }
-        forwardingDrag = false
         if wasPressed && bounds.contains(convert(event.locationInWindow, from: nil)) {
             onClick?(action)
         }

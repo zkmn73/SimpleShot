@@ -26,6 +26,9 @@ class ToolbarStripView: NSView {
 
     private let padding: CGFloat = 4
     private let spacing: CGFloat = 2
+    /// Extra room (plus a divider) before a button that starts a new group.
+    private let groupGap: CGFloat = 10
+    private var groupStartIndices: Set<Int> = []
 
     init(orientation: Orientation) {
         self.orientation = orientation
@@ -58,6 +61,7 @@ class ToolbarStripView: NSView {
     func setButtons(_ buttons: [ToolbarButton]) {
         for bv in buttonViews { bv.removeFromSuperview() }
         buttonViews.removeAll()
+        groupStartIndices = Set(buttons.enumerated().filter { $0.element.hasLeadingGap }.map(\.offset))
 
         for data in buttons {
             let bv = ToolbarButtonView(action: data.action, sfSymbol: data.sfSymbol, tooltip: data.tooltip)
@@ -111,13 +115,14 @@ class ToolbarStripView: NSView {
 
         switch orientation {
         case .horizontal:
-            let w = count * btnSize + max(0, count - 1) * spacing + padding * 2
-            let h = btnSize + padding * 2
-            frame.size = NSSize(width: w, height: h)
-            // Left-align buttons
+            // Left-align buttons; a group start adds a gap (with a divider drawn in `draw`).
+            var x = padding
             for (i, bv) in buttonViews.enumerated() {
-                bv.frame.origin = NSPoint(x: padding + CGFloat(i) * (btnSize + spacing), y: padding)
+                if groupStartIndices.contains(i) { x += groupGap }
+                bv.frame.origin = NSPoint(x: x, y: padding)
+                x += btnSize + spacing
             }
+            frame.size = NSSize(width: x - spacing + padding, height: btnSize + padding * 2)
         case .vertical:
             let w = btnSize + padding * 2
             let h = count * btnSize + max(0, count - 1) * spacing + padding * 2
@@ -132,6 +137,13 @@ class ToolbarStripView: NSView {
     override func draw(_ dirtyRect: NSRect) {
         ToolbarLayout.bgColor.setFill()
         NSBezierPath(roundedRect: bounds, xRadius: 6, yRadius: 6).fill()
+
+        ToolbarLayout.iconColor.withAlphaComponent(0.2).setFill()
+        for i in groupStartIndices where i > 0 && i < buttonViews.count {
+            let previous = buttonViews[i - 1].frame
+            let dividerX = previous.maxX + (spacing + groupGap) / 2 - 0.5
+            NSRect(x: dividerX, y: padding + 6, width: 1, height: bounds.height - (padding + 6) * 2).fill()
+        }
     }
 
     // Consume clicks on gaps between buttons so they don't fall through to OverlayView.

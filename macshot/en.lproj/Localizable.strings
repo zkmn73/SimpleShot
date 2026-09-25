@@ -55,7 +55,7 @@
 "OCR & QR" = "OCR & QR";
 "Undo" = "Undo";
 "Redo" = "Redo";
-"Move Selection" = "Move Selection";
+"Move (drag the selection)" = "Move (drag the selection)";
 
 /* Tool Options */
 "Size" = "Size";

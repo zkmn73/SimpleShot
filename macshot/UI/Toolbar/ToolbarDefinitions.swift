@@ -13,7 +13,6 @@ enum ToolbarButtonAction {
     case save
     case ocr
     case cancel
-    case moveSelection
     case adjustSelection
     case delayCapture
     case loupe
@@ -31,31 +30,7 @@ struct ToolbarButton {
     var selectedTintColor: NSColor? = nil  // optional status tint that remains visible while selected
     var bgColor: NSColor? = nil  // for color swatches
     var hasContextMenu: Bool = false  // draw small corner triangle to indicate right-click options
-}
-
-enum ToolbarCustomAction: Int {
-    case ocr = 1003
-    case reserved1007 = 1007
-    case scrollCapture = 1010
-
-    static var rightToolbarActions: [ToolbarCustomAction] {
-        [.ocr, .scrollCapture]
-    }
-
-    func makeToolbarButton(
-        isRecording: Bool = false,
-        isEditorMode: Bool = false
-    ) -> ToolbarButton? {
-        switch self {
-        case .ocr:
-            return ToolbarButton(action: .ocr, sfSymbol: "doc.text.viewfinder", tooltip: L("OCR & QR"))
-        case .reserved1007:
-            return nil
-        case .scrollCapture:
-            guard !isRecording && !isEditorMode else { return nil }
-            return ToolbarButton(action: .scrollCapture, sfSymbol: "scroll", tooltip: L("Scroll Capture"))
-        }
-    }
+    var hasLeadingGap: Bool = false  // start a new group: extra space + divider before this button
 }
 
 class ToolbarLayout {
@@ -80,17 +55,19 @@ class ToolbarLayout {
         return NSAppearance(named: brightness > 0.5 ? .aqua : .darkAqua)
     }
 
-    // Bottom toolbar items (drawing tools + colors + undo/redo)
+    /// The single toolbar: Move, drawing tools, color, undo/redo, then (after a gap)
+    /// Copy, Save, OCR and — overlay only — Scroll Capture, Open in Editor, Cancel.
     static func bottomButtons(
         selectedTool: AnnotationTool, selectedColor: NSColor,
-        hasAnnotations: Bool = false, isRecording: Bool = false
+        hasAnnotations: Bool = false, isRecording: Bool = false, isEditorMode: Bool = false
     ) -> [ToolbarButton] {
-        // Hide the bottom bar entirely while recording
+        // Hide the bar entirely while recording
         if isRecording { return [] }
 
         var buttons: [ToolbarButton] = []
 
         let tools: [(AnnotationTool, String, String)] = [
+            (.select, "arrow.up.and.down.and.arrow.left.and.right", L("Move (drag the selection)")),
             (.pencil, "scribble", L("Pencil (Draw)")),
             (.line, "line.diagonal", L("Line")),
             (.arrow, "arrow.up.right", L("Arrow")),
@@ -112,12 +89,6 @@ class ToolbarLayout {
         for (tool, symbol, tip) in tools {
             var btn = ToolbarButton(action: .tool(tool), sfSymbol: symbol, tooltip: tip)
             btn.isSelected = (tool == selectedTool)
-            switch tool {
-            case .pencil, .line, .arrow, .rectangle, .ellipse, .marker, .number, .loupe:
-                break  // options shown in the tool options row, not via right-click
-            default:
-                break
-            }
             buttons.append(btn)
         }
 
@@ -134,33 +105,11 @@ class ToolbarLayout {
             ToolbarButton(
                 action: .redo, sfSymbol: "arrow.uturn.forward", tooltip: L("Redo")))
 
-        return buttons
-    }
-
-    // Right toolbar items (output actions + cancel + delay)
-    static func rightButtons(
-        hasAnnotations: Bool = false,
-        isRecording: Bool = false,
-        isEditorMode: Bool = false
-    ) -> [ToolbarButton] {
-        var buttons: [ToolbarButton] = []
-
-        // Cancel, move-selection, editor — not shown in editor window
-        if !isEditorMode {
-            buttons.append(
-                ToolbarButton(action: .cancel, sfSymbol: "xmark", tooltip: L("Cancel")))
-            buttons.append(
-                ToolbarButton(
-                    action: .moveSelection, sfSymbol: "arrow.up.and.down.and.arrow.left.and.right",
-                    tooltip: L("Move Selection")))
-            buttons.append(
-                ToolbarButton(
-                    action: .detach, sfSymbol: "arrow.up.forward.app",
-                    tooltip: L("Open in Editor Window")))
-        }
-        // Copy and save are always present
-        buttons.append(
-            ToolbarButton(action: .copy, sfSymbol: "doc.on.doc", tooltip: L("Copy")))
+        // ── Actions ──────────────────────────────────────────
+        // Copy, Save and OCR come first so the editor's bar is a prefix of the
+        // overlay's; Scroll Capture, Open in Editor and Cancel exist only in the overlay.
+        var actions: [ToolbarButton] = []
+        actions.append(ToolbarButton(action: .copy, sfSymbol: "doc.on.doc", tooltip: L("Copy")))
         let saveTooltip: String = {
             switch SaveActionPreference.current {
             case .saveToFolder:
@@ -170,20 +119,21 @@ class ToolbarLayout {
             }
         }()
         var saveBtn = ToolbarButton(
-            action: .save, sfSymbol: "square.and.arrow.down.fill",
-            tooltip: saveTooltip
-        )
+            action: .save, sfSymbol: "square.and.arrow.down.fill", tooltip: saveTooltip)
         saveBtn.hasContextMenu = true
-        buttons.append(saveBtn)
-
-        for action in ToolbarCustomAction.rightToolbarActions {
-            if let button = action.makeToolbarButton(
-                isRecording: isRecording,
-                isEditorMode: isEditorMode
-            ) {
-                buttons.append(button)
-            }
+        actions.append(saveBtn)
+        actions.append(ToolbarButton(action: .ocr, sfSymbol: "doc.text.viewfinder", tooltip: L("OCR & QR")))
+        if !isEditorMode {
+            actions.append(
+                ToolbarButton(action: .scrollCapture, sfSymbol: "scroll", tooltip: L("Scroll Capture")))
+            actions.append(
+                ToolbarButton(
+                    action: .detach, sfSymbol: "arrow.up.forward.app",
+                    tooltip: L("Open in Editor Window")))
+            actions.append(ToolbarButton(action: .cancel, sfSymbol: "xmark", tooltip: L("Cancel")))
         }
+        actions[0].hasLeadingGap = true
+        buttons.append(contentsOf: actions)
 
         return buttons
     }

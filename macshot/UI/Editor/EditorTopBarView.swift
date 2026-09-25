@@ -193,7 +193,7 @@ class EditorTopBarView: NSView {
 
     @objc private func cropClicked() {
         guard let ov = overlayView else { return }
-        ov.currentTool = ov.currentTool == .crop ? .arrow : .crop
+        ov.currentTool = ov.currentTool == .crop ? .select : .crop
         ov.rebuildToolbarLayout()
         ov.needsDisplay = true
     }
