@@ -52,7 +52,6 @@ class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSWindowD
     private var hideMenuBarIconCheckbox: NSButton!
     private var doubleClickToCopyCheckbox: NSButton!
     private var hideCaptureInstructionsCheckbox: NSButton!
-    private var disableSelectionShadowCheckbox: NSButton!
     private var filenameTemplateField: NSTextField!
     private var filenameTemplatePreview: NSTextField!
     private var quickModePopup: NSPopUpButton!
@@ -526,7 +525,6 @@ class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSWindowD
         // Checkboxes
         doubleClickToCopyCheckbox = NSButton(checkboxWithTitle: L("Double-click selection to copy"), target: self, action: #selector(doubleClickToCopyChanged(_:)))
         hideCaptureInstructionsCheckbox = NSButton(checkboxWithTitle: L("Hide capture instructions"), target: self, action: #selector(hideCaptureInstructionsChanged(_:)))
-        disableSelectionShadowCheckbox = NSButton(checkboxWithTitle: L("Disable shadow outside selection"), target: self, action: #selector(disableSelectionShadowChanged(_:)))
         filenameTemplateField = NSTextField()
         filenameTemplateField.placeholderString = FilenameFormatter.defaultTemplate
         filenameTemplateField.font = NSFont.monospacedSystemFont(ofSize: 11, weight: .regular)
@@ -534,7 +532,6 @@ class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSWindowD
         filenameTemplateField.target = self
         filenameTemplateField.action = #selector(filenameTemplateCommitted(_:))
         filenameTemplateField.delegate = self
-        filenameTemplateField.widthAnchor.constraint(greaterThanOrEqualToConstant: 260).isActive = true
 
         filenameTemplatePreview = NSTextField(labelWithString: "")
         filenameTemplatePreview.font = NSFont.systemFont(ofSize: 10)
@@ -545,9 +542,6 @@ class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSWindowD
         stack.setCustomSpacing(6, after: stack.arrangedSubviews.last!)
 
         stack.addArrangedSubview(indented(hideCaptureInstructionsCheckbox))
-        stack.setCustomSpacing(6, after: stack.arrangedSubviews.last!)
-
-        stack.addArrangedSubview(indented(disableSelectionShadowCheckbox))
         stack.setCustomSpacing(20, after: stack.arrangedSubviews.last!)
 
         // ── Output ───────────────────────────────────────────
@@ -579,9 +573,6 @@ class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSWindowD
         stack.setCustomSpacing(8, after: stack.arrangedSubviews.last!)
 
         // Filename template
-        let filenameResetBtn = NSButton(title: L("Reset"), target: self, action: #selector(filenameTemplateReset(_:)))
-        filenameResetBtn.bezelStyle = .rounded
-
         let filenameInfoIcon = HoverPopoverIconView(
             image: NSImage(systemSymbolName: "info.circle", accessibilityDescription: L("Filename tokens")),
             tintColor: .secondaryLabelColor,
@@ -591,7 +582,9 @@ class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSWindowD
             if shown { self?.showFilenameTemplateInfoPopover(near: sourceView) }
         }
 
-        stack.addArrangedSubview(labeledRow(L("Filename:"), controls: [filenameTemplateField, filenameInfoIcon, filenameResetBtn]))
+        stack.addArrangedSubview(labeledRow(L("Filename:"), controls: [filenameTemplateField, filenameInfoIcon]))
+        // Same width as the dropdowns above instead of stretching across the window.
+        filenameTemplateField.widthAnchor.constraint(equalTo: ocrActionPopup.widthAnchor).isActive = true
         stack.setCustomSpacing(2, after: stack.arrangedSubviews.last!)
         stack.addArrangedSubview(indented(filenameTemplatePreview))
         stack.setCustomSpacing(8, after: stack.arrangedSubviews.last!)
@@ -1101,7 +1094,6 @@ class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSWindowD
 
         doubleClickToCopyCheckbox.state = (UserDefaults.standard.object(forKey: "doubleClickToCopy") as? Bool ?? true) ? .on : .off
         hideCaptureInstructionsCheckbox.state = UserDefaults.standard.bool(forKey: "hideCaptureInstructions") ? .on : .off
-        disableSelectionShadowCheckbox.state = UserDefaults.standard.bool(forKey: "disableSelectionOutsideShadow") ? .on : .off
         filenameTemplateField.stringValue = UserDefaults.standard.string(forKey: FilenameFormatter.userDefaultsKey) ?? FilenameFormatter.defaultTemplate
         updateFilenamePreview()
 
@@ -1240,22 +1232,8 @@ class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSWindowD
     @objc private func hideCaptureInstructionsChanged(_ sender: NSButton) {
         UserDefaults.standard.set(sender.state == .on, forKey: "hideCaptureInstructions")
     }
-    @objc private func disableSelectionShadowChanged(_ sender: NSButton) {
-        UserDefaults.standard.set(sender.state == .on, forKey: "disableSelectionOutsideShadow")
-    }
     @objc private func filenameTemplateCommitted(_ sender: NSTextField) {
-        let trimmed = sender.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
-        let value = trimmed.isEmpty ? FilenameFormatter.defaultTemplate : sender.stringValue
-        if trimmed.isEmpty {
-            sender.stringValue = FilenameFormatter.defaultTemplate
-        }
-        UserDefaults.standard.set(value, forKey: FilenameFormatter.userDefaultsKey)
-        updateFilenamePreview()
-    }
-
-    @objc private func filenameTemplateReset(_ sender: NSButton) {
-        filenameTemplateField.stringValue = FilenameFormatter.defaultTemplate
-        UserDefaults.standard.set(FilenameFormatter.defaultTemplate, forKey: FilenameFormatter.userDefaultsKey)
+        UserDefaults.standard.set(sender.stringValue, forKey: FilenameFormatter.userDefaultsKey)
         updateFilenamePreview()
     }
 
@@ -1409,21 +1387,9 @@ extension SettingsWindowController: NSTextFieldDelegate {
         guard let field = obj.object as? NSTextField else { return }
         if field === filenameTemplateField {
             // Save on every keystroke so closing the window without pressing
-            // Enter doesn't silently lose the edit. Empty value resets to
-            // the default template at commit time (see controlTextDidEndEditing).
+            // Enter doesn't silently lose the edit. An empty template falls
+            // back to the default in `FilenameFormatter.format`.
             UserDefaults.standard.set(field.stringValue, forKey: FilenameFormatter.userDefaultsKey)
-            updateFilenamePreview()
-        }
-    }
-
-    func controlTextDidEndEditing(_ obj: Notification) {
-        // On commit, replace empty/whitespace-only values with the default so
-        // the user never ends up with a blank template saved.
-        guard let field = obj.object as? NSTextField else { return }
-        let trimmed = field.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
-        if field === filenameTemplateField, trimmed.isEmpty {
-            field.stringValue = FilenameFormatter.defaultTemplate
-            UserDefaults.standard.set(FilenameFormatter.defaultTemplate, forKey: FilenameFormatter.userDefaultsKey)
             updateFilenamePreview()
         }
     }

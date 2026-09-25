@@ -105,7 +105,6 @@
 "Launch at login" = "Launch at login";
 "Double-click selection to copy" = "Double-click selection to copy";
 "Hide capture instructions" = "Hide capture instructions";
-"Disable shadow outside selection" = "Disable shadow outside selection";
 "Hide menu bar icon" = "Hide menu bar icon";
 "Hotkeys still work. To show the icon again, re-launch SimpleShot." = "Hotkeys still work. To show the icon again, re-launch SimpleShot.";
 "Output" = "Output";
@@ -127,7 +126,6 @@
 "Units" = "Units";
 "Hold Space to move. Release to annotate and edit" = "Hold Space to move. Release to annotate and edit";
 "Hold Space to move. Release to finish" = "Hold Space to move. Release to finish";
-"Reset" = "Reset";
 "OCR & QR Capture:" = "OCR & QR Capture:";
 "Show window + copy to clipboard" = "Show window + copy to clipboard";
 "Show window only" = "Show window only";

@@ -477,9 +477,6 @@ class OverlayView: NSView {
     var snapGuideX: CGFloat? = nil  // vertical guide line X
     var snapGuideY: CGFloat? = nil  // horizontal guide line Y
     private let snapThreshold: CGFloat = 5
-    private var selectionOutsideShadowDisabled: Bool {
-        UserDefaults.standard.bool(forKey: "disableSelectionOutsideShadow")
-    }
     var cachedCompositedImage: NSImage? = nil {  // invalidated when annotations change
         didSet { if !isDraggingAnnotation && !isResizingAnnotation && !isRotatingAnnotation { cachedAnnotationLayer = nil } }
     }
@@ -1462,10 +1459,8 @@ class OverlayView: NSView {
                 if !usesExternalScreenshotPreview {
                     image.draw(in: bounds, from: .zero, operation: .copy, fraction: 1.0)
                 }
-                if !selectionOutsideShadowDisabled {
-                    NSColor.black.withAlphaComponent(0.45).setFill()
-                    NSBezierPath(rect: bounds).fill()
-                }
+                NSColor.black.withAlphaComponent(0.45).setFill()
+                NSBezierPath(rect: bounds).fill()
             } else {
                 // No screenshot yet — fully transparent. User sees live desktop
                 // through the overlay and can start selecting immediately.
