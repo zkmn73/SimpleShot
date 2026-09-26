@@ -54,7 +54,7 @@ Upgrade with `brew upgrade --cask simpleshot`, remove with `brew uninstall --cas
 **Annotate**
 - Pencil (optional smoothing), Line, Arrow (5 styles), Rectangle, Ellipse, Marker, Text (rich formatting), Number (1 / I / A / a)
 - Censor: pixelate, blur, solid fill or smart erase, with automatic redaction of emails, phone numbers, card numbers, keys, faces and people
-- Highlight (spotlight), Loupe, Measure (pixel ruler), Color Picker
+- Color Picker
 - Click any annotation to move, resize, rotate, restyle or delete it; hold `Space` while drawing to reposition; snap guides; full undo/redo
 
 **Output**

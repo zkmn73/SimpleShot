@@ -11,9 +11,9 @@ Native macOS screenshot & annotation tool. Swift + AppKit, no Qt, no Electron. S
 - English only. There is a single `en.lproj/Localizable.strings`.
 - One build, no variants. Use `AppInfo.displayName` for the display name.
 
-**Removed on purpose — do not reintroduce unless asked:** cloud upload (imgbb / Google Drive / S3), screenshot history, screen recording and the video editor, Pin to screen, Beautify / image effects / Invert Colors / Remove Background, Share, translation, Sparkle auto-update and the beta channel, multi-language localization, the floating thumbnail, capture sound, single-key tool shortcuts, toolbar theme and menu bar customization, the Tools settings tab, Capture Last Area, mouse cursor capture, OCR "AI Search", diagnostic logs, the Offline build variant, and the toggles for snap guides / boundary snap / browser element snap / selection dimming.
+**Removed on purpose — do not reintroduce unless asked:** cloud upload (imgbb / Google Drive / S3), screenshot history, screen recording and the video editor, Pin to screen, Beautify / image effects / Invert Colors / Remove Background, Share, translation, Sparkle auto-update and the beta channel, multi-language localization, the floating thumbnail, capture sound, single-key tool shortcuts, toolbar theme and menu bar customization, the Tools settings tab, Capture Last Area, mouse cursor capture, OCR "AI Search", diagnostic logs, the Offline build variant, the toggles for snap guides / boundary snap / browser element snap / selection dimming, the Filename reset button, and the Highlight / Loupe / Measure toolbar tools.
 
-**Kept as inert internals:** `AnnotationTool` has implicit raw values, so cases are never deleted. `translateOverlay` is retired but still decodes; `stamp` is only created by the editor's Add Capture; `crop` and `blur` are not toolbar tools. Never reorder or remove cases.
+**Kept as inert internals:** `AnnotationTool` has implicit raw values, so cases are never deleted. `translateOverlay` is retired but still decodes; `stamp` is only created by the editor's Add Capture; `crop` and `blur` are not toolbar tools; `highlight`, `loupe` and `measure` have no toolbar entry point (removed — see Project Direction) but keep their full drawing/hit-test/options-row machinery so old copy-pasted or cross-version annotations of those types still render. Never reorder or remove cases.
 
 ## Project Setup
 
@@ -145,7 +145,7 @@ The core canvas view: selection state machine, annotation rendering, input routi
 
 **Zoom:** 0.1x–8x (min 1.0x in the overlay, 0.1x in the editor), scroll/pinch, pan while zoomed.
 
-**Toolbar:** one real NSView strip (`ToolbarStripView` + `ToolbarButtonView`) positioned by `OverlayView`, below the selection (above if there is no room). Left group: Move (the default tool), 13 drawing tools, color, undo/redo. After a divider: Copy, Save, OCR, then the overlay-only Scroll Capture, Open in Editor Window, Cancel (so the editor's bar is a prefix of the overlay's). Tool options in `ToolOptionsRowView`. Popovers use `NSPopover` via `PopoverHelper`. The Move tool is `AnnotationTool.select`: dragging empty space inside the selection moves the whole selection, while annotations can still be clicked and moved; holding `Space` also moves the selection.
+**Toolbar:** one real NSView strip (`ToolbarStripView` + `ToolbarButtonView`) positioned by `OverlayView`, below the selection (above if there is no room). Left group: Move (the default tool), 10 drawing tools, color, undo/redo. After a divider: Copy, Save, OCR, then the overlay-only Scroll Capture, Open in Editor Window, Cancel (so the editor's bar is a prefix of the overlay's). Tool options in `ToolOptionsRowView`. Popovers use `NSPopover` via `PopoverHelper`. The Move tool is `AnnotationTool.select`: dragging empty space inside the selection moves the whole selection, while annotations can still be clicked and moved; holding `Space` also moves the selection.
 
 **Editor mode (`EditorView` subclass):** overrides behavior through clean override points and uses `NSScrollView` for zoom/pan/centering. Use the `isEditorMode` computed property.
 
@@ -180,7 +180,7 @@ A class (not a struct) with `clone()` for safe copying, in `Model/Annotation.swi
 
 `AnnotationTool` cases, in declaration order (never reorder): `pencil, line, arrow, rectangle, filledRectangle, ellipse, marker, text, number, pixelate, blur, measure, loupe, select, translateOverlay, crop, colorSampler, stamp, highlight`.
 
-Toolbar tools: Move (`select`), Pencil, Line, Arrow, Rectangle, Ellipse, Marker, Text, Number, Censor (`pixelate` + `CensorMode`: pixelate / blur / solid / erase, plus auto-redact), Highlight (spotlight), Loupe, Color Picker, Measure.
+Toolbar tools: Move (`select`), Pencil, Line, Arrow, Rectangle, Ellipse, Marker, Text, Number, Censor (`pixelate` + `CensorMode`: pixelate / blur / solid / erase, plus auto-redact), Color Picker.
 
 #### DetachedEditorWindowController — Standalone Editor
 - Opens from the overlay's "Open in Editor Window" button, Quick Capture with "Also open in Editor", the menu's Open Image… / Open from Clipboard, or `simpleshot://open`.
