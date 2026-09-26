@@ -34,12 +34,6 @@ final class ScrollCaptureController {
     private(set) var frozenTopHeight: CGFloat = 0
     private var isCancelled: Bool = false
 
-    /// Current estimated total height of the final image (points).
-    var estimatedTotalHeight: CGFloat {
-        guard let merged = mergedImage else { return 0 }
-        return CGFloat(merged.height) / backingScale
-    }
-
     // MARK: - Callbacks
 
     var onStripAdded:  ((Int) -> Void)?
@@ -69,12 +63,9 @@ final class ScrollCaptureController {
 
     // Frame state
     private var shotA: CGImage?          // previous frame
-    private var shotB: CGImage?          // current frame
-    private var lastComparedTIFF: Data?  // TIFF of last settled frame for byte comparison
     private var mergedImage: CGImage?    // accumulated stitched result
     private var headerHeight: Int = 0    // frozen header height in pixels
     private var headerDetectionDone: Bool = false
-    private var headerDetectionSamples: Int = 0
 
     // Scrollbar exclusion
     private var rightMarginPx: Int = 0
@@ -83,7 +74,6 @@ final class ScrollCaptureController {
     // Match tracking
     private var matchNotFoundCount: Int = 0
     private let maxMatchNotFound: Int = 8  // stop after 8 consecutive failures
-    private var didReportFirstMatch: Bool = false
     private var hasScrolledOnce: Bool = false
     private var consecutiveZeroShifts: Int = 0
     private let maxZeroShiftsBeforeStop: Int = 6
@@ -99,7 +89,6 @@ final class ScrollCaptureController {
     // Manual scroll throttle
     private let manualCaptureInterval: TimeInterval = 0.15
     private var lastCaptureTime: TimeInterval = 0
-    private var pendingCaptureTask: Task<Void, Never>?
     private var settlementTimer: Timer?
     private let settlementInterval: TimeInterval = 0.25
 
@@ -110,7 +99,6 @@ final class ScrollCaptureController {
     private var targetAppPID: pid_t = 0
 
     // CGWindowList capture config
-    private var targetWindowID: CGWindowID = kCGNullWindowID
     private var captureRectCG: CGRect = .zero  // CG coordinates (top-left origin)
 
     // MARK: - Init
@@ -141,8 +129,6 @@ final class ScrollCaptureController {
             height: captureRect.height
         )
 
-        // Find the target window under the capture region
-        resolveTargetWindow()
         resolveTargetApp()
 
         // Capture first settled frame
@@ -154,16 +140,12 @@ final class ScrollCaptureController {
 
         isActive = true
         shotA = nil
-        shotB = nil
-        lastComparedTIFF = nil
         mergedImage = firstFrame
         headerHeight = 0
         headerDetectionDone = false
-        headerDetectionSamples = 0
         rightMarginPx = 0
         rightMarginDetected = false
         matchNotFoundCount = 0
-        didReportFirstMatch = false
         hasScrolledOnce = false
         consecutiveZeroShifts = 0
         frozenTopHeight = 0
@@ -197,7 +179,6 @@ final class ScrollCaptureController {
 
         autoScrollTask?.cancel(); autoScrollTask = nil
         settlementTimer?.invalidate(); settlementTimer = nil
-        pendingCaptureTask?.cancel(); pendingCaptureTask = nil
         if let m = scrollMonitorGlobal { NSEvent.removeMonitor(m); scrollMonitorGlobal = nil }
         if let m = scrollMonitorLocal  { NSEvent.removeMonitor(m); scrollMonitorLocal  = nil }
         autoScrollActive = false
@@ -224,43 +205,12 @@ final class ScrollCaptureController {
 
         autoScrollTask?.cancel(); autoScrollTask = nil
         settlementTimer?.invalidate(); settlementTimer = nil
-        pendingCaptureTask?.cancel(); pendingCaptureTask = nil
         if let m = scrollMonitorGlobal { NSEvent.removeMonitor(m); scrollMonitorGlobal = nil }
         if let m = scrollMonitorLocal  { NSEvent.removeMonitor(m); scrollMonitorLocal  = nil }
         autoScrollActive = false
     }
 
     // MARK: - Target window/app management
-
-    /// Finds the window ID under the capture region center for targeted capture.
-    private func resolveTargetWindow() {
-        let centerX = captureRectCG.midX
-        let centerY = captureRectCG.midY
-
-        guard let windowList = CGWindowListCopyWindowInfo(
-            [.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID
-        ) as? [[String: Any]] else { return }
-
-        let excluded = Set(excludedWindowIDs)
-        for info in windowList {
-            guard let layer = info[kCGWindowLayer as String] as? Int, layer == 0,
-                  let boundsDict = info[kCGWindowBounds as String] as? [String: CGFloat],
-                  let winID = info[kCGWindowNumber as String] as? Int,
-                  !excluded.contains(CGWindowID(winID))
-            else { continue }
-
-            let x = boundsDict["X"] ?? 0
-            let y = boundsDict["Y"] ?? 0
-            let w = boundsDict["Width"] ?? 0
-            let h = boundsDict["Height"] ?? 0
-            let cgRect = CGRect(x: x, y: y, width: w, height: h)
-
-            if cgRect.contains(CGPoint(x: centerX, y: centerY)) {
-                targetWindowID = CGWindowID(winID)
-                return
-            }
-        }
-    }
 
     private func resolveTargetApp() {
         let centerX = captureRectCG.midX
@@ -343,7 +293,6 @@ final class ScrollCaptureController {
             }
 
             if let prevTIFF = previousTIFF, currentTIFF == prevTIFF {
-                lastComparedTIFF = currentTIFF
                 return cg
             }
 
@@ -473,7 +422,6 @@ final class ScrollCaptureController {
 
             if let prevTIFF = previousTIFF, currentTIFF == prevTIFF {
                 settledCG = cg
-                lastComparedTIFF = currentTIFF
                 break
             }
 
@@ -537,7 +485,6 @@ final class ScrollCaptureController {
 
         shotA = currentFrame
         stripCount += 1
-        didReportFirstMatch = true
 
         emitPreview()
         onStripAdded?(stripCount)
@@ -680,7 +627,6 @@ final class ScrollCaptureController {
 
         shotA = currentFrame
         stripCount += 1
-        didReportFirstMatch = true
 
         emitPreview()
         onStripAdded?(stripCount)
@@ -754,22 +700,9 @@ final class ScrollCaptureController {
         guard frozenRows < h else { return }
 
         if frozenRows >= 10 && frozenRows < (h * 6 / 10) {
-            headerDetectionSamples += 1
-
-            if headerDetectionSamples == 1 {
-                headerHeight = frozenRows
-                frozenTopHeight = CGFloat(headerHeight) / backingScale
-                headerDetectionDone = true
-            } else {
-                if abs(frozenRows - headerHeight) <= 5 {
-                    headerHeight = min(headerHeight, frozenRows)
-                    frozenTopHeight = CGFloat(headerHeight) / backingScale
-                } else {
-                    headerHeight = 0
-                    frozenTopHeight = 0
-                }
-                headerDetectionDone = true
-            }
+            headerHeight = frozenRows
+            frozenTopHeight = CGFloat(headerHeight) / backingScale
+            headerDetectionDone = true
         } else if frozenRows < 10 {
             headerDetectionDone = true
         }

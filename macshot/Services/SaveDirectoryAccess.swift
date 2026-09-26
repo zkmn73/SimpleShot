@@ -63,21 +63,6 @@ enum SaveDirectoryAccess {
         return url
     }
 
-    /// Resolve the save directory URL and start sandbox-scoped access.
-    /// Caller **must** call `stopAccessing(url:)` when done writing.
-    ///
-    /// ⚠️ This **always** returns a URL, falling back to the stored raw path or
-    /// `~/Downloads` when no bookmark exists — a stored path has **no**
-    /// sandbox write access, so `write(to:)` will fail. Prefer
-    /// `resolveIfAccessible()` for writes that must work in the sandbox.
-    static func resolve() -> URL {
-        if let url = resolveIfAccessible() { return url }
-        if let path = UserDefaults.standard.string(forKey: pathKey) {
-            return URL(fileURLWithPath: path)
-        }
-        return defaultDirectory
-    }
-
     /// Resolve the directory URL **without** starting scoped access.
     /// Use this for NSSavePanel/NSOpenPanel `directoryURL` hints — they handle
     /// their own sandbox access via powerbox.
@@ -86,11 +71,6 @@ enum SaveDirectoryAccess {
             return URL(fileURLWithPath: path)
         }
         return defaultDirectory
-    }
-
-    /// Stop accessing the security-scoped resource after writing is complete.
-    static func stopAccessing(url: URL) {
-        url.stopAccessingSecurityScopedResource()
     }
 
     /// The display path for the settings UI.
