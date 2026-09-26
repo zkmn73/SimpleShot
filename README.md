@@ -22,6 +22,9 @@
 ```bash
 brew trust zkmn73/tap
 brew install --cask zkmn73/tap/simpleshot
+
+# if you want it installed to your own Applications folder instead of the system-wide one
+brew install --cask zkmn73/tap/simpleshot --appdir=~/Applications
 ```
 
 Recent Homebrew versions (7.x) only load casks from third-party taps you have trusted, which is what `brew trust` does. The cask also uses `postflight_steps`, so it needs a Homebrew version that supports it.
@@ -73,28 +76,28 @@ Upgrade with `brew upgrade --cask simpleshot`, remove with `brew uninstall --cas
 
 **Global hotkeys** (rebindable in Settings > Shortcuts)
 
-| Shortcut      | Action                                     |
-| ------------- | ------------------------------------------ |
-| `Cmd+Shift+X` | Capture area                               |
-| `Cmd+Shift+F` | Capture full screen                        |
-| `Cmd+Shift+S` | Quick capture (uses your Enter action)     |
-| `Cmd+Shift+T` | Capture OCR & QR                           |
-| unassigned    | Scroll capture, open from clipboard |
+| Shortcut      | Action                                 |
+| ------------- | -------------------------------------- |
+| `Cmd+Shift+X` | Capture area                           |
+| `Cmd+Shift+F` | Capture full screen                    |
+| `Cmd+Shift+S` | Quick capture (uses your Enter action) |
+| `Cmd+Shift+T` | Capture OCR & QR                       |
+| unassigned    | Scroll capture, open from clipboard    |
 
 **During capture**
 
-| Shortcut                    | Action                                       |
-| --------------------------- | -------------------------------------------- |
-| `Enter`                     | Confirm (save and/or copy, per Settings)     |
-| `Cmd+C` / `Cmd+S`           | Copy / save                                  |
-| `Cmd+Z` / `Cmd+Shift+Z`     | Undo / redo                                  |
-| `Esc`                       | Cancel or close a popover                    |
-| `Delete`                    | Remove the selected annotation               |
-| `Tab`                       | Toggle window snap                           |
-| `F`                         | Select the full screen (in snap mode)        |
+| Shortcut                    | Action                                         |
+| --------------------------- | ---------------------------------------------- |
+| `Enter`                     | Confirm (save and/or copy, per Settings)       |
+| `Cmd+C` / `Cmd+S`           | Copy / save                                    |
+| `Cmd+Z` / `Cmd+Shift+Z`     | Undo / redo                                    |
+| `Esc`                       | Cancel or close a popover                      |
+| `Delete`                    | Remove the selected annotation                 |
+| `Tab`                       | Toggle window snap                             |
+| `F`                         | Select the full screen (in snap mode)          |
 | `Shift` (while drawing)     | Constrain to straight lines and perfect shapes |
-| `Space` (while drawing)     | Reposition the shape without resizing        |
-| Right-click on line / arrow | Add an anchor point                          |
+| `Space` (while drawing)     | Reposition the shape without resizing          |
+| Right-click on line / arrow | Add an anchor point                            |
 
 </details>
 
@@ -103,15 +106,15 @@ Upgrade with `brew upgrade --cask simpleshot`, remove with `brew uninstall --cas
 
 Enable it in Settings > General.
 
-| URL                               | Action                          |
-| --------------------------------- | ------------------------------- |
-| `simpleshot://capture`            | Start area capture              |
-| `simpleshot://capture-fullscreen` | Capture the full screen         |
-| `simpleshot://quick-capture`      | Quick capture                   |
-| `simpleshot://ocr`                | Capture area and read text/QR   |
-| `simpleshot://scroll-capture`     | Start scroll capture            |
-| `simpleshot://settings`           | Open Settings                   |
-| `simpleshot://open?file=/path.png`| Open an image in the editor     |
+| URL                                | Action                        |
+| ---------------------------------- | ----------------------------- |
+| `simpleshot://capture`             | Start area capture            |
+| `simpleshot://capture-fullscreen`  | Capture the full screen       |
+| `simpleshot://quick-capture`       | Quick capture                 |
+| `simpleshot://ocr`                 | Capture area and read text/QR |
+| `simpleshot://scroll-capture`      | Start scroll capture          |
+| `simpleshot://settings`            | Open Settings                 |
+| `simpleshot://open?file=/path.png` | Open an image in the editor   |
 
 </details>
 
