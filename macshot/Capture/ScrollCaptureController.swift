@@ -66,6 +66,7 @@ final class ScrollCaptureController {
     private var mergedImage: CGImage?    // accumulated stitched result
     private var headerHeight: Int = 0    // frozen header height in pixels
     private var headerDetectionDone: Bool = false
+    private var headerDetectionSamples: Int = 0
 
     // Scrollbar exclusion
     private var rightMarginPx: Int = 0
@@ -143,6 +144,7 @@ final class ScrollCaptureController {
         mergedImage = firstFrame
         headerHeight = 0
         headerDetectionDone = false
+        headerDetectionSamples = 0
         rightMarginPx = 0
         rightMarginDetected = false
         matchNotFoundCount = 0
@@ -700,10 +702,31 @@ final class ScrollCaptureController {
         guard frozenRows < h else { return }
 
         if frozenRows >= 10 && frozenRows < (h * 6 / 10) {
-            headerHeight = frozenRows
-            frozenTopHeight = CGFloat(headerHeight) / backingScale
-            headerDetectionDone = true
+            headerDetectionSamples += 1
+
+            if headerDetectionSamples == 1 {
+                // First candidate — remember it, but don't lock in yet. A second
+                // sample must confirm it (below) before headerDetectionDone is
+                // set, otherwise a single misjudged frame permanently crops the
+                // wrong amount off every subsequent stitch.
+                headerHeight = frozenRows
+                frozenTopHeight = CGFloat(headerHeight) / backingScale
+            } else {
+                if abs(frozenRows - headerHeight) <= 5 {
+                    headerHeight = min(headerHeight, frozenRows)
+                    frozenTopHeight = CGFloat(headerHeight) / backingScale
+                } else {
+                    headerHeight = 0
+                    frozenTopHeight = 0
+                }
+                headerDetectionDone = true
+            }
         } else if frozenRows < 10 {
+            // No meaningful header in this sample. If an earlier sample proposed
+            // an unconfirmed candidate, this disagreement invalidates it — don't
+            // let a stale, never-confirmed height survive into the stitch.
+            headerHeight = 0
+            frozenTopHeight = 0
             headerDetectionDone = true
         }
     }

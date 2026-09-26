@@ -808,8 +808,17 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func showPreCaptureCountdown(seconds: Int) {
-        // No display to show a countdown on (all asleep, or headless).
-        guard let screen = NSScreen.preferred else { return }
+        // No display to show a countdown on (all asleep, or headless). Cancel
+        // cleanly rather than leaving isCapturing stuck true. Deliberately not
+        // performCapture(): its empty-result fallback shows the permission
+        // onboarding screen, which would be misleading here (the problem is no
+        // display, not missing permission), and a display that reappears mid
+        // async-capture could still race controllers built from an empty
+        // screen list, reproducing the same stuck state through a narrower door.
+        guard let screen = NSScreen.preferred else {
+            cancelPreCaptureCountdown()
+            return
+        }
         let size = NSSize(width: 140, height: 140)
         let origin = NSPoint(
             x: screen.frame.midX - size.width / 2,
@@ -878,6 +887,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         pendingOCRMode = false
         pendingQuickCaptureMode = false
         pendingScrollCaptureMode = false
+        // Bring back any titled windows stashBackgroundWindows() hid before the
+        // countdown started — a no-op if nothing was stashed.
+        restoreBackgroundWindowsNow()
     }
 
     private func performCapture(fromMenu: Bool) {

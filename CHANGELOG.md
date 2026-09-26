@@ -2,7 +2,12 @@
 
 SimpleShot is a slimmed-down fork of [macshot](https://github.com/sw33tLie/macshot). The upstream history up to 4.3.0-beta.1 is in the [macshot changelog](https://github.com/sw33tLie/macshot/blob/main/CHANGELOG.md).
 
-Only major releases (1.x.0) are listed; patch releases are not.
+## [1.4.1] - 2026-09-26
+
+### Fixed
+
+- **Delayed capture could get permanently stuck** — if no display was available when the countdown was about to appear (all displays asleep, or a headless session), the app never cleared its "capturing" flag, silently blocking every later capture until relaunch. It now attempts the capture directly instead of waiting on a countdown it can't show.
+- **Scroll capture's frozen-header detection could lock in a bad guess** — a bug left the second confirming sample unreachable, so a single misjudged frame could permanently crop the wrong amount off the top of every stitched frame for the rest of the capture. The second-sample confirmation now actually runs.
 
 ## [1.4.0] - 2026-09-26
 
