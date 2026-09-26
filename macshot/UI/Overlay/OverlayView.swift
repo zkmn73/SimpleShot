@@ -5631,6 +5631,14 @@ class OverlayView: NSView {
             overlayDelegate?.overlayViewDidFinishSelection(selectionRect)
         }
         hoveredSnapRect = nil
+        finishSelectionPostProcessing()
+    }
+
+    /// Shared tail of "a selection was just established", used by both a manual
+    /// drag/click (`finishSelection`) and a fully auto-applied selection
+    /// (`applyFullScreenSelection`, for URL/hotkey actions that skip dragging
+    /// entirely) — so an auto mode set on the latter still actually fires.
+    private func finishSelectionPostProcessing() {
         // Update cursor to match the selected tool (replaces resize cursor from dragging)
         if let win = window {
             let point = convert(win.mouseLocationOutsideOfEventStream, from: nil)
@@ -8123,9 +8131,9 @@ class OverlayView: NSView {
         selectionRect = bounds
         selectionStart = bounds.origin
         state = .selected
-        showToolbars = true
+        if !autoOCRMode && !autoQuickSaveMode && !autoScrollCaptureMode && !autoConfirmMode { showToolbars = true }
         overlayDelegate?.overlayViewDidFinishSelection(selectionRect)
-        needsDisplay = true
+        finishSelectionPostProcessing()
     }
 
     func clearSelection() {

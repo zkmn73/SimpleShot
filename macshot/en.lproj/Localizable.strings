@@ -229,6 +229,7 @@
 "Application" = "Application";
 "Capture area and read text/QR codes" = "Capture area and read text/QR codes";
 "Capture the full screen" = "Capture the full screen";
+"Capture the full screen with no interaction, for scripts" = "Capture the full screen with no interaction, for scripts";
 "Counter for multi-screen captures" = "Counter for multi-screen captures";
 "8-character random string (e.g. k3j7x9q2)" = "8-character random string (e.g. k3j7x9q2)";
 "Filename Template Tokens" = "Filename Template Tokens";

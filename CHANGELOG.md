@@ -2,6 +2,12 @@
 
 SimpleShot is a slimmed-down fork of [macshot](https://github.com/sw33tLie/macshot). The upstream history up to 4.3.0-beta.1 is in the [macshot changelog](https://github.com/sw33tLie/macshot/blob/main/CHANGELOG.md).
 
+## [1.5.1] - 2026-09-26
+
+### Added
+
+- **`simpleshot://capture-fullscreen-quick`** — captures the full screen and confirms it with no interaction at all (per your "Enter / Quick Capture" setting), for scripts, Shortcuts and AI agents rather than a person at the keyboard. Every other URL command still needs a human to drag/click a selection and/or confirm it.
+
 ## [1.5.0] - 2026-09-26
 
 ### Changed

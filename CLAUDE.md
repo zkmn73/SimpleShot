@@ -130,7 +130,7 @@ macshot/
 #### AppDelegate — Entry Point & Orchestrator
 - `NSStatusItem` menu: Capture Area, Capture Screen, Capture OCR & QR, Quick Capture, Scroll Capture, Capture Delay, Open Image…, Open from Clipboard, Settings…, Quit.
 - Registers global hotkeys via `HotkeyManager`. Defaults: `Cmd+Shift+X` area, `Cmd+Shift+F` full screen, `Cmd+Shift+S` quick capture, `Cmd+Shift+T` OCR & QR. Scroll capture and Open from Clipboard have no default.
-- Handles the `simpleshot://` URL scheme (`capture`, `capture-fullscreen`, `quick-capture`, `ocr`, `scroll-capture`, `settings`, `open?file=`).
+- Handles the `simpleshot://` URL scheme (`capture`, `capture-fullscreen`, `quick-capture`, `capture-fullscreen-quick`, `ocr`, `scroll-capture`, `settings`, `open?file=`). Only `capture-fullscreen-quick` completes with zero interaction (full screen + auto quick-save); the others still need a human to drag/click a selection and/or confirm — see `finishSelectionPostProcessing()` in `OverlayView.swift` for where the four `auto*Mode` flags actually fire.
 - On trigger: `ScreenCaptureManager` captures all screens → one `OverlayWindowController` per screen (pooled and pre-warmed).
 - Implements `OverlayWindowControllerDelegate`: confirm, cancel, OCR, scroll capture, cross-screen selection sync.
 - Manages `overlayControllers[]`, `ocrController`, `scrollCaptureController`.

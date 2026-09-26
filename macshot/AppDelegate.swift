@@ -741,6 +741,16 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         startCapture(fromMenu: fromMenu)
     }
 
+    /// URL-scheme-only: captures the full screen and confirms with zero interaction
+    /// (per the "Enter / Quick Capture" setting), for scripts and automation that
+    /// can't drag a selection or click a confirm button themselves.
+    private func captureFullScreenQuick() {
+        guard canStartCapture else { return }
+        pendingFullScreen = true
+        pendingQuickCaptureMode = true
+        startCapture(fromMenu: false)
+    }
+
     @objc private func scrollCapture() {
         beginScrollCapture(fromMenu: true)
     }
@@ -1263,19 +1273,20 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     /// Handle simpleshot:// URL scheme actions from external tools (Raycast, Alfred, etc.).
     /// Usage: `open simpleshot://capture`, `open simpleshot://ocr`, etc.
     private static let screenCaptureURLActions: Set<String> = [
-        "capture", "capture-fullscreen", "quick-capture",
+        "capture", "capture-fullscreen", "quick-capture", "capture-fullscreen-quick",
         "ocr", "scroll-capture",
     ]
 
     private func handleURLSchemeAction(_ url: URL) {
         guard let action = url.host else { return }
         switch action {
-        case "capture":             captureScreen()
-        case "capture-fullscreen":  captureFullScreen()
-        case "quick-capture":       quickCapture()
-        case "ocr":                 captureOCR()
-        case "scroll-capture":      scrollCapture()
-        case "settings":            openSettings()
+        case "capture":                  captureScreen()
+        case "capture-fullscreen":       captureFullScreen()
+        case "quick-capture":            quickCapture()
+        case "capture-fullscreen-quick": captureFullScreenQuick()
+        case "ocr":                      captureOCR()
+        case "scroll-capture":           scrollCapture()
+        case "settings":                 openSettings()
         case "open":
             if let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
                let path = components.queryItems?.first(where: { $0.name == "file" })?.value {

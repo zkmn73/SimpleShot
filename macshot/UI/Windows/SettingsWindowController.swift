@@ -1241,6 +1241,7 @@ class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSWindowD
             ("simpleshot://capture",             L("Start area capture")),
             ("simpleshot://capture-fullscreen",  L("Capture the full screen")),
             ("simpleshot://quick-capture",       L("Quick capture (uses your Enter action)")),
+            ("simpleshot://capture-fullscreen-quick", L("Capture the full screen with no interaction, for scripts")),
             ("simpleshot://ocr",                 L("Capture area and read text/QR codes")),
             ("simpleshot://scroll-capture",      L("Start scroll capture")),
             ("simpleshot://settings",            L("Open this settings window")),

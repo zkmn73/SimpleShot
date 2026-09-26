@@ -106,15 +106,18 @@ Upgrade with `brew upgrade --cask simpleshot`, remove with `brew uninstall --cas
 
 Enable it in Settings > General.
 
-| URL                                | Action                        |
-| ---------------------------------- | ----------------------------- |
-| `simpleshot://capture`             | Start area capture            |
-| `simpleshot://capture-fullscreen`  | Capture the full screen       |
-| `simpleshot://quick-capture`       | Quick capture                 |
-| `simpleshot://ocr`                 | Capture area and read text/QR |
-| `simpleshot://scroll-capture`      | Start scroll capture          |
-| `simpleshot://settings`            | Open Settings                 |
-| `simpleshot://open?file=/path.png` | Open an image in the editor   |
+| URL                                     | Action                                            |
+| ---------------------------------------- | ------------------------------------------------- |
+| `simpleshot://capture`                   | Start area capture                                |
+| `simpleshot://capture-fullscreen`        | Capture the full screen                           |
+| `simpleshot://quick-capture`             | Quick capture                                     |
+| `simpleshot://capture-fullscreen-quick`  | Capture the full screen with no interaction — for scripts and AI agents, not people |
+| `simpleshot://ocr`                       | Capture area and read text/QR                     |
+| `simpleshot://scroll-capture`            | Start scroll capture                              |
+| `simpleshot://settings`                  | Open Settings                                     |
+| `simpleshot://open?file=/path.png`       | Open an image in the editor                       |
+
+`capture`, `capture-fullscreen` and `quick-capture` all still need a human: the first two wait for you to drag or click a selection, and the other two (in different ways) still wait for a confirm. Only `capture-fullscreen-quick` completes on its own — it captures the full screen and copies and/or saves it per your "Enter / Quick Capture" setting, with no drag and no confirm click. That makes it the only command here safe to call from a script or another program without a person watching.
 
 </details>
 
