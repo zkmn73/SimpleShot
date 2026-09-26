@@ -6674,9 +6674,6 @@ class OverlayView: NSView {
                 currentStampEmoji = StampEmojis.common[0]
             }
             needsDisplay = true
-        case .loupe:
-            currentTool = .loupe
-            needsDisplay = true
         case .color:
             if PopoverHelper.toggleClosedIfOpen() { break }
             let colorBtn = bottomStripView?.buttonViews.first { if case .color = $0.action { return true }; return false }

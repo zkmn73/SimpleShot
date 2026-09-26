@@ -15,7 +15,6 @@ enum ToolbarButtonAction {
     case cancel
     case adjustSelection
     case delayCapture
-    case loupe
     case detach
     case scrollCapture
     case addCapture  // editor only: capture a new region and append to the canvas
@@ -80,10 +79,7 @@ class ToolbarLayout {
             (.text, "textformat", L("Text")),
             (.number, "1.circle.fill", L("Number")),
             (.pixelate, "_custom.checkerboard", L("Censor (Pixelate / Blur / Solid)")),
-            (.highlight, "sun.max", L("Highlight (Spotlight)")),
-            (.loupe, "magnifyingglass", L("Magnify (Loupe)")),
             (.colorSampler, "eyedropper", L("Color Picker")),
-            (.measure, "ruler", L("Measure (px)")),
         ]
 
         for (tool, symbol, tip) in tools {
