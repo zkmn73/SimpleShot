@@ -13,6 +13,10 @@
   <a href="https://github.com/zkmn73/SimpleShot/releases/latest">Download</a> · <a href="CHANGELOG.md">Changelog</a> · <a href="PRIVACY.md">Privacy</a> · <a href="SECURITY.md">Security</a>
 </p>
 
+<p align="center">
+  <img src="assets/simpleshot_screen.png" alt="SimpleShot capture screen: selection with the toolbar" width="700"/>
+</p>
+
 ---
 
 ## Install
