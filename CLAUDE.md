@@ -246,10 +246,10 @@ Only remembered choices are stored, and nothing is written as a side effect of t
 - **Focus management.** SimpleShot is an `LSUIElement` app that temporarily shows windows. All focus return goes through `AppDelegate.returnFocusIfNeeded()`:
   - `previousApp` is captured in `startCapture()` before the overlay steals focus, and cleared after single use.
   - `returnFocusIfNeeded()` checks for visible titled windows, switches to `.accessory`, and activates `previousApp` (or the frontmost non-SimpleShot app if there is none). It deliberately does **not** call `NSApp.hide(nil)`: that hides all windows and can suspend the Carbon event loop, breaking global hotkeys.
-  - `dismissOverlays(refocusPreviousApp: true)` (default) calls it. Pass `false` only when SimpleShot creates a floating panel immediately after; then save `previousApp`, dismiss, create the panel, and `activate(options: .activateIgnoringOtherApps)` the saved app.
+  - `dismissOverlays(refocusPreviousApp: true)` (default) calls it. Pass `false` only when SimpleShot creates a floating panel immediately after; then save `previousApp`, dismiss, create the panel, and hand focus to the saved app with `AppDelegate.activateApp(_:)`.
   - Every window close (editor, OCR window, Settings) calls `returnFocusIfNeeded()`; never inline `setActivationPolicy` / `activate`.
   - All floating panels (overlays, OCR window, toasts, scroll HUD) set `hidesOnDeactivate = false`.
-  - `NSApp.activate(options: .activateIgnoringOtherApps)` is the only reliable way to hand focus to another app on macOS 26; plain `activate()` and `NSApp.deactivate()` are not.
+  - Hand focus to another app only through `AppDelegate.activateApp(_:)`: on macOS 14+ it uses cooperative activation (`NSApp.yieldActivation(to:)` then `app.activate()`), where `.activateIgnoringOtherApps` is ignored; on older systems it falls back to `activate(options: .activateIgnoringOtherApps)`. Don't call `NSRunningApplication.activate(options:)` or `NSApp.deactivate()` directly.
 
 ## Tests
 
