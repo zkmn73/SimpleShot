@@ -55,7 +55,7 @@ comparing every stored property of a value at once.
 
 ## PR checklist
 
-- [ ] Builds without warnings (also check `xcodebuild -scheme macshot -configuration Release build`; Release enforces strict concurrency)
+- [ ] Builds without warnings (also check `xcodebuild -scheme macshot -configuration Release build`; Release reports concurrency warnings that Debug misses)
 - [ ] `scripts/run-tests.sh` passes, with tests for any logic you added
 - [ ] Tested manually in the real app
 - [ ] Doesn't break existing behavior

@@ -229,7 +229,7 @@ Only remembered choices are stored, and nothing is written as a side effect of t
 ## Coding Conventions
 
 - **Pure AppKit.** No SwiftUI, no web views. Use proper AppKit components (`NSPopover`, `NSSlider`, `NSSegmentedControl`, `NSScrollView`, `NSTextView`); don't reimplement standard controls with manual `draw()` + hit-testing.
-- **Strict concurrency.** CI builds Release with Xcode 26 and `-Owholemodule`, which enforces strict Swift concurrency; **Debug builds don't catch these errors**. Always verify with a Release build: `xcodebuild -scheme macshot -configuration Release DEVELOPMENT_TEAM="" CODE_SIGN_STYLE=Automatic build 2>&1 | grep "error:"`. Calling `@MainActor` methods (e.g. on `AppDelegate`) from non-`@MainActor` code needs `MainActor.assumeIsolated { }`.
+- **Strict concurrency.** The target uses Swift 5 language mode with `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`, so concurrency violations are mostly **warnings**, and CI does not fail on them; they become errors in Swift 6 mode. CI builds Release with Xcode 26 and `-Owholemodule`, which reports more of them than Debug does. Check a Release build for both errors and new concurrency warnings: `xcodebuild -scheme macshot -configuration Release DEVELOPMENT_TEAM="" CODE_SIGN_STYLE=Automatic build 2>&1 | grep -E "error:|warning:"`. Calling `@MainActor` methods (e.g. on `AppDelegate`) from non-`@MainActor` code needs `MainActor.assumeIsolated { }`.
 - **Tool handler pattern.** New annotation tools implement `AnnotationToolHandler` in `UI/Tools/`; don't add switch cases to `OverlayView`.
 - **Annotation properties.** When adding a property to `Annotation`, update four places: the declaration, `clone()`, `CodableAnnotation` in `AnnotationCodable.swift` (struct field, `toCodable`, `fromCodable`, and a line in `init(from:)`), and the census in `macshotTests/AnnotationPersistenceTests.swift`. The compiler won't catch a missing field, but the census test will (it reflects over every stored property).
 - **Persisted models decode leniently.** Synthesized `init(from:)` requires every non-optional key even when it has a default, so adding a field breaks files written by older builds. Any `Codable` written to disk or UserDefaults needs a hand-written `init(from:)` using `decode(_:or:)` / `decodeOptional(_:)` from `Model/LenientDecoding.swift`.
@@ -258,7 +258,7 @@ Only remembered choices are stored, and nothing is written as a side effect of t
 - Shared helpers live in `macshotTests/TestSupport.swift`: `withDefaults` (isolated UserDefaults), `ImageProbe` (scale-independent fixture images + pixel probes — never build fixtures with `lockFocus`, it yields 2x buffers on Retina and 1x in CI), `TestKeyEvent` (synthesized `NSEvent`s), and `Reflect` / `FieldDescriber` (compare every stored property at once).
 - Logic worth testing but buried in a permission-gated class should be extracted rather than left untested — see `ScrollFrameAnalyzer`.
 - `LocalizationTests` fails if an `L("…")` key used in code is missing from `en.lproj/Localizable.strings`; add the key whenever you add a new `L("…")`.
-- `.github/workflows/tests.yml` runs the suite plus a Release build on every push to `master` and every PR. The Release build is what catches strict-concurrency errors.
+- `.github/workflows/tests.yml` runs the suite plus a Release build on every push to `master` and every PR. The Release build surfaces concurrency diagnostics that Debug misses (as warnings, see Coding Conventions).
 
 ## Build & Run
 

@@ -10,7 +10,7 @@ SimpleShot is a free, open-source screenshot and annotation tool for macOS. It r
 
 - **No telemetry or analytics** — nothing is tracked or sent anywhere.
 - **No data collection** — no personal information, usage statistics or crash reports are collected.
-- **No uploads** — screenshots never leave your Mac unless you copy, save or share them yourself.
+- **No uploads** — screenshots never leave your Mac unless you copy or save them yourself.
 - **No automatic updates** — the app does not check for updates. Updates come through Homebrew (`brew upgrade --cask simpleshot`) or by downloading a new release yourself.
 
 ## Data stored on your device
