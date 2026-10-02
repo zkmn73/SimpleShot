@@ -17,6 +17,7 @@ SimpleShot is a slimmed-down fork of [macshot](https://github.com/sw33tLie/macsh
 
 ### Fixed
 
+- **Scroll capture on multiple displays** — the overlay used as the "capture what's below this window" reference was picked at random from all displays' overlays, so the overlay on the display being captured could end up in the stitched frames. It now always uses the overlay you started the scroll capture on.
 - **Scroll capture hands focus to the scrolled app more reliably** — before auto-scrolling, SimpleShot activated the app under the selection with a call that newer macOS can ignore. It now uses the same cooperative activation as the rest of the app (macOS 14+).
 - **AVIF files can be opened** — SimpleShot could save AVIF but refused AVIF files from Finder's "Open With", a drag onto the app icon, or `simpleshot://open?file=`.
 - **No empty overlay when a screen can't be captured** — if the fallback capture path got images for only some displays, the others showed an overlay with no screenshot that blocked clicks until Esc. Those displays are now left alone.

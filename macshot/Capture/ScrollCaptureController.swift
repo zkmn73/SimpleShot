@@ -43,7 +43,13 @@ final class ScrollCaptureController {
 
     // MARK: - Config
 
+    /// Every overlay window; skipped when looking for the app under the selection.
     var excludedWindowIDs: [CGWindowID] = []
+    /// The overlay the user is scroll-capturing on. Frames are captured from the
+    /// windows below it, so this overlay and the HUD above it stay out of the
+    /// stitched image. (The live preview panel sits below the overlay but
+    /// outside the capture rect.)
+    var captureReferenceWindowID: CGWindowID = kCGNullWindowID
 
     // MARK: - Settings
 
@@ -255,9 +261,8 @@ final class ScrollCaptureController {
     /// Captures the screen region using CGWindowListCreateImage.
     /// Returns a complete, compositor-finished snapshot — no stream management needed.
     private func captureFrame() -> CGImage? {
-        let excludeSet = Set(excludedWindowIDs)
         let listOption: CGWindowListOption = [.optionOnScreenBelowWindow]
-        let windowID = excludeSet.isEmpty ? kCGNullWindowID : (excludeSet.first ?? kCGNullWindowID)
+        let windowID = captureReferenceWindowID
 
         let imageOption: CGWindowImageOption = [.boundsIgnoreFraming]
 
