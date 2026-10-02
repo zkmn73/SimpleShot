@@ -11,7 +11,7 @@ Native macOS screenshot & annotation tool. Swift + AppKit, no Qt, no Electron. S
 - English only. There is a single `en.lproj/Localizable.strings`.
 - One build, no variants. Use `AppInfo.displayName` for the display name.
 
-**Removed on purpose — do not reintroduce unless asked:** cloud upload (imgbb / Google Drive / S3), screenshot history, screen recording and the video editor, Pin to screen, Beautify / image effects / Invert Colors / Remove Background, Share, translation, Sparkle auto-update and the beta channel, multi-language localization, the floating thumbnail, capture sound, single-key tool shortcuts, toolbar theme and menu bar customization, the Tools settings tab, Capture Last Area, mouse cursor capture, OCR "AI Search", diagnostic logs, the Offline build variant, the toggles for snap guides / boundary snap / browser element snap / selection dimming, the Filename reset button, and the Highlight / Loupe / Measure toolbar tools.
+**Removed on purpose — do not reintroduce unless asked:** cloud upload (imgbb / Google Drive / S3), screenshot history, screen recording and the video editor, Pin to screen, Beautify / image effects / Invert Colors / Remove Background, Share, translation, Sparkle auto-update and the beta channel, multi-language localization, the floating thumbnail, capture sound, single-key tool shortcuts, toolbar theme and menu bar customization, the Tools settings tab, Capture Last Area, mouse cursor capture, OCR "AI Search", the Censor tool's auto-redact (All Text / PII / Faces / People and "Text Only" drawing), diagnostic logs, the Offline build variant, the toggles for snap guides / boundary snap / browser element snap / selection dimming, the Filename reset button, and the Highlight / Loupe / Measure toolbar tools.
 
 **Kept as inert internals:** `AnnotationTool` has implicit raw values, so cases are never deleted. `translateOverlay` is retired but still decodes; `stamp` is only created by the editor's Add Capture; `crop` and `blur` are not toolbar tools; `highlight`, `loupe` and `measure` have no toolbar entry point (removed — see Project Direction) but keep their full drawing/hit-test/options-row machinery so old copy-pasted or cross-version annotations of those types still render. Never reorder or remove cases.
 
@@ -75,12 +75,10 @@ macshot/
 │   ├── KeyboardShortcutMatcher.swift   # Layout-aware character matching for shortcuts
 │   ├── EditorCommandShortcutManager.swift  # Configurable undo/redo chords
 │   ├── VisionOCR.swift                 # Vision text/QR recognition request factory
-│   ├── AutoRedactor.swift              # PII regex detection + Vision → redaction annotations (Censor tool)
-│   ├── PIIRedactionPlanner.swift       # Pure planning of what to redact
 │   ├── BoundarySnapIndex.swift         # Image-edge index for selection boundary snapping
 │   ├── DeferredRestoration.swift       # Hidden-window bookkeeping across overlapping capture cycles
 │   ├── ScreenFallback.swift            # NSScreen.preferred: safe screen lookup when macOS reports no display
-│   ├── SettingsPortability.swift       # Settings export/import + the secret filter
+│   ├── SettingsPortability.swift       # Settings export/import over an allowlist of keys
 │   ├── AppInfo.swift                   # AppInfo.displayName
 │   └── Localization.swift              # English-only L("…") lookup
 │
@@ -110,7 +108,7 @@ macshot/
 │   │   ├── TextEditingController.swift # Text tool: NSTextView lifecycle, formatting, commit, cancel
 │   │   ├── OutlineTextRenderer.swift   # Outlined text attributes/layout manager
 │   │   └── ScopedUndoTextView.swift    # NSTextView with view-owned undo history
-│   ├── Popover/                        # PopoverHelper, ColorPickerView, ListPickerView, FontPickerView,
+│   ├── Popover/                        # PopoverHelper, ColorPickerView, FontPickerView,
 │   │                                   # ResolutionPresetsView, EmojiPickerView (stamp only)
 │   └── Windows/
 │       ├── SettingsWindowController.swift     # Settings: General, Capture, Shortcuts, About
@@ -156,7 +154,7 @@ The core canvas view: selection state machine, annotation rendering, input routi
 - **When positioning NSViews (e.g. the text tool's NSTextView),** convert canvas coordinates back with `canvasToView()`.
 - **`compositedImage()`** renders at `captureDrawRect.size`, not `bounds.size`.
 - **`sourceImageBounds`** for pixelate/blur/loupe must be `captureDrawRect`, not `bounds`.
-- **For Vision region crops** (OCR, barcode, auto-redact), draw the screenshot at `captureDrawRect` size.
+- **For Vision region crops** (OCR, barcode, smart marker), draw the screenshot at `captureDrawRect` size.
 - **Cursor management** is fully imperative (`updateCursorForPoint()` + `mouseMoved`, no cursor rects). Each window only sets cursors when the mouse is actually over it, which prevents cross-window flicker on multi-monitor.
 
 **Drawing pipeline in `draw(_:)`:**
@@ -180,7 +178,7 @@ A class (not a struct) with `clone()` for safe copying, in `Model/Annotation.swi
 
 `AnnotationTool` cases, in declaration order (never reorder): `pencil, line, arrow, rectangle, filledRectangle, ellipse, marker, text, number, pixelate, blur, measure, loupe, select, translateOverlay, crop, colorSampler, stamp, highlight`.
 
-Toolbar tools: Move (`select`), Pencil, Line, Arrow, Rectangle, Ellipse, Marker, Text, Number, Censor (`pixelate` + `CensorMode`: pixelate / blur / solid / erase, plus auto-redact), Color Picker.
+Toolbar tools: Move (`select`), Pencil, Line, Arrow, Rectangle, Ellipse, Marker, Text, Number, Censor (`pixelate` + `CensorMode`: pixelate / blur / solid / erase), Color Picker.
 
 #### DetachedEditorWindowController — Standalone Editor
 - Opens from the overlay's "Open in Editor Window" button, Quick Capture with "Also open in Editor", the menu's Open Image… / Open from Clipboard, or `simpleshot://open`.
@@ -200,7 +198,7 @@ TextEditingCanvas                — Coordinate transforms + annotation storage 
 
 ### Undo/Redo
 
-`UndoEntry` enum: `.added(Annotation)`, `.deleted(Annotation, Int)`, `.imageTransform(...)`, plus property-change entries. Stacks: `undoStack` / `redoStack`. Batch undo via `groupID` (e.g. auto-redact creates several annotations with one groupID, undone together).
+`UndoEntry` enum: `.added(Annotation)`, `.deleted(Annotation, Int)`, `.imageTransform(...)`, plus property-change entries. Stacks: `undoStack` / `redoStack`. Batch undo via `groupID` (e.g. duplicating several annotations gives the copies one groupID, undone together).
 
 **CRITICAL — transient `NSTextView` undo ownership:** `UndoManager` keeps undo-operation targets unowned. A disposable editable `NSTextView` that obtains the window's shared undo manager through the responder chain can leave `_undoRedoTextOperation:` entries pointing at a deallocated view; the next Cmd+Z may crash in `_NSUndoStack popAndInvoke`. Every editable app-created text view with `allowsUndo = true` must be a `ScopedUndoTextView` (or subclass), never a plain `NSTextView`. Call `discardUndoHistory()` before removing and releasing an editing session. Read-only text views are exempt. Do not move transient text editing back onto a window-level undo manager.
 
@@ -212,11 +210,14 @@ TextEditingCanvas                — Coordinate transforms + annotation storage 
 
 ### Persistence (UserDefaults)
 Only remembered choices are stored, and nothing is written as a side effect of taking a screenshot.
-- **Output:** `imageFormat` (png/jpeg/heic/webp), `imageQuality`, `downscaleRetina`, `saveDirectory` + `saveDirectoryBookmark` (only after the user picks a folder; default is `~/Downloads`), `filenameTemplate`, `useWindowTitleInFilename`, `quickCaptureMode`, `quickCaptureOpenEditor`, `closeEditorAfterCopy`
+
+**Every new key must be classified** in `SettingsPortability`: `portableKeys` (exported and accepted on import) or `localOnlyKeys` (machine-specific). Export and import touch only `portableKeys`. `SettingsPortabilityTests` scans the sources and fails on an unclassified literal key.
+
+- **Output:** `imageFormat` (png/jpeg/heic/webp), `imageQuality`, `downscaleRetina`, `saveDirectory` + `saveDirectoryBookmark` (only after the user picks a folder; default is `~/Downloads`), `filenameTemplate`, `saveAction`, `quickCaptureMode`, `quickCaptureOpenEditor`, `closeEditorAfterCopy`
 - **Capture:** `captureDelaySeconds`, `captureSnapMode`, `hideCaptureInstructions`, `scrollAutoScrollEnabled`, `scrollAutoScrollSpeed`, `scrollFrozenDetection`, `scrollMaxHeight`, resolution preset keys (`keepAspectRatio*`, `resolutionUnitIsPoints`, preselection preset keys)
 - **Hotkeys:** per slot key code, modifiers and disabled flag (`HotkeyManager.HotkeySlot`); editor undo/redo chords
 - **Annotation styles:** `currentStrokeWidth`, `numberStrokeWidth`, `markerStrokeWidth`, `loupeSize`, `lastUsedColor`, `lastUsedColorOpacity`, `customColors`, line/arrow/rect styles, text formatting, `numberFormat`, `censorMode`, pencil smoothing, highlight dim/dashed keys, outline colors
-- **App:** `launchAtLogin`, `hideMenuBarIcon`, `urlSchemeEnabled`, `suppressMoveToApplications`, `enabledRedactTypes`
+- **App:** `launchAtLogin`, `hideMenuBarIcon`, `urlSchemeEnabled`, `suppressMoveToApplications`
 
 ### Threading Model
 - **Capture:** async/await `TaskGroup` for concurrent multi-display capture

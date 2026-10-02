@@ -246,11 +246,9 @@ class ToolOptionsRowView: NSView {
             curX = addStampOptions(at: curX, ov: ov)
         }
 
-        // ── Censor tool: mode selector + redact buttons ──
+        // ── Censor tool: mode selector ──
         if tool == .pixelate {
             curX = addCensorModeSegment(at: curX, ov: ov)
-            curX = addSeparator(at: curX)
-            curX = addRedactOptions(at: curX, ov: ov)
         }
 
         // ── Outline toggle + color swatch (line, rectangle, ellipse, number — arrow handled above) ──
@@ -530,48 +528,6 @@ class ToolOptionsRowView: NSView {
         addSubview(seg)
         curX += seg.frame.width
         return curX
-    }
-
-    /// Add a uniform redact action button using NSSegmentedControl for consistent sizing.
-    /// If `dropdownAction` is provided, adds a second narrow segment with a ▾ arrow.
-    private func addRedactButton(at x: CGFloat, title: String, action: Selector,
-                                  font: NSFont, height: CGFloat, y: CGFloat,
-                                  dropdownAction: Selector? = nil) -> CGFloat {
-        var curX = x
-        let seg = NSSegmentedControl()
-        seg.trackingMode = .momentary
-        seg.font = font
-        (seg.cell as? NSSegmentedCell)?.segmentStyle = .roundRect
-
-        if dropdownAction != nil {
-            seg.segmentCount = 2
-            seg.setLabel(title, forSegment: 0)
-            seg.setLabel("▾", forSegment: 1)
-            seg.setWidth(0, forSegment: 0)
-            seg.setWidth(18, forSegment: 1)
-            seg.target = self
-            seg.action = #selector(piiSegmentClicked(_:))
-        } else {
-            seg.segmentCount = 1
-            seg.setLabel(title, forSegment: 0)
-            seg.setWidth(0, forSegment: 0)
-            seg.target = self
-            seg.action = action
-        }
-
-        seg.sizeToFit()
-        seg.frame = NSRect(x: curX, y: y, width: seg.frame.width, height: height)
-        addSubview(seg)
-        curX += seg.frame.width + 4
-        return curX
-    }
-
-    @objc private func piiSegmentClicked(_ sender: NSSegmentedControl) {
-        if sender.selectedSegment == 0 {
-            redactPIIClicked()
-        } else {
-            redactTypesClicked(sender)
-        }
     }
 
     // MARK: - Segment preview images
@@ -1156,61 +1112,6 @@ class ToolOptionsRowView: NSView {
         return curX
     }
 
-    private func addRedactOptions(at x: CGFloat, ov: OverlayView) -> CGFloat {
-        var curX = x
-
-        // — Draw mode: All / Text Only segmented control —
-        let drawLabel = NSTextField(labelWithString: L("Draw:"))
-        drawLabel.font = NSFont.systemFont(ofSize: 9.5, weight: .medium)
-        drawLabel.textColor = ToolbarLayout.iconColor.withAlphaComponent(0.4)
-        drawLabel.sizeToFit()
-        drawLabel.frame.origin = NSPoint(x: curX, y: (rowHeight - drawLabel.frame.height) / 2)
-        addSubview(drawLabel)
-        curX += drawLabel.frame.width + 4
-
-        let textOnly = UserDefaults.standard.bool(forKey: "censorTextOnly")
-        let drawSeg = NSSegmentedControl(labels: [L("All"), L("Text Only")], trackingMode: .selectOne,
-                                          target: self, action: #selector(drawModeChanged(_:)))
-        drawSeg.selectedSegment = textOnly ? 1 : 0
-        drawSeg.font = NSFont.systemFont(ofSize: 10, weight: .medium)
-        (drawSeg.cell as? NSSegmentedCell)?.segmentStyle = .roundRect
-        drawSeg.sizeToFit()
-        drawSeg.frame = NSRect(x: curX, y: (rowHeight - 22) / 2, width: drawSeg.frame.width, height: 22)
-        addSubview(drawSeg)
-        curX += drawSeg.frame.width + 4
-
-        curX = addSeparator(at: curX)
-
-        // — Auto-detect buttons —
-        let autoLabel = NSTextField(labelWithString: L("Auto:"))
-        autoLabel.font = NSFont.systemFont(ofSize: 9.5, weight: .medium)
-        autoLabel.textColor = ToolbarLayout.iconColor.withAlphaComponent(0.4)
-        autoLabel.sizeToFit()
-        autoLabel.frame.origin = NSPoint(x: curX, y: (rowHeight - autoLabel.frame.height) / 2)
-        addSubview(autoLabel)
-        curX += autoLabel.frame.width + 4
-
-        let btnH: CGFloat = 22
-        let btnFont = NSFont.systemFont(ofSize: 10, weight: .medium)
-        let btnY = (rowHeight - btnH) / 2
-
-        curX = addRedactButton(at: curX, title: L("All Text"), action: #selector(redactAllTextClicked),
-                               font: btnFont, height: btnH, y: btnY)
-
-        // PII button with dropdown arrow for type selection
-        curX = addRedactButton(at: curX, title: L("PII"), action: #selector(redactPIIClicked),
-                               font: btnFont, height: btnH, y: btnY,
-                               dropdownAction: #selector(redactTypesClicked(_:)))
-
-        curX = addRedactButton(at: curX, title: L("Faces"), action: #selector(redactFacesClicked),
-                               font: btnFont, height: btnH, y: btnY)
-
-        curX = addRedactButton(at: curX, title: L("People"), action: #selector(redactPeopleClicked),
-                               font: btnFont, height: btnH, y: btnY)
-
-        return curX
-    }
-
     private func addHintLabel(at x: CGFloat, text: String) -> CGFloat {
         let label = NSTextField(labelWithString: text)
         label.font = NSFont.systemFont(ofSize: 9.5, weight: .medium)
@@ -1474,36 +1375,10 @@ class ToolOptionsRowView: NSView {
         }
     }
 
-    @objc private func drawModeChanged(_ sender: NSSegmentedControl) {
-        UserDefaults.standard.set(sender.selectedSegment == 1, forKey: "censorTextOnly")
-    }
-
     @objc private func pencilSmoothModeChanged(_ sender: NSSegmentedControl) {
         let mode = sender.selectedSegment
         overlayView?.pencilSmoothMode = mode
         UserDefaults.standard.set(mode, forKey: "pencilSmoothMode")
-    }
-
-    @objc private func redactAllTextClicked() {
-        overlayView?.performRedactAllText()
-    }
-
-    @objc private func redactPIIClicked() {
-        overlayView?.performAutoRedact()
-    }
-
-    @objc private func redactFacesClicked() {
-        overlayView?.performRedactFaces()
-    }
-
-    @objc private func redactPeopleClicked() {
-        overlayView?.performRedactPeople()
-    }
-
-    @objc private func redactTypesClicked(_ sender: NSView) {
-        if PopoverHelper.toggleClosedIfOpen() { return }
-        guard let ov = overlayView else { return }
-        ov.showRedactTypePopover(anchorRect: .zero, anchorView: sender)
     }
 
     @objc private func fontFamilyClicked(_ sender: NSButton) {

@@ -159,7 +159,7 @@ class Annotation {
     var fontSize: CGFloat = 20
     var isBold: Bool = false
     var isItalic: Bool = false
-    var groupID: UUID?  // for batch undo (e.g. auto-redact)
+    var groupID: UUID?  // for batch undo (e.g. a multi-duplicate)
     var isUnderline: Bool = false
     var isStrikethrough: Bool = false
     var rotation: CGFloat = 0         // rotation angle in radians

@@ -21,7 +21,6 @@
 /* History Panel */
 "Copy" = "Copy";
 "Delete" = "Delete";
-"All" = "All";
 
 /* Editor Top Bar */
 "Zoom In" = "Zoom In";
@@ -60,17 +59,10 @@
 "Zoom" = "Zoom";
 "Radius" = "Radius";
 "Start:" = "Start:";
-"Draw:" = "Draw:";
-"Auto:" = "Auto:";
 "Fill" = "Fill";
 "Outline" = "Outline";
 "More Emojis" = "More Emojis";
 "Load Image" = "Load Image";
-"Text Only" = "Text Only";
-"All Text" = "All Text";
-"PII" = "PII";
-"Faces" = "Faces";
-"People" = "People";
 "Flip" = "Flip";
 "Smooth" = "Smooth";
 "Refined" = "Refined";

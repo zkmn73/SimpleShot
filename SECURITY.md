@@ -21,7 +21,6 @@ or permission misuse (Screen Recording, Accessibility).
 
 ## Out of scope
 
-- Misses by the Censor tool's automatic redaction patterns (best-effort by design).
 - Issues that require a compromised machine or physical access.
 - Vulnerabilities in macOS or third-party dependencies themselves (please report
   them upstream, and let us know so the fixed version can be picked up).

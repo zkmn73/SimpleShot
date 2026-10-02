@@ -7665,7 +7665,7 @@ class OverlayView: NSView {
         guard !toDuplicate.isEmpty else { return }
         // Fresh groupID per action: a multi-duplicate undoes as one step, and the
         // clone doesn't inherit the source's groupID (which would batch its undo
-        // with unrelated entries, e.g. auto-redact groups).
+        // with unrelated entries).
         let groupID = toDuplicate.count > 1 ? UUID() : nil
         var newAnnotations: [Annotation] = []
         for ann in toDuplicate {

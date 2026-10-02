@@ -1,29 +1,18 @@
 import Foundation
 
-/// Import / export of app settings (issues #265, #280).
+/// Import / export of app settings.
 ///
-/// macshot stores all preferences in `UserDefaults.standard`, which lives inside the
-/// sandbox container plist — hard to find and copy by hand (#280). This service serializes
-/// the *portable* subset of those preferences to a JSON file the user can move to a clean
-/// install or another machine (#265).
+/// Preferences live in `UserDefaults.standard`, inside the sandbox container plist — hard to
+/// find and copy by hand. This service serializes the *portable* subset of them to a JSON
+/// file the user can move to a clean install or another machine.
 ///
-/// ## How we decide what's portable
-/// The app's UserDefaults domain is polluted with OS/framework keys that macOS injects into
-/// every app (e.g. `METAL_*`, `AKLastLocale`, `Country`, `KB_*`). A plain denylist can't keep
-/// up with these — it fails open, and a real export confirmed ~15 such keys leaked through.
-/// A hand-maintained allowlist of every macshot key is the opposite failure: every new feature
-/// must remember to register its key or it silently doesn't export.
-///
-/// Instead we filter by **key shape**, which cleanly separates the two in practice:
-///   - macshot's own keys are author-written `camelCase` / `snake_case`, starting lowercase.
-///   - Injected OS keys are `SCREAMING_CASE`, or carry a stable system prefix (`NS`, `Apple`,
-///     `AK`, `ACD`, `KB_`, `METAL_`, …), or are bare capitalized system nouns (`Country`).
-/// So a NEW macshot feature is exported with zero maintenance, while OS junk is excluded by
-/// construction. On top of that:
-///   - `looksSecret` fails **closed**: any credential-named key (even a future provider's) is
-///     never exported, so the shape rule can't accidentally leak a secret.
-///   - `excludedKeys` lists the handful of macshot-owned keys that DO match the shape rule but
-///     are machine-specific (bookmarks, geometry, device UIDs) or migration bookkeeping.
+/// ## What is portable
+/// Only the keys in `portableKeys`, an explicit allowlist of SimpleShot's own remembered
+/// choices. Everything else in the domain is ignored on export *and* on import: keys macOS
+/// injects (`NS*`, `Apple*`, `METAL_*`, …), keys left behind by older builds or by upstream
+/// macshot, and anything a hand-edited file adds. Machine-specific keys the app does write are
+/// listed in `localOnlyKeys`; `SettingsPortabilityTests` fails if a key used in code is in
+/// neither set, so a new setting can't be forgotten.
 enum SettingsPortability {
 
     // MARK: - Envelope
@@ -32,100 +21,78 @@ enum SettingsPortability {
     static let schemaVersion = 1
 
     /// A dated, human-friendly default filename, e.g. `simpleshot-settings-2026-07-08.json`.
-    /// The payload is plain JSON, so a `.json` extension is honest and previewable in Finder.
     static func suggestedExportFilename() -> String {
         let fmt = DateFormatter()
         fmt.dateFormat = "yyyy-MM-dd"
         return "simpleshot-settings-\(fmt.string(from: Date())).json"
     }
 
-    /// Size cap for a single Data blob (2 MB). Larger blobs (e.g. a big custom beautify
-    /// background) are skipped on export and reported, never silently dropped.
+    /// Size cap for a single Data blob (2 MB). Larger blobs are skipped on export and
+    /// reported, never silently dropped.
     static let maxDataValueBytes = 2 * 1024 * 1024
 
-    // MARK: - Exclusions
+    // MARK: - Keys
 
-    /// Keys that must never transfer: machine-/path-specific state, hardware IDs, transient
-    /// geometry, and internal migration bookkeeping. (Secrets are handled by `looksSecret`.)
-    static let excludedKeys: Set<String> = [
-        // Save directories: paths + security-scoped bookmarks are machine-specific.
+    /// The settings that transfer between machines.
+    static let portableKeys: Set<String> = {
+        var keys: Set<String> = [
+            // Output
+            "imageFormat", "imageQuality", "downscaleRetina",
+            FilenameFormatter.userDefaultsKey, SaveActionPreference.userDefaultsKey,
+            "quickCaptureMode", "quickCaptureOpenEditor", "closeEditorAfterCopy",
+            // Capture
+            "captureDelaySeconds", "captureSnapMode", "hideCaptureInstructions",
+            "scrollAutoScrollEnabled", "scrollAutoScrollSpeed", "scrollFrozenDetection", "scrollMaxHeight",
+            "keepAspectRatio", "keepAspectRatioValue", "resolutionUnitIsPoints",
+            // App
+            "launchAtLogin", "hideMenuBarIcon", "urlSchemeEnabled",
+            // Annotation styles
+            "currentStrokeWidth", "numberStrokeWidth", "markerStrokeWidth",
+            "lastUsedColor", "lastUsedColorOpacity", "customColors",
+            "currentLineStyle", "currentArrowStyle", "arrowReversed",
+            "currentRectCornerRadius", "currentRectFillStyle",
+            "textFontFamily", "textFontSize", "textBgEnabled", "textBgColor",
+            "textOutlineEnabled", "textOutlineColor", "textGlyphStrokeEnabled", "textGlyphStrokeColor",
+            "annotationOutlineEnabled", "annotationOutlineColor",
+            "numberFormat", "numberStartAt",
+            "censorMode",
+            "pencilSmoothMode", "pencilPressureEnabled", "smartMarkerEnabled", "stampSize",
+        ]
+        for slot in HotkeyManager.HotkeySlot.allCases {
+            keys.formUnion([slot.keyCodeKey, slot.modifiersKey, slot.disabledKey])
+        }
+        for action in EditorCommandShortcutManager.Action.allCases {
+            keys.insert(EditorCommandShortcutManager.defaultsKey(for: action))
+        }
+        return keys
+    }()
+
+    /// Keys the app writes that deliberately stay on this machine.
+    static let localOnlyKeys: Set<String> = [
+        // Save folder: a path plus a security-scoped bookmark, only valid here.
         "saveDirectory", "saveDirectoryBookmark",
-        "recordingSaveDirectory", "recordingSaveDirectoryBookmark",
-        // Selection geometry / last-used resolution: tied to this machine's displays.
+        // Last pre-selection size: tied to this machine's displays.
         "preSelectionResolutionPresetKind", "preSelectionResolutionPresetAspect",
         "preSelectionResolutionPresetWidth", "preSelectionResolutionPresetHeight",
-        // Hardware device identifiers.
-        "selectedCameraDeviceUID", "selectedMicDeviceUID",
-        "suppressMoveToApplications", "useWindowTitleInFilename",
-        // Account PII / history that isn't credential-named but shouldn't leave the machine.
-        "gdriveUserEmail",
-        "imgbbUploads",   // uploaded image links + delete URLs
+        // Per-install answer to the "Move to Applications" prompt.
+        "suppressMoveToApplications",
+        // Set at launch by main.swift, not a user choice.
+        "NSViewUsesAutomaticLayerBackingStores",
+        // Options of the retired Loupe / Measure / Highlight tools (no toolbar entry point).
+        "loupeSize", "loupeMagnification", "loupeOutlineEnabled", "loupeOutlineColor",
+        "measureInPoints", "measureClampToSelection",
+        HighlightToolHandler.dimOpacityKey, HighlightToolHandler.dashedBorderKey,
     ]
 
-    /// Prefixes of OS/framework key families macOS injects into every app's domain. Stable —
-    /// Apple doesn't churn these. Anything starting with one of these is not a macshot setting.
-    static let systemPrefixes: [String] = [
-        "NS", "Apple", "com.apple", "kCI", "_",
-        "AK", "ACD", "KB_", "METAL_",
-    ]
-
-    /// Bare system keys that are lowercase/camelCase enough to slip past the shape rule but are
-    /// injected by macOS, not macshot. Kept small; add only when a real export surfaces one.
-    static let systemExactKeys: Set<String> = [
-        "Country", "NavPanelFileListModeForOpenMode", "shouldShowRSVPDataDetectors",
-    ]
-
-    /// Substrings that mark a key as a credential/secret. Case-insensitive. This guard fails
-    /// CLOSED: even a future provider's key is excluded automatically as long as it's named
-    /// like a secret — so the shape rule can never accidentally export a credential.
-    static let secretSubstrings: [String] = [
-        "apikey", "secret", "token", "password", "credential",
-        "bookmark",
-        // All S3 config (keys, bucket, endpoint, region, prefix, public URL) reveals the
-        // user's private storage infrastructure — treat the whole family as sensitive.
-        "s3",
-    ]
-
-    static func looksSecret(_ key: String) -> Bool {
-        let lower = key.lowercased()
-        return secretSubstrings.contains { lower.contains($0) }
-    }
-
-    /// A key "looks like a macshot setting" if it's author-written: starts with a lowercase
-    /// letter and isn't `SCREAMING_CASE`. OS-injected keys are SCREAMING or capitalized.
-    static func looksAppAuthored(_ key: String) -> Bool {
-        guard let first = key.first, first.isLetter, first.isLowercase else { return false }
-        // SCREAMING_SNAKE_CASE (e.g. METAL_ERROR_MODE) — all letters upper + underscores.
-        let letters = key.filter { $0.isLetter }
-        if key.contains("_") && !letters.isEmpty && letters.allSatisfy({ $0.isUppercase }) {
-            return false
-        }
-        return true
-    }
-
-    /// Whether a key is safe to export/import.
+    /// Whether a key is exported and accepted on import.
     static func isPortable(_ key: String) -> Bool {
-        // Machine-specific / migration macshot keys that would otherwise pass the shape rule.
-        if excludedKeys.contains(key) { return false }
-        // Secrets (fails closed).
-        if looksSecret(key) { return false }
-        // OS/framework injected keys.
-        if systemExactKeys.contains(key) { return false }
-        if systemPrefixes.contains(where: { key.hasPrefix($0) }) { return false }
-        // Finally: only export things shaped like a macshot-authored setting.
-        return looksAppAuthored(key)
-    }
-
-    /// Portable keys currently present in defaults. Used by import to clear existing portable
-    /// state ("replace portable" semantics).
-    static func portableKeysPresentInDefaults() -> [String] {
-        UserDefaults.standard.dictionaryRepresentation().keys.filter(isPortable)
+        portableKeys.contains(key)
     }
 
     // MARK: - JSON value coding
     //
     // JSONSerialization handles Bool/Int/Double/String/Array/Dictionary directly. The only
-    // UserDefaults type it can't represent is Data (archived NSColor, custom bg image), which
+    // UserDefaults type it can't represent is Data (archived NSColor, editor shortcuts), which
     // we wrap as a tagged base64 object so import can round-trip it exactly.
 
     private static let dataTag = "__macshotData__"
@@ -180,7 +147,7 @@ enum SettingsPortability {
         var settings: [String: Any] = [:]
         var skipped: [String] = []
 
-        for (key, value) in all where isPortable(key) {
+        for (key, value) in all where portableKeys.contains(key) {
             if let encoded = jsonEncode(value, key: key, skipped: &skipped) {
                 settings[key] = encoded
             }
@@ -220,14 +187,14 @@ enum SettingsPortability {
 
     struct ImportResult {
         let appliedCount: Int
-        /// Keys in the file that were ignored (non-portable / excluded / secret-named).
+        /// Keys in the file that were ignored because they are not in `portableKeys`.
         let skippedKeys: [String]
         let sourceAppVersion: String?
     }
 
     /// Validate and apply an imported settings file using **replace-portable** semantics:
-    /// clear every portable key in defaults, then write the file's portable keys. Local /
-    /// secret / migration keys on this machine are left untouched.
+    /// clear every portable key in defaults, then write the file's portable keys. Every other
+    /// key on this machine is left untouched.
     @discardableResult
     static func importData(_ data: Data) throws -> ImportResult {
         guard let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
@@ -238,9 +205,9 @@ enum SettingsPortability {
         if foundSchema > schemaVersion { throw ImportError.newerSchema(found: foundSchema) }
         guard let settings = obj["settings"] as? [String: Any] else { throw ImportError.missingSettings }
 
-        // Decode everything before mutating defaults, so a bad file can't half-apply. Re-check
-        // isPortable on the way in: a hand-edited/cross-version file can't inject an excluded
-        // or secret key even if it's present in the JSON.
+        // Decode everything before mutating defaults, so a bad file can't half-apply. Only
+        // allowlisted keys are accepted: a hand-edited or cross-version file can't write anything
+        // else into defaults.
         var toWrite: [String: Any] = [:]
         var skipped: [String] = []
         for (key, jsonValue) in settings {
@@ -249,7 +216,7 @@ enum SettingsPortability {
         }
 
         let defaults = UserDefaults.standard
-        for key in portableKeysPresentInDefaults() {
+        for key in portableKeys {
             defaults.removeObject(forKey: key)
         }
         for (key, value) in toWrite {
