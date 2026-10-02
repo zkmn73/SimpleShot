@@ -265,7 +265,7 @@ class OverlayView: NSView {
 
     // Select/move mode
     /// All currently selected annotations (supports multi-select via Shift+Click).
-    private var selectedAnnotations: [Annotation] = [] {
+    var selectedAnnotations: [Annotation] = [] {
         didSet {
             let oldSingle = oldValue.first
             let newSingle = selectedAnnotations.first
@@ -3017,6 +3017,7 @@ class OverlayView: NSView {
         let shiftDy = -targetRect.origin.y
         let offsets = annotations.map { ($0, shiftDx, shiftDy) }
         undoStack.append(.imageTransform(previousImage: prevImage, previousSnappedWindowImage: nil, annotationOffsets: offsets))
+        redoStack.removeAll()
 
         screenshotImage = NSImage(cgImage: newCG, size: NSSize(width: newPtW, height: newPtH))
         cachedOpaqueRect = nil  // invalidate — image content changed
@@ -3556,7 +3557,7 @@ class OverlayView: NSView {
 
     /// Crop the screenshot to `viewRect` (view-space, within selectionRect),
     /// translate all annotations accordingly, and reset zoom.
-    private func commitCrop(viewRect: NSRect) {
+    func commitCrop(viewRect: NSRect) {
         guard let originalImage = screenshotImage,
             let cgOriginal = originalImage.cgImage(forProposedRect: nil, context: nil, hints: nil)
         else { return }
@@ -3587,13 +3588,14 @@ class OverlayView: NSView {
             let croppedCG = cgOriginal.cropping(to: cgPixelRect)
         else { return }
 
-        // Save state for undo before modifying
-        let prevImage = originalImage.copy() as! NSImage
-        undoStack.append(.imageTransform(previousImage: prevImage, previousSnappedWindowImage: nil, annotationOffsets: []))
-        redoStack.removeAll()
-
+        // Every annotation shifts with the new origin; record the shift so undo
+        // can move them back onto the restored image.
         let dx = selectionRect.minX - canvasRect.minX
         let dy = selectionRect.minY - canvasRect.minY
+        let prevImage = originalImage.copy() as! NSImage
+        undoStack.append(.imageTransform(previousImage: prevImage, previousSnappedWindowImage: nil,
+                                         annotationOffsets: annotations.map { ($0, dx, dy) }))
+        redoStack.removeAll()
         for ann in annotations { ann.move(dx: dx, dy: dy) }
 
         // Set NSImage size in points (not pixels) to preserve Retina scale
@@ -7621,24 +7623,27 @@ class OverlayView: NSView {
     private static let annotationPasteboardType = NSPasteboard.PasteboardType("com.zkmn73.simpleshot.annotations")
 
     /// Copy selected annotations to the pasteboard.
-    func copySelectedAnnotations() {
+    func copySelectedAnnotations(to pb: NSPasteboard = .general) {
         let toCopy = selectedAnnotations.isEmpty ? [] : selectedAnnotations
         guard !toCopy.isEmpty else { return }
         guard let data = AnnotationSerializer.encode(toCopy) else { return }
-        let pb = NSPasteboard.general
         pb.clearContents()
         pb.setData(data, forType: Self.annotationPasteboardType)
     }
 
     /// Paste annotations from the pasteboard, offset slightly so they're visible.
-    func pasteAnnotations() {
-        let pb = NSPasteboard.general
+    func pasteAnnotations(from pb: NSPasteboard = .general) {
         guard let data = pb.data(forType: Self.annotationPasteboardType),
               let pasted = AnnotationSerializer.decode(data) else { return }
         selectedAnnotations = []
+        // Like duplicate: one paste undoes as one step, and the copies never
+        // keep the groupID they were copied with (that would batch their undo
+        // with the originals' entries).
+        let groupID = pasted.count > 1 ? UUID() : nil
         var newAnnotations: [Annotation] = []
         for ann in pasted {
             let copy = ann.clone()
+            copy.groupID = groupID
             copy.move(dx: 15, dy: -15)
             annotations.append(copy)
             undoStack.append(.added(copy))
@@ -7754,14 +7759,17 @@ class OverlayView: NSView {
             ann.copyProperties(from: snapshot)
             redoStack.append(.propertyChange(annotation: ann, snapshot: currentSnapshot))
             cachedCompositedImage = nil
-        case .imageTransform(let previousImage, let previousSnapped, _):
-            // Undo crop/flip — swap the current image with the saved one
+        case .imageTransform(let previousImage, let previousSnapped, let offsets):
+            // Undo crop/flip/canvas resize — swap the current image with the saved
+            // one, and move the annotations the transform shifted back with it.
             let currentImage = screenshotImage?.copy() as? NSImage ?? previousImage
             let currentSnapped = previousSnapped != nil ? snappedWindowImage : nil
             redoStack.append(.imageTransform(previousImage: currentImage,
                                              previousSnappedWindowImage: currentSnapped,
-                                             annotationOffsets: []))
+                                             annotationOffsets: offsets))
+            for (ann, dx, dy) in offsets { ann.move(dx: -dx, dy: -dy) }
             screenshotImage = previousImage
+            cachedOpaqueRect = nil
             if previousSnapped != nil { snappedWindowImage = previousSnapped }
             // Update selectionRect to match restored image size
             if isEditorMode {
@@ -7815,14 +7823,16 @@ class OverlayView: NSView {
             ann.copyProperties(from: snapshot)
             undoStack.append(.propertyChange(annotation: ann, snapshot: currentSnapshot))
             cachedCompositedImage = nil
-        case .imageTransform(let redoImage, let redoSnapped, _):
-            // Redo crop/flip — swap back
+        case .imageTransform(let redoImage, let redoSnapped, let offsets):
+            // Redo crop/flip/canvas resize — swap back and re-apply the shift
             let currentImage = screenshotImage?.copy() as? NSImage ?? redoImage
             let currentSnapped = redoSnapped != nil ? snappedWindowImage : nil
             undoStack.append(.imageTransform(previousImage: currentImage,
                                              previousSnappedWindowImage: currentSnapped,
-                                             annotationOffsets: []))
+                                             annotationOffsets: offsets))
+            for (ann, dx, dy) in offsets { ann.move(dx: dx, dy: dy) }
             screenshotImage = redoImage
+            cachedOpaqueRect = nil
             if redoSnapped != nil { snappedWindowImage = redoSnapped }
             if isEditorMode {
                 selectionRect = NSRect(origin: .zero, size: redoImage.size)

@@ -117,6 +117,55 @@ final class EditorCanvasTests: XCTestCase {
         XCTAssertEqual(editor.annotations.count, 1)
     }
 
+    // MARK: - Image transforms keep annotations on the image
+
+    func testUndoingACropPutsAnnotationsBackOnTheImage() {
+        let editor = makeEditor(width: 300, height: 200)
+        let ann = Annotation(tool: .rectangle, startPoint: NSPoint(x: 100, y: 100),
+                             endPoint: NSPoint(x: 150, y: 150), color: .red, strokeWidth: 3)
+        editor.annotations = [ann]
+
+        editor.commitCrop(viewRect: NSRect(x: 50, y: 40, width: 100, height: 80))
+        XCTAssertEqual(editor.selectionRect.size, NSSize(width: 100, height: 80))
+        XCTAssertEqual(ann.startPoint, NSPoint(x: 50, y: 60), "the crop moves annotations with the new origin")
+
+        editor.undo()
+        XCTAssertEqual(editor.selectionRect.size, NSSize(width: 300, height: 200))
+        XCTAssertEqual(ann.startPoint, NSPoint(x: 100, y: 100), "undo must put the annotation back on the restored image")
+        XCTAssertEqual(ann.endPoint, NSPoint(x: 150, y: 150))
+
+        editor.redo()
+        XCTAssertEqual(editor.selectionRect.size, NSSize(width: 100, height: 80))
+        XCTAssertEqual(ann.startPoint, NSPoint(x: 50, y: 60), "redo re-applies the shift")
+    }
+
+    func testUndoingAddCapturePutsAnnotationsBackOnTheImage() {
+        let editor = makeEditor(width: 300, height: 200)
+        let ann = Annotation(tool: .arrow, startPoint: NSPoint(x: 10, y: 10),
+                             endPoint: NSPoint(x: 60, y: 60), color: .red, strokeWidth: 3)
+        editor.annotations = [ann]
+        editor.undoStack = [.added(ann)]
+
+        // The capture is placed below the canvas, which then grows and shifts
+        // everything up to keep the origin at (0, 0).
+        editor.addCaptureImage(ImageProbe.solidImage(width: 120, height: 50))
+        let shifted = ann.startPoint
+        XCTAssertNotEqual(shifted, NSPoint(x: 10, y: 10), "the canvas grew, so existing annotations moved")
+        XCTAssertEqual(editor.annotations.count, 2)
+
+        editor.undo()  // the canvas resize
+        XCTAssertEqual(editor.selectionRect.size, NSSize(width: 300, height: 200))
+        XCTAssertEqual(ann.startPoint, NSPoint(x: 10, y: 10), "undo must put the annotation back on the restored image")
+        editor.undo()  // the added capture
+        XCTAssertEqual(editor.annotations.count, 1)
+        XCTAssertEqual(ann.startPoint, NSPoint(x: 10, y: 10))
+
+        editor.redo()
+        editor.redo()
+        XCTAssertEqual(editor.annotations.count, 2)
+        XCTAssertEqual(ann.startPoint, shifted, "redo restores the grown canvas layout")
+    }
+
     func testEveryToolRendersInTheEditorToo() throws {
         let editor = makeEditor(width: 200, height: 150)
         for tool in AnnotationTool.allCases {

@@ -230,6 +230,48 @@ final class OverlayCanvasTests: XCTestCase {
         XCTAssertEqual(view.annotations.count, 4, "and come back at once")
     }
 
+    func testPastedAnnotationsUndoTogetherAndNeverWithTheirOriginals() {
+        let view = makeOverlay()
+        let pasteboard = NSPasteboard(name: NSPasteboard.Name("simpleshot.tests.\(UUID().uuidString)"))
+        defer { pasteboard.releaseGlobally() }
+
+        // Two annotations that are themselves the result of a multi-duplicate.
+        let group = UUID()
+        let originals = [annotation(.rectangle), annotation(.arrow)]
+        for ann in originals { ann.groupID = group }
+        view.annotations = originals
+        view.undoStack = originals.map { .added($0) }
+
+        view.selectedAnnotations = originals
+        view.copySelectedAnnotations(to: pasteboard)
+        view.pasteAnnotations(from: pasteboard)
+        XCTAssertEqual(view.annotations.count, 4)
+
+        view.undo()
+        XCTAssertEqual(view.annotations.count, 2, "one undo removes the whole paste, and only the paste")
+        XCTAssertTrue(view.annotations.allSatisfy { ann in originals.contains { $0 === ann } })
+    }
+
+    func testASinglePastedAnnotationIsNotGrouped() {
+        let view = makeOverlay()
+        let pasteboard = NSPasteboard(name: NSPasteboard.Name("simpleshot.tests.\(UUID().uuidString)"))
+        defer { pasteboard.releaseGlobally() }
+
+        let original = annotation(.rectangle)
+        original.groupID = UUID()
+        view.annotations = [original]
+        view.undoStack = [.added(original)]
+
+        view.selectedAnnotations = [original]
+        view.copySelectedAnnotations(to: pasteboard)
+        view.pasteAnnotations(from: pasteboard)
+        XCTAssertNil(view.annotations.last?.groupID)
+
+        view.undo()
+        XCTAssertEqual(view.annotations.count, 1)
+        XCTAssertTrue(view.annotations.first === original)
+    }
+
     func testAnUngroupedAnnotationIsNotSweptUpByABatchUndo() {
         let view = makeOverlay()
         let manual = annotation(.arrow)
