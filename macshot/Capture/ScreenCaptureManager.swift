@@ -234,33 +234,6 @@ class ScreenCaptureManager {
         }
     }
 
-    static func makeDisplayPreviewImage(from image: CGImage, maxPixelDimension: Int = 1400) -> CGImage {
-        let maxDimension = max(image.width, image.height)
-        guard maxDimension > maxPixelDimension else { return image }
-
-        let scale = CGFloat(maxPixelDimension) / CGFloat(maxDimension)
-        let width = max(1, Int(CGFloat(image.width) * scale))
-        let height = max(1, Int(CGFloat(image.height) * scale))
-        let colorSpace = image.colorSpace ?? CGColorSpace(name: CGColorSpace.sRGB)!
-        let bitmapInfo = CGImageAlphaInfo.premultipliedLast.rawValue
-
-        guard let context = CGContext(
-            data: nil,
-            width: width,
-            height: height,
-            bitsPerComponent: 8,
-            bytesPerRow: width * 4,
-            space: colorSpace,
-            bitmapInfo: bitmapInfo
-        ) else {
-            return image
-        }
-
-        context.interpolationQuality = .medium
-        context.draw(image, in: CGRect(x: 0, y: 0, width: width, height: height))
-        return context.makeImage() ?? image
-    }
-
     static func captureAllScreens(
         excludingWindowNumbers: [CGWindowID] = [],
         completion: @escaping ([ScreenCapture]) -> Void

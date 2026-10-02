@@ -40,21 +40,6 @@ enum KeyboardShortcutMatcher {
         return directCharacter(for: event)
     }
 
-    /// Candidate characters for modifier-free tool shortcuts. The native
-    /// character wins; the ASCII fallback lets Latin defaults keep working
-    /// while a Cyrillic, Arabic, or other non-Latin input source is active.
-    static func toolCharacters(for event: NSEvent) -> [String] {
-        var result: [String] = []
-        if let direct = directCharacter(for: event) { result.append(direct) }
-        if !result.contains(where: { isSingleASCIICharacter($0) }),
-           let fallback = character(for: UInt32(event.keyCode), usingASCIICapableLayout: true),
-           let normalized = normalize(fallback),
-           !result.contains(normalized) {
-            result.append(normalized)
-        }
-        return result
-    }
-
     static func currentLayoutCharacter(for keyCode: UInt32) -> String? {
         character(for: keyCode, usingASCIICapableLayout: false)
     }

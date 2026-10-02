@@ -182,19 +182,17 @@ enum ImageSaveService {
     static func writePreparedImage(_ prepared: ImageEncoder.PreparedImage, to url: URL,
                                    chooseAvailableName: Bool, lease: SaveDirectoryLease? = nil,
                                    completion: Completion?) {
-        MediaExportCoordinator.shared.start(title: url.lastPathComponent, status: L("Saving..."), operation: { cancellation, _ in
+        MediaExportCoordinator.shared.start(operation: {
             try await MediaExportIO.perform {
                 defer { withExtendedLifetime(lease) {} }
                 try autoreleasepool {
-                    try cancellation.check()
                     guard let data = prepared.encode() else { throw CocoaError(.fileWriteUnknown) }
                     if chooseAvailableName {
-                        try writeWithoutOverwriting(data, in: url.deletingLastPathComponent(), filename: url.lastPathComponent,
-                                                    beforePublish: cancellation.beginPublication)
+                        try writeWithoutOverwriting(data, in: url.deletingLastPathComponent(), filename: url.lastPathComponent)
                     } else {
                         let transaction = try AtomicMediaSave(destinationURL: url)
                         try data.write(to: transaction.stagingURL)
-                        try transaction.commit(beforePublish: cancellation.beginPublication)
+                        try transaction.commit()
                     }
                 }
             }
@@ -267,9 +265,7 @@ enum ImageSaveService {
     /// free path and race, silently replacing one capture.
     nonisolated private static func writeWithoutOverwriting(_ data: Data,
                                                 in dirURL: URL,
-                                                filename: String,
-                                                beforePublish: () throws -> Void) throws {
-        try beforePublish()
+                                                filename: String) throws {
         let base = (filename as NSString).deletingPathExtension
         let ext = (filename as NSString).pathExtension
         var candidate = dirURL.appendingPathComponent(filename)

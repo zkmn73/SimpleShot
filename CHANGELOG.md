@@ -12,7 +12,7 @@ SimpleShot is a slimmed-down fork of [macshot](https://github.com/sw33tLie/macsh
 
 - **The `simpleshot://` URL scheme is now off by default** — any app on your Mac can open these URLs, and `capture-fullscreen-quick` captures and copies/saves the full screen without asking, so another app could use it to get a screenshot without its own Screen Recording permission. If you call SimpleShot from Raycast, Alfred, Shortcuts or a script, turn it back on in Settings > General. A setting you already saved yourself is kept.
 - **Settings import/export only touches SimpleShot's own settings** — both directions now use a fixed list of known settings instead of guessing from key names. Importing a file never writes anything else (leftover keys from older builds or upstream macshot, or anything added by hand). Your save folder still stays on this Mac.
-- **Simpler internals, no behavior change** — the creation code for the retired Highlight, Loupe and Measure tools was deleted (existing annotations of those types still display and can be moved, resized and deleted), along with an unused entry in `Info.plist` and leftover references to the removed screenshot history.
+- **Simpler internals, no behavior change** — the creation code for the retired Highlight, Loupe and Measure tools was deleted (existing annotations of those types still display and can be moved, resized and deleted), along with an unused entry in `Info.plist`, leftover references to the removed screenshot history, and unused code left over from screen recording and single-key tool shortcuts (save cancellation and progress, file copying, temporary-file leases).
 
 ### Fixed
 
