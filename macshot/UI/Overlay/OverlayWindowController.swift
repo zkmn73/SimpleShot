@@ -617,16 +617,15 @@ extension OverlayWindowController: OverlayViewDelegate {
 
         dismiss()
 
-        // quickCaptureMode: 0=save, 1=copy, 2=both, 3=do nothing
-        let mode = UserDefaults.standard.object(forKey: "quickCaptureMode") as? Int ?? 1
+        let mode = QuickCaptureMode.current
 
-        if mode == 1 || mode == 2 {
+        if mode.copies {
             ImageEncoder.copyToClipboard(image)
         }
 
         overlayDelegate?.overlayDidConfirm(self, capturedImage: image, annotationData: annotationData)
 
-        if mode == 0 || mode == 2 {
+        if mode.saves {
             ImageSaveService.saveToConfiguredFolder(image, windowTitle: capturedWindowTitle)
         }
     }

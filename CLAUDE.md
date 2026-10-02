@@ -63,7 +63,7 @@ macshot/
 │   └── ScrollFrameAnalyzer.swift       # Pure pixel comparison: frozen header + scrollbar detection
 │
 ├── Services/
-│   ├── ImageEncoder.swift              # PNG/JPEG/HEIC/WebP encoding, clipboard copy, Retina downscale
+│   ├── ImageEncoder.swift              # PNG/JPEG/HEIC/WebP/AVIF encoding, clipboard copy, Retina downscale
 │   ├── ImageSaveService.swift          # Save-to-folder / save panel flows, failure reporting
 │   ├── SaveDirectoryAccess.swift       # Default ~/Downloads + security-scoped bookmark for a chosen folder
 │   ├── FilenameFormatter.swift         # Filename templates ({date}, {window}, {random}, …)
@@ -213,7 +213,7 @@ Only remembered choices are stored, and nothing is written as a side effect of t
 
 **Every new key must be classified** in `SettingsPortability`: `portableKeys` (exported and accepted on import) or `localOnlyKeys` (machine-specific). Export and import touch only `portableKeys`. `SettingsPortabilityTests` scans the sources and fails on an unclassified literal key.
 
-- **Output:** `imageFormat` (png/jpeg/heic/webp), `imageQuality`, `downscaleRetina`, `saveDirectory` + `saveDirectoryBookmark` (only after the user picks a folder; default is `~/Downloads`), `filenameTemplate`, `saveAction`, `quickCaptureMode`, `quickCaptureOpenEditor`, `closeEditorAfterCopy`
+- **Output:** `imageFormat` (png/jpeg/heic/webp/avif; AVIF only where the OS can encode it), `imageQuality`, `downscaleRetina`, `saveDirectory` + `saveDirectoryBookmark` (only after the user picks a folder; default is `~/Downloads`), `filenameTemplate`, `saveAction`, `quickCaptureMode`, `quickCaptureOpenEditor`, `closeEditorAfterCopy`
 - **Capture:** `captureDelaySeconds`, `captureSnapMode`, `hideCaptureInstructions`, `scrollAutoScrollEnabled`, `scrollAutoScrollSpeed`, `scrollFrozenDetection`, `scrollMaxHeight`, resolution preset keys (`keepAspectRatio*`, `resolutionUnitIsPoints`, preselection preset keys)
 - **Hotkeys:** per slot key code, modifiers and disabled flag (`HotkeyManager.HotkeySlot`); editor undo/redo chords
 - **Annotation styles:** `currentStrokeWidth`, `numberStrokeWidth`, `markerStrokeWidth`, `loupeSize`, `lastUsedColor`, `lastUsedColorOpacity`, `customColors`, line/arrow/rect styles, text formatting, `numberFormat`, `censorMode`, pencil smoothing, highlight dim/dashed keys, outline colors

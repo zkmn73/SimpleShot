@@ -1071,8 +1071,7 @@ class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSWindowD
         filenameTemplateField.stringValue = UserDefaults.standard.string(forKey: FilenameFormatter.userDefaultsKey) ?? FilenameFormatter.defaultTemplate
         updateFilenamePreview()
 
-        let quickMode = UserDefaults.standard.object(forKey: "quickCaptureMode") as? Int ?? 1
-        quickModePopup.selectItem(at: quickMode)
+        quickModePopup.selectItem(at: QuickCaptureMode.current.rawValue)
         quickCaptureOpenEditorCheckbox.state = UserDefaults.standard.bool(forKey: "quickCaptureOpenEditor") ? .on : .off
         closeEditorAfterCopyCheckbox.state = UserDefaults.standard.bool(forKey: "closeEditorAfterCopy") ? .on : .off
 
@@ -1147,7 +1146,7 @@ class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSWindowD
         SaveActionPreference.current = action
     }
     @objc private func quickModeChanged(_ sender: NSPopUpButton) {
-        UserDefaults.standard.set(sender.indexOfSelectedItem, forKey: "quickCaptureMode")
+        UserDefaults.standard.set(sender.indexOfSelectedItem, forKey: QuickCaptureMode.userDefaultsKey)
     }
     @objc private func quickCaptureOpenEditorChanged(_ sender: NSButton) {
         UserDefaults.standard.set(sender.state == .on, forKey: "quickCaptureOpenEditor")

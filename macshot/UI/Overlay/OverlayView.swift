@@ -415,7 +415,8 @@ class OverlayView: NSView {
     // Stroke width picker popover
 
     var pencilSmoothMode: Int = {
-        UserDefaults.standard.object(forKey: "pencilSmoothMode") as? Int ?? 1
+        // 0=None, 1=Smooth, 2=Extra; keep the segmented control's index valid.
+        min(max(UserDefaults.standard.object(forKey: "pencilSmoothMode") as? Int ?? 1, 0), 2)
     }()
     var pencilPressureEnabled: Bool =
         UserDefaults.standard.object(forKey: "pencilPressureEnabled") as? Bool ?? false
