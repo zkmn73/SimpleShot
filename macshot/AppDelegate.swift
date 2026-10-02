@@ -1142,33 +1142,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
 
-    func runOCR(on image: NSImage) {
-        guard let cgImage = image.cgImage(forProposedRect: nil, context: nil, hints: nil) else { return }
-
-        DispatchQueue.global(qos: .userInitiated).async {
-            VisionOCR.performTextAndQRCodeRecognition(cgImage: cgImage) { [weak self] result in
-                DispatchQueue.main.async {
-                    guard let self else { return }
-                    if !result.copyText.isEmpty {
-                        NSPasteboard.general.clearContents()
-                        NSPasteboard.general.setString(result.copyText, forType: .string)
-                    }
-
-                    self.ocrController?.close()
-                    let ocr = OCRResultController(text: result.text, image: image, qrCodes: result.qrCodes)
-                    // Drop our reference when the window closes (incl. red-X),
-                    // but only if it's still this controller (a newer OCR run
-                    // may have replaced it).
-                    ocr.onClose = { [weak self, weak ocr] in
-                        if self?.ocrController === ocr { self?.ocrController = nil }
-                    }
-                    self.ocrController = ocr
-                    ocr.show()
-                }
-            }
-        }
-    }
-
     private func saveImageToConfiguredFolder(_ image: NSImage) {
         ImageSaveService.saveToConfiguredFolder(image, panelLevel: .floating, activateApp: true)
     }

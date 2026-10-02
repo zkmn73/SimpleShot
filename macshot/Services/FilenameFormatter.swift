@@ -79,13 +79,6 @@ enum FilenameFormatter {
         return s
     }
 
-    /// Convenience: current user screenshot template + extension.
-    static func defaultImageFilename(windowTitle: String? = nil, index: Int? = nil, fileExtension: String = ImageEncoder.fileExtension) -> String {
-        let template = UserDefaults.standard.string(forKey: userDefaultsKey) ?? defaultTemplate
-        let base = format(template: template, windowTitle: windowTitle, index: index)
-        return "\(base).\(fileExtension)"
-    }
-
     private static func dateFormatter(_ format: String) -> DateFormatter {
         let f = DateFormatter()
         f.locale = Locale(identifier: "en_US_POSIX")

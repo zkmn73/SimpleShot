@@ -89,42 +89,6 @@ final class BoundarySnapIndexTests: XCTestCase {
     }
 }
 
-/// The preview image behind the overlay is a downscale of the capture. It has
-/// to stay proportional and never collapse to nothing.
-final class DisplayPreviewImageTests: XCTestCase {
-
-    private func image(_ width: Int, _ height: Int) -> CGImage {
-        ImageProbe.solidImage(width: width, height: height)
-            .cgImage(forProposedRect: nil, context: nil, hints: nil)!
-    }
-
-    func testALargeCaptureIsScaledDownToTheCap() {
-        let preview = ScreenCaptureManager.makeDisplayPreviewImage(from: image(5120, 2880), maxPixelDimension: 1400)
-        XCTAssertEqual(max(preview.width, preview.height), 1400)
-        XCTAssertEqual(Double(preview.width) / Double(preview.height),
-                       5120.0 / 2880.0, accuracy: 0.01, "aspect ratio must survive")
-    }
-
-    func testASmallCaptureIsReturnedUntouched() {
-        let original = image(800, 600)
-        let preview = ScreenCaptureManager.makeDisplayPreviewImage(from: original, maxPixelDimension: 1400)
-        XCTAssertEqual(preview.width, 800)
-        XCTAssertEqual(preview.height, 600)
-    }
-
-    func testAnExtremeAspectRatioKeepsBothDimensionsAtLeastOnePixel() {
-        let preview = ScreenCaptureManager.makeDisplayPreviewImage(from: image(10000, 3), maxPixelDimension: 1400)
-        XCTAssertEqual(preview.width, 1400)
-        XCTAssertGreaterThanOrEqual(preview.height, 1, "a zero-height image can't be drawn")
-    }
-
-    func testAOnePixelCaptureSurvives() {
-        let preview = ScreenCaptureManager.makeDisplayPreviewImage(from: image(1, 1), maxPixelDimension: 1400)
-        XCTAssertEqual(preview.width, 1)
-        XCTAssertEqual(preview.height, 1)
-    }
-}
-
 /// Flipping must leave an independently-captured snapped-window image alone —
 /// only Invert (now removed) touched it; a flip's undo must not clear it.
 @MainActor

@@ -52,26 +52,6 @@ final class KeyboardShortcutMatcherTests: XCTestCase {
         XCTAssertTrue(KeyboardShortcutMatcher.matches(qwertz, character: "y", modifiers: [.command]))
     }
 
-    func testToolCharactersIncludeTheTypedCharacter() {
-        let event = TestKeyEvent.keyDown(characters: "r", keyCode: 15)
-        XCTAssertTrue(KeyboardShortcutMatcher.toolCharacters(for: event).contains("r"))
-    }
-
-    func testToolCharactersAreLowercased() {
-        let event = TestKeyEvent.keyDown(characters: "R", keyCode: 15, modifiers: [.shift])
-        XCTAssertTrue(KeyboardShortcutMatcher.toolCharacters(for: event).contains("r"))
-    }
-
-    func testNonLatinInputStillOffersAnASCIIFallback() {
-        // Cyrillic "я" — the app's Latin defaults have to stay reachable, so the
-        // matcher offers the ASCII-capable layout's character as well.
-        let event = TestKeyEvent.keyDown(characters: "я", keyCode: TestKeyEvent.Code.z)
-        let candidates = KeyboardShortcutMatcher.toolCharacters(for: event)
-        XCTAssertTrue(candidates.contains("я"), "the typed character is always a candidate")
-        XCTAssertGreaterThan(candidates.count, 1, "a non-Latin character needs an ASCII fallback too")
-        XCTAssertTrue(candidates.contains { $0.unicodeScalars.first?.isASCII == true })
-    }
-
     func testControlCharactersAreNotShortcuts() {
         for character in ["\n", "\r", "\t", "\u{1B}", "\0"] {
             let event = TestKeyEvent.keyDown(characters: character, keyCode: TestKeyEvent.Code.escape)

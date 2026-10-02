@@ -181,21 +181,6 @@ final class FilenameFormatterTests: XCTestCase {
         XCTAssertEqual(name, "Untitled", "there must always be some name to save under")
     }
 
-    // MARK: - Defaults-driven convenience
-
-    func testDefaultImageFilenameUsesTheSavedTemplateAndExtension() {
-        withDefaults([FilenameFormatter.userDefaultsKey: "capture-{index}", "imageFormat": "jpeg"]) {
-            XCTAssertEqual(FilenameFormatter.defaultImageFilename(index: 7), "capture-7.jpg")
-        }
-    }
-
-    func testDefaultImageFilenameWithoutASavedTemplate() {
-        withDefaults([FilenameFormatter.userDefaultsKey: nil, "imageFormat": "png"]) {
-            XCTAssertTrue(FilenameFormatter.defaultImageFilename().hasPrefix("Screenshot "))
-            XCTAssertTrue(FilenameFormatter.defaultImageFilename().hasSuffix(".png"))
-        }
-    }
-
     // MARK: - Determinism
 
     func testTheSameInputsRenderTheSameName() {

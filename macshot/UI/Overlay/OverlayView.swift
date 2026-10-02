@@ -2526,14 +2526,6 @@ class OverlayView: NSView {
         persistedAspect = lockedAspect ?? 0
     }
 
-    /// Apply the persisted aspect ratio to a freshly started selection, if the
-    /// "keep ratio for next captures" toggle is on. Call when a new capture
-    /// overlay/selection begins.
-    func applyPersistedRatioIfNeeded() {
-        guard keepRatioForNextCaptures, persistedAspect > 0 else { return }
-        lockedAspect = persistedAspect
-    }
-
     /// Current selection size in device pixels (rounded, not truncated).
     var selectionPixelSize: (w: Int, h: Int) {
         let scale = window?.backingScaleFactor ?? 2.0
