@@ -2,11 +2,12 @@
 
 SimpleShot is a slimmed-down fork of [macshot](https://github.com/sw33tLie/macshot). The upstream history up to 4.3.0-beta.1 is in the [macshot changelog](https://github.com/sw33tLie/macshot/blob/main/CHANGELOG.md).
 
-## [1.5.x] - 2026-09-26
+## [1.5.x] - 2026-10-02
 
 ### Removed
 
 - **Censor auto-redact** — the All Text, PII (and its type picker), Faces and People buttons and the "Text Only" draw mode are gone from the Censor tool. Censor is now drawn by hand only, with the same four modes: pixelate, blur, solid fill and smart erase.
+
 ### Changed
 
 - **Settings import/export only touches SimpleShot's own settings** — both directions now use a fixed list of known settings instead of guessing from key names. Importing a file never writes anything else (leftover keys from older builds or upstream macshot, or anything added by hand). Your save folder still stays on this Mac.

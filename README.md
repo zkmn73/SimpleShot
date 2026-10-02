@@ -50,7 +50,7 @@ Upgrade with `brew upgrade --cask simpleshot`, remove with `brew uninstall --cas
 
 **Capture**
 - Region, full-screen and quick capture from global hotkeys or the menu bar
-- Window snap: hover a window and click to capture it exactly (`Tab` toggles snap, `F` selects the full screen)
+- Window snap: hover a window and click to capture it exactly (`Tab` cycles window snap, off and interface-element snap; `F` selects the full screen)
 - Boundary snap to strong edges while dragging (hold `Option` to bypass)
 - Exact pixel size and aspect-ratio presets, editable while selecting
 - Multi-monitor capture, optional capture delay (3/5/10/30 s); the mouse cursor is never captured
@@ -97,7 +97,7 @@ Upgrade with `brew upgrade --cask simpleshot`, remove with `brew uninstall --cas
 | `Cmd+Z` / `Cmd+Shift+Z`     | Undo / redo                                    |
 | `Esc`                       | Cancel or close a popover                      |
 | `Delete`                    | Remove the selected annotation                 |
-| `Tab`                       | Toggle window snap                             |
+| `Tab`                       | Cycle snap: window → off → interface element   |
 | `F`                         | Select the full screen (in snap mode)          |
 | `Shift` (while drawing)     | Constrain to straight lines and perfect shapes |
 | `Space` (while drawing)     | Reposition the shape without resizing          |
@@ -121,7 +121,7 @@ Enable it in Settings > General.
 | `simpleshot://settings`                  | Open Settings                                     |
 | `simpleshot://open?file=/path.png`       | Open an image in the editor                       |
 
-`capture`, `capture-fullscreen` and `quick-capture` all still need a human: the first two wait for you to drag or click a selection, and the other two (in different ways) still wait for a confirm. Only `capture-fullscreen-quick` completes on its own — it captures the full screen and copies and/or saves it per your "Enter / Quick Capture" setting, with no drag and no confirm click. That makes it the only command here safe to call from a script or another program without a person watching.
+Every capture command except `capture-fullscreen-quick` still needs a person to select a region and/or confirm. `capture-fullscreen-quick` completes on its own: it captures the full screen and copies and/or saves it per your "Enter / Quick Capture" setting, so it is the only one safe to call from a script or another program with nobody watching.
 
 </details>
 
