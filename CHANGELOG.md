@@ -2,7 +2,7 @@
 
 SimpleShot is a slimmed-down fork of [macshot](https://github.com/sw33tLie/macshot). The upstream history up to 4.3.0-beta.1 is in the [macshot changelog](https://github.com/sw33tLie/macshot/blob/main/CHANGELOG.md).
 
-## [1.5.x] - 2026-10-02
+## [1.5.2] - 2026-10-02
 
 ### Removed
 
