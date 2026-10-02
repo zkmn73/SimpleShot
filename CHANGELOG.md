@@ -10,6 +10,8 @@ SimpleShot is a slimmed-down fork of [macshot](https://github.com/sw33tLie/macsh
 - **Failures you couldn't see now show a message** — opening an image that can't be read, and a copy to the clipboard that fails, used to do nothing at all.
 - **Undoing a crop or Add Capture no longer misplaces annotations** — both operations shift every annotation to follow the image, but undo restored the image without moving the annotations back, leaving them offset from what they were drawn on.
 - **Undoing a paste removes only what was pasted** — pasted annotations kept the batch-undo group of the ones they were copied from, so one undo could also remove the originals; pasting several annotations now undoes as one step, like duplicating.
+- **Recording a shortcut in Settings works even for a chord that's already in use** — global hotkeys stayed active while recording, so pressing a chord SimpleShot already had (to move it to another action, or to re-record it) started a capture instead of being recorded. They are now paused while recording.
+- **Two SimpleShot actions can no longer share a hotkey** — the second one showed the shortcut but never fired. Assigning a chord that another SimpleShot action already has now moves it, and the other action is cleared. (Conflicts with other apps' shortcuts are not detected.)
 
 ## [1.5.2] - 2026-10-02
 

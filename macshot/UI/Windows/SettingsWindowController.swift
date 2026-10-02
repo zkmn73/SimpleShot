@@ -809,6 +809,7 @@ class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSWindowD
         stopShortcutRecording()
         stopCommandShortcutRecording()
 
+        HotkeyManager.shared.suspend()
         recordingSlot = slot
         sender.title = L("Press keys...")
         hotkeyFields[slot]?.stringValue = L("Waiting...")
@@ -827,7 +828,10 @@ class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSWindowD
             if modifiers.contains(.control) { carbonMods |= UInt32(controlKey) }
             let keyCode = UInt32(event.keyCode)
             if carbonMods == 0 && !HotkeyManager.isFunctionKey(keyCode) { return nil }
-            HotkeyManager.saveHotkey(for: slot, keyCode: keyCode, modifiers: carbonMods)
+            let displaced = HotkeyManager.assignHotkey(for: slot, keyCode: keyCode, modifiers: carbonMods)
+            for other in displaced {
+                self.hotkeyFields[other]?.stringValue = HotkeyManager.displayString(for: other)
+            }
             self.hotkeyFields[slot]?.stringValue = HotkeyManager.displayString(for: slot)
             self.stopShortcutRecording()
             self.onHotkeyChanged?()
@@ -844,12 +848,12 @@ class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSWindowD
     }
 
     private func stopShortcutRecording() {
-        if let slot = recordingSlot {
-            hotkeyButtons[slot]?.title = L("Set")
-            hotkeyFields[slot]?.stringValue = HotkeyManager.displayString(for: slot)
-        }
+        guard let slot = recordingSlot else { return }
+        hotkeyButtons[slot]?.title = L("Set")
+        hotkeyFields[slot]?.stringValue = HotkeyManager.displayString(for: slot)
         recordingSlot = nil
         if let m = localMonitor { NSEvent.removeMonitor(m); localMonitor = nil }
+        HotkeyManager.shared.resume()
     }
 
     // MARK: - Editor Command Shortcuts
@@ -865,6 +869,8 @@ class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSWindowD
 
         stopShortcutRecording()
         stopCommandShortcutRecording()
+        // A global hotkey on the same chord would swallow the key press.
+        HotkeyManager.shared.suspend()
         recordingCommandAction = action
         sender.title = L("Press keys...")
         commandShortcutFields[action]?.stringValue = L("Waiting...")
@@ -914,12 +920,12 @@ class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSWindowD
     }
 
     private func stopCommandShortcutRecording() {
-        if let action = recordingCommandAction {
-            commandShortcutFields[action]?.stringValue = EditorCommandShortcutManager.displayString(for: action)
-            commandShortcutButtons[action]?.title = L("Set")
-        }
+        guard let action = recordingCommandAction else { return }
+        commandShortcutFields[action]?.stringValue = EditorCommandShortcutManager.displayString(for: action)
+        commandShortcutButtons[action]?.title = L("Set")
         recordingCommandAction = nil
         if let monitor = localMonitor { NSEvent.removeMonitor(monitor); localMonitor = nil }
+        HotkeyManager.shared.resume()
     }
 
     // MARK: - About Tab

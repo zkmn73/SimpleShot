@@ -229,6 +229,44 @@ final class HotkeyManagerTests: XCTestCase {
         }
     }
 
+    func testAssigningAChordTakesItAwayFromTheSlotThatHadIt() {
+        let first = HotkeyManager.HotkeySlot.captureArea
+        let second = HotkeyManager.HotkeySlot.captureFullScreen
+        let chord: (UInt32, UInt32) = (12, UInt32(cmdKey | shiftKey))
+        let keys = [first, second].flatMap { [$0.keyCodeKey, $0.modifiersKey, $0.disabledKey] }
+        withDefaults(Dictionary(uniqueKeysWithValues: keys.map { ($0, nil as Any?) })) {
+            HotkeyManager.assignHotkey(for: first, keyCode: chord.0, modifiers: chord.1)
+            let displaced = HotkeyManager.assignHotkey(for: second, keyCode: chord.0, modifiers: chord.1)
+
+            XCTAssertEqual(displaced, [first], "two slots can't share a chord")
+            XCTAssertEqual(HotkeyManager.readHotkey(for: first).keyCode, 0, "the old slot is cleared")
+            XCTAssertEqual(HotkeyManager.readHotkey(for: second).keyCode, chord.0)
+            XCTAssertEqual(HotkeyManager.readHotkey(for: second).modifiers, chord.1)
+        }
+    }
+
+    func testReassigningAChordToTheSameSlotDisplacesNothing() {
+        let slot = HotkeyManager.HotkeySlot.quickCapture
+        withDefaults([slot.keyCodeKey: nil, slot.modifiersKey: nil, slot.disabledKey: nil]) {
+            HotkeyManager.assignHotkey(for: slot, keyCode: 7, modifiers: UInt32(cmdKey | optionKey))
+            let displaced = HotkeyManager.assignHotkey(for: slot, keyCode: 7, modifiers: UInt32(cmdKey | optionKey))
+            XCTAssertEqual(displaced, [])
+            XCTAssertEqual(HotkeyManager.readHotkey(for: slot).keyCode, 7)
+        }
+    }
+
+    func testADifferentModifierIsADifferentChord() {
+        let first = HotkeyManager.HotkeySlot.captureOCR
+        let second = HotkeyManager.HotkeySlot.scrollCapture
+        let keys = [first, second].flatMap { [$0.keyCodeKey, $0.modifiersKey, $0.disabledKey] }
+        withDefaults(Dictionary(uniqueKeysWithValues: keys.map { ($0, nil as Any?) })) {
+            HotkeyManager.assignHotkey(for: first, keyCode: 12, modifiers: UInt32(cmdKey | shiftKey))
+            let displaced = HotkeyManager.assignHotkey(for: second, keyCode: 12, modifiers: UInt32(cmdKey | optionKey))
+            XCTAssertEqual(displaced, [])
+            XCTAssertEqual(HotkeyManager.readHotkey(for: first).keyCode, 12, "a distinct chord leaves the other slot alone")
+        }
+    }
+
     func testDisablingAHotkeyReportsNoBinding() {
         let slot = HotkeyManager.HotkeySlot.captureFullScreen
         withDefaults([slot.keyCodeKey: nil, slot.modifiersKey: nil, slot.disabledKey: nil]) {
