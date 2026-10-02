@@ -1200,9 +1200,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
            let data = try? Data(contentsOf: url),
            let decoded = try? WebPDecoder().decode(toNSImage: data, options: WebPDecoderOptions()) {
             image = decoded
-        } else if let loaded = NSImage(contentsOf: url) {
+        } else if let loaded = NSImage(contentsOf: url), loaded.isValid,
+                  loaded.size.width > 0, loaded.size.height > 0 {
             image = loaded
         } else {
+            showFailureToast(String(format: L("Could not open %@."), url.lastPathComponent))
             return
         }
         DetachedEditorWindowController.open(image: image)

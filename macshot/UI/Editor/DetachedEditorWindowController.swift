@@ -382,13 +382,19 @@ extension DetachedEditorWindowController: OverlayViewDelegate {
 
         let mode = QuickCaptureMode.current
 
+        // Only real output counts: with "Do nothing", or a save that fails,
+        // closing the editor must still ask before discarding the capture.
         if mode.copies {
             ImageEncoder.copyToClipboard(save.image)
+            screenshotNeverOutput = false
         }
         if mode.saves {
-            ImageSaveService.saveToConfiguredFolder(save.image, sheetWindow: window)
+            ImageSaveService.saveToConfiguredFolder(save.image, sheetWindow: window) { [weak self] success in
+                if success {
+                    self?.screenshotNeverOutput = false
+                }
+            }
         }
-        screenshotNeverOutput = false
     }
 
     func overlayViewDidRequestFileSave() {

@@ -275,6 +275,8 @@
 "Selection adjusted" = "Selection adjusted";
 "Selection is already aligned" = "Selection is already aligned";
 "Could not encode the screenshot." = "Could not encode the screenshot.";
+"Could not copy the screenshot." = "Could not copy the screenshot.";
+"Could not open %@." = "Could not open %@.";
 "Could not save the screenshot: %@" = "Could not save the screenshot: %@";
 
 

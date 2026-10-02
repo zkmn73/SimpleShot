@@ -215,11 +215,16 @@ enum ImageEncoder {
         let pasteboard = NSPasteboard.general
         let generation = beginClipboardCopy()
         let changeCount = pasteboard.changeCount
-        guard let prepared = try? PreparedImage(image) else { return }
+        let failureMessage = L("Could not copy the screenshot.")
+        guard let prepared = try? PreparedImage(image) else {
+            ImageSaveService.reportFailure(failureMessage)
+            return
+        }
 
         DispatchQueue.global(qos: .userInitiated).async {
             guard let pixels = try? prepared.pixelsForEncoding(),
                   let pngData = encodeWithCGImageDestination(cgImage: pixels, type: "public.png", lossyQuality: nil) else {
+                DispatchQueue.main.async { ImageSaveService.reportFailure(failureMessage) }
                 return
             }
 
