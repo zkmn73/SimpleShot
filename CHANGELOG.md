@@ -16,6 +16,7 @@ SimpleShot is a slimmed-down fork of [macshot](https://github.com/sw33tLie/macsh
 
 ### Fixed
 
+- **Scroll capture hands focus to the scrolled app more reliably** — before auto-scrolling, SimpleShot activated the app under the selection with a call that newer macOS can ignore. It now uses the same cooperative activation as the rest of the app (macOS 14+).
 - **AVIF files can be opened** — SimpleShot could save AVIF but refused AVIF files from Finder's "Open With", a drag onto the app icon, or `simpleshot://open?file=`.
 - **No empty overlay when a screen can't be captured** — if the fallback capture path got images for only some displays, the others showed an overlay with no screenshot that blocked clicks until Esc. Those displays are now left alone.
 - **Out-of-range settings fall back to defaults** — an invalid Enter / Quick Capture action (for example from a hand-edited settings file) is treated as "Copy to clipboard" instead of silently doing nothing, and the capture delay and pencil smoothing are clamped to the values Settings offers.

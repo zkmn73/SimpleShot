@@ -245,8 +245,9 @@ final class ScrollCaptureController {
     }
 
     private func activateTargetApp() {
-        guard targetAppPID != 0 else { return }
-        NSRunningApplication(processIdentifier: targetAppPID)?.activate(options: [])
+        guard targetAppPID != 0,
+              let app = NSRunningApplication(processIdentifier: targetAppPID) else { return }
+        AppDelegate.activateApp(app)
     }
 
     // MARK: - Frame capture via CGWindowListCreateImage

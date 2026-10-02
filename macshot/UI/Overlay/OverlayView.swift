@@ -560,7 +560,9 @@ class OverlayView: NSView {
             let appKitRect = NSRect(x: cgX, y: screenH - cgY - cgH, width: cgW, height: cgH)
 
             if appKitRect.contains(centerScreen) {
-                NSRunningApplication(processIdentifier: pid)?.activate(options: [])
+                if let app = NSRunningApplication(processIdentifier: pid) {
+                    AppDelegate.activateApp(app)
+                }
                 return
             }
         }
