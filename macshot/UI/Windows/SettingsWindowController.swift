@@ -713,20 +713,16 @@ class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSWindowD
             clearBtn.toolTip = L("None")
             clearBtn.widthAnchor.constraint(equalToConstant: 20).isActive = true
 
-            let resetBtn = NSButton(title: "", target: self, action: #selector(resetShortcut(_:)))
-            resetBtn.bezelStyle = .inline
-            resetBtn.isBordered = false
-            resetBtn.image = NSImage(systemSymbolName: "arrow.counterclockwise.circle.fill", accessibilityDescription: L("Reset to default"))
-            resetBtn.contentTintColor = .secondaryLabelColor
-            resetBtn.imagePosition = .imageOnly
-            resetBtn.tag = slot.rawValue
-            resetBtn.toolTip = L("Reset to default")
-            resetBtn.widthAnchor.constraint(equalToConstant: 20).isActive = true
+            // No defaults to reset to; an empty slot keeps the columns aligned
+            // with the Undo / Redo rows below, which do have a reset button.
+            let resetSlot = NSView()
+            resetSlot.translatesAutoresizingMaskIntoConstraints = false
+            resetSlot.widthAnchor.constraint(equalToConstant: 20).isActive = true
 
             hotkeyFields[slot] = field
             hotkeyButtons[slot] = btn
 
-            stack.addArrangedSubview(labeledRow("\(slot.label):", controls: [field, btn, clearBtn, resetBtn]))
+            stack.addArrangedSubview(labeledRow("\(slot.label):", controls: [field, btn, clearBtn, resetSlot]))
             stack.setCustomSpacing(8, after: stack.arrangedSubviews.last!)
         }
 
@@ -844,14 +840,6 @@ class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSWindowD
         stopShortcutRecording()
         HotkeyManager.disableHotkey(for: slot)
         hotkeyFields[slot]?.stringValue = L("None")
-        onHotkeyChanged?()
-    }
-
-    @objc private func resetShortcut(_ sender: NSButton) {
-        guard let slot = HotkeyManager.HotkeySlot(rawValue: sender.tag) else { return }
-        stopShortcutRecording()
-        HotkeyManager.saveHotkey(for: slot, keyCode: slot.defaultKeyCode, modifiers: slot.defaultModifiers)
-        hotkeyFields[slot]?.stringValue = HotkeyManager.displayString(for: slot)
         onHotkeyChanged?()
     }
 

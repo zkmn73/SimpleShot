@@ -37,7 +37,6 @@ enum SaveDirectoryAccess {
     /// for writes that must succeed in the sandbox — `nil` means the caller
     /// should prompt the user to choose a folder. Until the user picks a folder,
     /// this is `~/Downloads` (when it is writable).
-    /// Caller **must** call `stopAccessing(url:)` when done writing.
     static func resolveIfAccessible() -> URL? {
         guard let bookmarkData = UserDefaults.standard.data(forKey: bookmarkKey) else {
             guard UserDefaults.standard.string(forKey: pathKey) == nil,

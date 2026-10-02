@@ -41,7 +41,7 @@ Releases are ad-hoc signed and not notarized unless the Developer ID secrets are
 
 ## Architecture
 
-Menu bar agent app. No main window. A global hotkey (default `Cmd+Shift+X`) or the menu bar triggers screen capture → fullscreen overlay → selection → annotation → output (copy / save / OCR / editor).
+Menu bar agent app. No main window. A user-assigned global hotkey or the menu bar triggers screen capture → fullscreen overlay → selection → annotation → output (copy / save / OCR / editor).
 
 ### File Structure
 
@@ -127,7 +127,7 @@ macshot/
 
 #### AppDelegate — Entry Point & Orchestrator
 - `NSStatusItem` menu: Capture Area, Capture Screen, Capture OCR & QR, Quick Capture, Scroll Capture, Capture Delay, Open Image…, Open from Clipboard, Settings…, Quit.
-- Registers global hotkeys via `HotkeyManager`. Defaults: `Cmd+Shift+X` area, `Cmd+Shift+F` full screen, `Cmd+Shift+S` quick capture, `Cmd+Shift+T` OCR & QR. Scroll capture and Open from Clipboard have no default.
+- Registers global hotkeys via `HotkeyManager`. There are **no default hotkeys** (a global hotkey steals that chord from every other app); the user assigns them in Settings > Shortcuts.
 - Handles the `simpleshot://` URL scheme, **off by default** (`urlSchemeEnabled`; any local app can open these URLs) (`capture`, `capture-fullscreen`, `quick-capture`, `capture-fullscreen-quick`, `ocr`, `scroll-capture`, `settings`, `open?file=`). Only `capture-fullscreen-quick` completes with zero interaction (full screen + auto quick-save); the others still need a human to drag/click a selection and/or confirm — see `finishSelectionPostProcessing()` in `OverlayView.swift` for where the four `auto*Mode` flags actually fire.
 - On trigger: `ScreenCaptureManager` captures all screens → one `OverlayWindowController` per screen (pooled and pre-warmed).
 - Implements `OverlayWindowControllerDelegate`: confirm, cancel, OCR, scroll capture, cross-screen selection sync.
@@ -264,7 +264,7 @@ Only remembered choices are stored, and nothing is written as a side effect of t
 
 - Open `macshot.xcodeproj` in Xcode and Build & Run (Cmd+R).
 - To keep the Screen Recording permission across rebuilds, build with `DEVELOPMENT_TEAM="" CODE_SIGN_STYLE=Automatic` (Xcode's stable "Sign to Run Locally" identity).
-- The app appears in the menu bar. Click it → "Capture Area", or use the global hotkey (default `Cmd+Shift+X`).
+- The app appears in the menu bar. Click it → "Capture Area", or assign a global hotkey in Settings > Shortcuts first.
 
 ## Releasing
 
