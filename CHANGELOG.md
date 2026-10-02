@@ -2,6 +2,13 @@
 
 SimpleShot is a slimmed-down fork of [macshot](https://github.com/sw33tLie/macshot). The upstream history up to 4.3.0-beta.1 is in the [macshot changelog](https://github.com/sw33tLie/macshot/blob/main/CHANGELOG.md).
 
+## [1.5.3] - 2026-10-02
+
+### Fixed
+
+- **The editor no longer forgets to ask before discarding a capture** — pressing Enter in an editor opened from a capture marked it as output even when nothing was output (Enter set to "Do nothing") or the save failed, so closing the window discarded the capture without asking.
+- **Failures you couldn't see now show a message** — opening an image that can't be read, and a copy to the clipboard that fails, used to do nothing at all.
+
 ## [1.5.2] - 2026-10-02
 
 ### Removed
