@@ -138,6 +138,24 @@ class HotkeyManager {
     /// Legacy — kept for backward compatibility.
     func unregister() { unregisterAll() }
 
+    /// Stop every global hotkey without forgetting its callback. Carbon hotkeys
+    /// are taken before any window sees the key, so while Settings records a
+    /// shortcut they must be off, or pressing a bound chord starts a capture
+    /// instead of being recorded.
+    func suspend() {
+        for (_, ref) in hotKeyRefs {
+            UnregisterEventHotKey(ref)
+        }
+        hotKeyRefs.removeAll()
+    }
+
+    /// Re-register every slot that has a callback, from the stored bindings.
+    func resume() {
+        for (slot, callback) in callbacks {
+            register(slot: slot, callback: callback)
+        }
+    }
+
     deinit { unregisterAll() }
 
     // MARK: - UserDefaults Helpers
@@ -152,6 +170,23 @@ class HotkeyManager {
         let storedKey = UInt32(UserDefaults.standard.integer(forKey: slot.keyCodeKey))
         let storedMods = UInt32(UserDefaults.standard.integer(forKey: slot.modifiersKey))
         return (storedKey, storedMods)
+    }
+
+    /// Bind `slot` to a chord, taking it away from any other slot that had it
+    /// (two slots can't share a chord: the second registration would fail and
+    /// that slot would silently do nothing). Returns the slots that lost it.
+    @discardableResult
+    static func assignHotkey(for slot: HotkeySlot, keyCode: UInt32, modifiers: UInt32) -> [HotkeySlot] {
+        let displaced = HotkeySlot.allCases.filter { other in
+            guard other != slot else { return false }
+            let bound = readHotkey(for: other)
+            return bound.keyCode == keyCode && bound.modifiers == modifiers
+        }
+        for other in displaced {
+            disableHotkey(for: other)
+        }
+        saveHotkey(for: slot, keyCode: keyCode, modifiers: modifiers)
+        return displaced
     }
 
     /// Save a hotkey to UserDefaults.
