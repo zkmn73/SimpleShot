@@ -7983,7 +7983,8 @@ class OverlayView: NSView {
     }
 
     /// Capture the selected region WITHOUT annotations — just the raw screenshot.
-    /// Used for editable history: the raw image is stored alongside annotation data.
+    /// Used when handing a capture to the editor window, which gets the raw image
+    /// plus the annotations as separate, still-editable objects.
     func captureSelectedRegionRaw() -> NSImage? {
         return renderSelectedRegion(includeAnnotations: false)
     }

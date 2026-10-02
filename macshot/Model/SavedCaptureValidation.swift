@@ -1,9 +1,10 @@
 import Cocoa
 import ImageIO
 
-/// Limits at the editable-history boundary. The flattened capture remains
-/// available if a sidecar cannot be restored. These are allocation limits,
-/// independent of the smaller ranges offered by the toolbar controls.
+/// Limits applied when decoding serialized annotations (e.g. pasted from the
+/// clipboard), so untrusted data can't force huge allocations. These are
+/// allocation limits, independent of the smaller ranges offered by the
+/// toolbar controls.
 enum SavedCaptureValidation {
     static let maximumImagePixels = 128 * 1024 * 1024
     static let maximumImageBytes = 128 * 1024 * 1024

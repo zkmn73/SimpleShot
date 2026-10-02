@@ -368,7 +368,7 @@ extension Annotation {
     }
 }
 
-// MARK: - Batch encode/decode for history storage
+// MARK: - Batch encode/decode (annotation copy / paste)
 
 enum AnnotationSerializer {
 

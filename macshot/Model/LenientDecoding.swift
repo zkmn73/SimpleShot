@@ -31,7 +31,7 @@ extension KeyedDecodingContainer {
 }
 
 /// Decodes an array element-wise, skipping entries that fail. One corrupt
-/// annotation (or history row) then costs that entry, not the whole file.
+/// annotation then costs that entry, not the whole payload.
 enum LenientArrayDecoder {
 
     static func decode<T: Decodable>(_ type: T.Type, from data: Data) -> [T]? {
