@@ -855,8 +855,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         window.makeKeyAndOrderFront(nil)
         delayCountdownWindow = window
 
-        // Listen for Escape to cancel countdown — use both local and global monitors
-        // Local catches keys when macshot is active; global catches when another app has focus
         delayEscMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
             if event.keyCode == 53 {
                 self?.cancelPreCaptureCountdown()

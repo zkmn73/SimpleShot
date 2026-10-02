@@ -218,12 +218,14 @@ final class HotkeyManagerTests: XCTestCase {
         }
     }
 
-    func testAnUnsetHotkeyReportsItsDefault() {
-        let slot = HotkeyManager.HotkeySlot.captureArea
-        withDefaults([slot.keyCodeKey: nil, slot.modifiersKey: nil, slot.disabledKey: nil]) {
-            let read = HotkeyManager.readHotkey(for: slot)
-            XCTAssertEqual(read.keyCode, slot.defaultKeyCode)
-            XCTAssertEqual(read.modifiers, slot.defaultModifiers)
+    func testAnUnsetHotkeyHasNoBinding() {
+        // There are no default global hotkeys; every slot starts empty.
+        for slot in HotkeyManager.HotkeySlot.allCases {
+            withDefaults([slot.keyCodeKey: nil, slot.modifiersKey: nil, slot.disabledKey: nil]) {
+                let read = HotkeyManager.readHotkey(for: slot)
+                XCTAssertEqual(read.keyCode, 0, "\(slot)")
+                XCTAssertEqual(read.modifiers, 0, "\(slot)")
+            }
         }
     }
 

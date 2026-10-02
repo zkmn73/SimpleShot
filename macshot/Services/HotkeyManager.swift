@@ -51,23 +51,6 @@ class HotkeyManager {
             }
         }
 
-        var defaultKeyCode: UInt32 {
-            switch self {
-            case .captureArea: return UInt32(kVK_ANSI_X)
-            case .captureFullScreen: return UInt32(kVK_ANSI_F)
-            case .captureOCR: return UInt32(kVK_ANSI_T)
-            case .quickCapture: return UInt32(kVK_ANSI_S)
-            case .scrollCapture: return 0
-            case .openFromClipboard: return 0  // no default hotkey
-            }
-        }
-
-        var defaultModifiers: UInt32 {
-            switch self {
-            case .scrollCapture, .openFromClipboard: return 0
-            default: return UInt32(cmdKey | shiftKey)
-            }
-        }
     }
 
     private var hotKeyRefs: [HotkeySlot: EventHotKeyRef] = [:]
@@ -159,18 +142,15 @@ class HotkeyManager {
 
     // MARK: - UserDefaults Helpers
 
-    /// Read the stored (or default) keyCode and modifiers for a slot.
+    /// Read the stored keyCode and modifiers for a slot. There are no default
+    /// hotkeys: global shortcuts override the same chord in every other app
+    /// (e.g. Cmd+Shift+T reopens a browser tab), so the user picks them.
     static func readHotkey(for slot: HotkeySlot) -> (keyCode: UInt32, modifiers: UInt32) {
-        // If explicitly disabled, return (0, 0)
         if UserDefaults.standard.bool(forKey: slot.disabledKey) {
             return (0, 0)
         }
         let storedKey = UInt32(UserDefaults.standard.integer(forKey: slot.keyCodeKey))
         let storedMods = UInt32(UserDefaults.standard.integer(forKey: slot.modifiersKey))
-
-        if storedKey == 0 && storedMods == 0 {
-            return (slot.defaultKeyCode, slot.defaultModifiers)
-        }
         return (storedKey, storedMods)
     }
 

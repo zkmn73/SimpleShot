@@ -42,7 +42,7 @@ Upgrade with `brew upgrade --cask simpleshot`, remove with `brew uninstall --cas
 ## Quick start
 
 1. Launch SimpleShot — it lives in your menu bar.
-2. Press `Cmd+Shift+X` and drag to select a region.
+2. Click the menu bar icon, choose **Capture Area**, and drag to select a region. For a global hotkey, set one in Settings > Shortcuts (none are set by default).
 3. Pick a tool from the toolbar to annotate (Move is the default: drag inside the selection to reposition it), then press `Cmd+C` to copy or `Cmd+S` to save.
 4. Press `Esc` to cancel.
 
@@ -78,15 +78,7 @@ Upgrade with `brew upgrade --cask simpleshot`, remove with `brew uninstall --cas
 <details>
 <summary><b>Keyboard shortcuts</b></summary>
 
-**Global hotkeys** (rebindable in Settings > Shortcuts)
-
-| Shortcut      | Action                                 |
-| ------------- | -------------------------------------- |
-| `Cmd+Shift+X` | Capture area                           |
-| `Cmd+Shift+F` | Capture full screen                    |
-| `Cmd+Shift+S` | Quick capture (uses your Enter action) |
-| `Cmd+Shift+T` | Capture OCR & QR                       |
-| unassigned    | Scroll capture, open from clipboard    |
+**Global hotkeys:** none are set by default, because a global hotkey overrides the same shortcut in every other app (for example `Cmd+Shift+T` reopens a closed browser tab). Assign your own in Settings > Shortcuts for Capture Area, Capture Screen, Quick Capture, Capture OCR & QR, Scroll Capture and Open from Clipboard.
 
 **During capture**
 
