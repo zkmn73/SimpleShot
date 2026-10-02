@@ -81,7 +81,7 @@ enum SettingsPortability {
         // Options of the retired Loupe / Measure / Highlight tools (no toolbar entry point).
         "loupeSize", "loupeMagnification", "loupeOutlineEnabled", "loupeOutlineColor",
         "measureInPoints", "measureClampToSelection",
-        HighlightToolHandler.dimOpacityKey, HighlightToolHandler.dashedBorderKey,
+        "highlightDimOpacity", "highlightBorderDashed",
     ]
 
     /// Whether a key is exported and accepted on import.

@@ -150,3 +150,26 @@ func snapSquare(_ point: NSPoint, from ref: NSPoint) -> NSPoint {
         y: ref.y + side * (dy >= 0 ? 1 : -1)
     )
 }
+
+// OverlayView uses these to keep a measure annotation's endpoints inside the
+// selection while its handles are dragged.
+extension NSPoint {
+    func clampedToRect(_ rect: NSRect) -> NSPoint {
+        NSPoint(x: min(max(x, rect.minX), rect.maxX),
+                y: min(max(y, rect.minY), rect.maxY))
+    }
+
+    /// Shorten the segment start→self so it stays inside rect without
+    /// changing its direction (start must already be inside rect).
+    func clampedAlongRay(from start: NSPoint, in rect: NSRect) -> NSPoint {
+        let dx = x - start.x
+        let dy = y - start.y
+        var t: CGFloat = 1
+        if dx > 0 { t = min(t, (rect.maxX - start.x) / dx) }
+        else if dx < 0 { t = min(t, (rect.minX - start.x) / dx) }
+        if dy > 0 { t = min(t, (rect.maxY - start.y) / dy) }
+        else if dy < 0 { t = min(t, (rect.minY - start.y) / dy) }
+        t = max(0, t)
+        return NSPoint(x: start.x + dx * t, y: start.y + dy * t)
+    }
+}

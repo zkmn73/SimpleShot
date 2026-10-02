@@ -11,6 +11,7 @@ SimpleShot is a slimmed-down fork of [macshot](https://github.com/sw33tLie/macsh
 ### Changed
 
 - **Settings import/export only touches SimpleShot's own settings** — both directions now use a fixed list of known settings instead of guessing from key names. Importing a file never writes anything else (leftover keys from older builds or upstream macshot, or anything added by hand). Your save folder still stays on this Mac.
+- **Simpler internals, no behavior change** — the creation code for the retired Highlight, Loupe and Measure tools was deleted (existing annotations of those types still display and can be moved, resized and deleted), along with an unused entry in `Info.plist` and leftover references to the removed screenshot history.
 
 ## [1.5.1] - 2026-09-26
 

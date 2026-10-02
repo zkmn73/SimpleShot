@@ -368,7 +368,7 @@ class ToolOptionsRowView: NSView {
         addSubview(nameLabel)
         curX += nameLabel.frame.width + 4
 
-        let stored = UserDefaults.standard.object(forKey: HighlightToolHandler.dimOpacityKey) as? Double
+        let stored = UserDefaults.standard.object(forKey: "highlightDimOpacity") as? Double
         let currentVal = editingAnnotation?.dimOpacity ?? CGFloat(stored ?? 0.55)
         let sliderW: CGFloat = 84
         let slider = NSSlider(value: Double(currentVal),
@@ -408,7 +408,7 @@ class ToolOptionsRowView: NSView {
         if let ann = editingAnnotation, ann.tool == .highlight {
             dashed = ann.lineStyle == .dashed
         } else {
-            dashed = UserDefaults.standard.object(forKey: HighlightToolHandler.dashedBorderKey) as? Bool ?? true
+            dashed = UserDefaults.standard.object(forKey: "highlightBorderDashed") as? Bool ?? true
         }
         seg.selectedSegment = dashed ? 1 : 0
         seg.frame = NSRect(x: curX, y: (rowHeight - 22) / 2, width: 72, height: 22)
@@ -1214,7 +1214,7 @@ class ToolOptionsRowView: NSView {
             }
             if changed { ov.cachedCompositedImage = nil }
         }
-        UserDefaults.standard.set(Double(val), forKey: HighlightToolHandler.dimOpacityKey)
+        UserDefaults.standard.set(Double(val), forKey: "highlightDimOpacity")
         if let label = viewWithTag(993) as? NSTextField {
             label.stringValue = "\(Int((val * 100).rounded()))%"
         }
@@ -1237,7 +1237,7 @@ class ToolOptionsRowView: NSView {
             }
             if changed { ov.cachedCompositedImage = nil }
         }
-        UserDefaults.standard.set(dashed, forKey: HighlightToolHandler.dashedBorderKey)
+        UserDefaults.standard.set(dashed, forKey: "highlightBorderDashed")
         ov.needsDisplay = true
     }
 
