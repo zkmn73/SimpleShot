@@ -2,12 +2,14 @@
 
 SimpleShot is a slimmed-down fork of [macshot](https://github.com/sw33tLie/macshot). The upstream history up to 4.3.0-beta.1 is in the [macshot changelog](https://github.com/sw33tLie/macshot/blob/main/CHANGELOG.md).
 
-## [1.5.3] - 2026-10-02
+## [1.5.3] - 2026-10-03
 
 ### Fixed
 
 - **The editor no longer forgets to ask before discarding a capture** — pressing Enter in an editor opened from a capture marked it as output even when nothing was output (Enter set to "Do nothing") or the save failed, so closing the window discarded the capture without asking.
 - **Failures you couldn't see now show a message** — opening an image that can't be read, and a copy to the clipboard that fails, used to do nothing at all.
+- **Undoing a crop or Add Capture no longer misplaces annotations** — both operations shift every annotation to follow the image, but undo restored the image without moving the annotations back, leaving them offset from what they were drawn on.
+- **Undoing a paste removes only what was pasted** — pasted annotations kept the batch-undo group of the ones they were copied from, so one undo could also remove the originals; pasting several annotations now undoes as one step, like duplicating.
 
 ## [1.5.2] - 2026-10-02
 
