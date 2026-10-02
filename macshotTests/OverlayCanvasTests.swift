@@ -209,8 +209,8 @@ final class OverlayCanvasTests: XCTestCase {
     }
 
     func testABatchOfAnnotationsUndoesTogether() {
-        // Auto-redact adds one annotation per detected match, all sharing a
-        // group id; a single undo has to take the whole batch.
+        // A multi-duplicate adds several annotations sharing a group id; a
+        // single undo has to take the whole batch.
         let view = makeOverlay()
         let group = UUID()
         let batch = (0..<4).map { index -> Annotation in
@@ -224,7 +224,7 @@ final class OverlayCanvasTests: XCTestCase {
         for ann in batch { view.undoStack.append(.added(ann)) }
 
         view.undo()
-        XCTAssertTrue(view.annotations.isEmpty, "the whole redaction pass should disappear at once")
+        XCTAssertTrue(view.annotations.isEmpty, "the whole batch should disappear at once")
 
         view.redo()
         XCTAssertEqual(view.annotations.count, 4, "and come back at once")

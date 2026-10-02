@@ -43,7 +43,7 @@ enum EditorCommandShortcutManager {
         }
     }
 
-    private static func defaultsKey(for action: Action) -> String {
+    static func defaultsKey(for action: Action) -> String {
         "editorCommandShortcuts.\(action.rawValue)"
     }
 

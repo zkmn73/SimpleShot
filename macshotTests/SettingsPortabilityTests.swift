@@ -1,89 +1,108 @@
 import XCTest
 
 /// Exported settings files get shared, attached to bug reports and synced
-/// between machines. The export filter is therefore a security boundary: it has
-/// to fail closed for anything that looks like a credential.
+/// between machines, and imported files may come from anywhere. Both directions
+/// therefore go through one explicit allowlist of SimpleShot's own settings.
 final class SettingsPortabilityTests: XCTestCase {
 
-    // MARK: - Secrets never leave the machine
-
-    func testKnownCredentialKeysAreNeverPortable() {
-        let credentials = [
-            "imgbbAPIKey", "googleDriveRefreshToken", "googleDriveAccessToken",
-            "s3AccessKey", "s3SecretKey", "s3Bucket", "s3Endpoint", "s3Region",
-            "saveDirectoryBookmark", "recordingSaveDirectoryBookmark",
-            "translationApiKey", "userPassword", "someCredential",
-        ]
-        for key in credentials {
-            XCTAssertFalse(SettingsPortability.isPortable(key), "`\(key)` must never be exported")
-        }
-    }
-
-    func testSecretDetectionIsCaseInsensitiveAndSubstringBased() {
-        for key in ["myAPIKey", "MYAPIKEY", "providerToken", "TOKEN_store", "xSecrety", "oauthPassword"] {
-            XCTAssertTrue(SettingsPortability.looksSecret(key), "`\(key)` should read as a secret")
-        }
-    }
-
-    func testAFutureProvidersCredentialIsExcludedByName() {
-        // The point of the substring rule: a provider added later is covered
-        // without anyone remembering to update an exclusion list.
-        for key in ["dropboxApiKey", "azureSecret", "newProviderAccessToken", "somethingPassword"] {
-            XCTAssertFalse(SettingsPortability.isPortable(key), "`\(key)` slipped through the secret filter")
-        }
-    }
-
-    // MARK: - Machine-specific state stays behind
-
-    func testMachineSpecificKeysAreNotPortable() {
-        for key in SettingsPortability.excludedKeys {
-            XCTAssertFalse(SettingsPortability.isPortable(key), "`\(key)` is machine-specific and must not transfer")
-        }
-    }
-
-    func testUploadHistoryAndAccountEmailStayLocal() {
-        XCTAssertFalse(SettingsPortability.isPortable("imgbbUploads"), "upload history includes delete URLs")
-        XCTAssertFalse(SettingsPortability.isPortable("gdriveUserEmail"), "account email is PII")
-    }
-
-    // MARK: - System keys are filtered out
-
-    func testSystemInjectedKeysAreNotPortable() {
-        let systemKeys = [
-            "NSWindowFrame main", "AppleLanguages", "com.apple.trackpad.scrolling",
-            "kCIEnableCoreImage", "_internalThing", "AKLastIDMSEnvironment",
-            "METAL_ERROR_MODE", "KB_Something", "Country",
-        ]
-        for key in systemKeys {
-            XCTAssertFalse(SettingsPortability.isPortable(key), "`\(key)` is injected by macOS, not a macshot setting")
-        }
-    }
-
-    func testScreamingSnakeCaseIsNotAppAuthored() {
-        XCTAssertFalse(SettingsPortability.looksAppAuthored("METAL_DEVICE_WRAPPER_TYPE"))
-        XCTAssertFalse(SettingsPortability.looksAppAuthored("SOME_OTHER_ENV"))
-        XCTAssertTrue(SettingsPortability.looksAppAuthored("beautify_enabled"),
-                      "a lowercase key with an underscore is still app-authored")
-    }
-
-    func testKeysStartingWithACapitalAreNotAppAuthored() {
-        XCTAssertFalse(SettingsPortability.looksAppAuthored("Country"))
-        XCTAssertFalse(SettingsPortability.looksAppAuthored("WindowState"))
-        XCTAssertFalse(SettingsPortability.looksAppAuthored(""))
-        XCTAssertFalse(SettingsPortability.looksAppAuthored("9lives"), "a key that doesn't start with a letter")
-    }
-
-    // MARK: - Real settings do transfer
+    // MARK: - The allowlist
 
     func testEverydaySettingsArePortable() {
         let settings = [
-            "imageFormat", "imageQuality", "downscaleRetina", "recordingFormat", "recordingFPS",
-            "historySize", "enabledTools", "beautifyEnabled", "beautifyStyleIndex",
-            "currentStrokeWidth", "filenameTemplate", "autoCopyToClipboard",
-            "overlayToolShortcuts", "hotkeyKeyCode", "hotkeyModifiers",
+            "imageFormat", "imageQuality", "downscaleRetina", "filenameTemplate", "saveAction",
+            "currentStrokeWidth", "lastUsedColor", "censorMode", "captureSnapMode",
+            "hotkeyKeyCode", "hotkeyModifiers", "hotkeyDisabled_1",
+            "editorCommandShortcuts.undo", "editorCommandShortcuts.redo",
         ]
         for key in settings {
             XCTAssertTrue(SettingsPortability.isPortable(key), "`\(key)` is a normal setting and should transfer")
+        }
+    }
+
+    func testEveryHotkeySlotTransfers() {
+        for slot in HotkeyManager.HotkeySlot.allCases {
+            for key in [slot.keyCodeKey, slot.modifiersKey, slot.disabledKey] {
+                XCTAssertTrue(SettingsPortability.isPortable(key), "`\(key)` should transfer")
+            }
+        }
+    }
+
+    func testAnythingNotOnTheListIsRejected() {
+        let foreign = [
+            // Upstream macshot credentials and removed features.
+            "imgbbAPIKey", "googleDriveRefreshToken", "s3SecretKey", "gdriveUserEmail", "imgbbUploads",
+            "recordingFormat", "historySize", "beautifyEnabled", "enabledTools", "overlayToolShortcuts",
+            // Injected by macOS.
+            "NSWindowFrame main", "AppleLanguages", "METAL_ERROR_MODE", "Country", "_internalThing",
+            // Anything else.
+            "", "somethingNew",
+        ]
+        for key in foreign {
+            XCTAssertFalse(SettingsPortability.isPortable(key), "`\(key)` must not transfer")
+        }
+    }
+
+    func testLocalOnlyKeysAreNotPortable() {
+        XCTAssertTrue(SettingsPortability.portableKeys.isDisjoint(with: SettingsPortability.localOnlyKeys))
+        for key in ["saveDirectory", "saveDirectoryBookmark", "suppressMoveToApplications"] {
+            XCTAssertTrue(SettingsPortability.localOnlyKeys.contains(key), "`\(key)` is machine-specific")
+        }
+    }
+
+    /// A key the app reads or writes must be classified, or a new setting would
+    /// silently stop transferring.
+    func testEveryDefaultsKeyInCodeIsClassified() throws {
+        let sourceRoot = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .appendingPathComponent("macshot")
+        let pattern = try NSRegularExpression(
+            pattern: #"\.(?:set|object|bool|integer|double|float|string|array|stringArray|dictionary|data|removeObject)\([^\n]*?forKey: *"([^"]+)""#)
+        let known = SettingsPortability.portableKeys.union(SettingsPortability.localOnlyKeys)
+        var found = Set<String>()
+        let enumerator = FileManager.default.enumerator(at: sourceRoot, includingPropertiesForKeys: nil)
+        while let url = enumerator?.nextObject() as? URL {
+            guard url.pathExtension == "swift",
+                  let source = try? String(contentsOf: url, encoding: .utf8) else { continue }
+            for match in pattern.matches(in: source, range: NSRange(source.startIndex..., in: source)) {
+                guard let range = Range(match.range(at: 1), in: source) else { continue }
+                found.insert(String(source[range]))
+            }
+        }
+        XCTAssertGreaterThan(found.count, 20, "the source scan found almost nothing; is the pattern broken?")
+        let unclassified = found.subtracting(known).sorted()
+        XCTAssertEqual(unclassified, [], "add these to SettingsPortability.portableKeys or localOnlyKeys")
+    }
+
+    // MARK: - Import applies only the allowlist
+
+    func testImportIgnoresUnknownKeysAndKeepsLocalOnes() throws {
+        let local = "/tmp/simpleshot-test-folder"
+        let snapshot = Dictionary(uniqueKeysWithValues:
+            (SettingsPortability.portableKeys.union(["saveDirectory", "imgbbAPIKey"])).map {
+                ($0, UserDefaults.standard.object(forKey: $0) as Any?)
+            })
+        try withDefaults(snapshot) {
+            UserDefaults.standard.set(local, forKey: "saveDirectory")
+            UserDefaults.standard.set(5, forKey: "captureDelaySeconds")
+            let json = try JSONSerialization.data(withJSONObject: [
+                "type": SettingsPortability.fileType,
+                "schemaVersion": SettingsPortability.schemaVersion,
+                "settings": [
+                    "imageFormat": "jpeg",
+                    "imgbbAPIKey": "injected",
+                    "saveDirectory": "/elsewhere",
+                ],
+            ])
+            let result = try SettingsPortability.importData(json)
+
+            XCTAssertEqual(result.appliedCount, 1)
+            XCTAssertEqual(result.skippedKeys, ["imgbbAPIKey", "saveDirectory"])
+            XCTAssertEqual(UserDefaults.standard.string(forKey: "imageFormat"), "jpeg")
+            XCTAssertNil(UserDefaults.standard.object(forKey: "imgbbAPIKey"), "an unknown key was written")
+            XCTAssertEqual(UserDefaults.standard.string(forKey: "saveDirectory"), local, "the save folder must be kept")
+            XCTAssertNil(UserDefaults.standard.object(forKey: "captureDelaySeconds"),
+                         "a portable setting absent from the file is reset (replace semantics)")
         }
     }
 
@@ -156,16 +175,17 @@ final class SettingsPortabilityTests: XCTestCase {
         XCTAssertFalse(name.contains(":"))
     }
 
-    func testExportedSecretKeysAreAbsentEvenWhenSet() throws {
+    func testExportLeavesOutUnknownAndLocalKeys() throws {
         try withDefaults([
             "imgbbAPIKey": "secret-value-1234",
-            "s3SecretKey": "another-secret",
+            "saveDirectory": "/Users/someone/Private",
             "imageFormat": "png",
         ]) {
             let result = try SettingsPortability.exportData()
             let text = String(decoding: result.data, as: UTF8.self)
-            XCTAssertFalse(text.contains("secret-value-1234"), "an API key reached the export file")
-            XCTAssertFalse(text.contains("another-secret"), "an S3 secret reached the export file")
+            XCTAssertFalse(text.contains("secret-value-1234"), "an unknown key reached the export file")
+            XCTAssertFalse(text.contains("/Users/someone/Private"), "the save folder reached the export file")
+            XCTAssertTrue(text.contains("imageFormat"))
         }
     }
 }

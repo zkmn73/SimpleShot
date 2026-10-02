@@ -147,19 +147,6 @@ final class RobustnessFuzzTests: XCTestCase {
         }
     }
 
-    func testRandomTextIsNeverMisreadAsACredential() {
-        // Guard against a pattern so loose that ordinary words get covered.
-        let words = ["report", "screenshot", "version", "2026", "hello world", "Chapter 3",
-                     "Total: 42", "v4.2.1", "step 1 of 3", "€19.99"]
-        for _ in 0..<200 {
-            let text = (0..<Int.random(in: 1...4, using: &random))
-                .compactMap { _ in words.randomElement(using: &random) }
-                .joined(separator: " ")
-            let matches = AutoRedactor.sensitiveMatches(in: text, enabledTypes: nil)
-            XCTAssertTrue(matches.isEmpty, "\"\(text)\" was redacted as \(matches.map(\.name))")
-        }
-    }
-
     func testRandomJSONDoesNotCrashTheAnnotationDecoder() {
         let fragments = ["{}", "[]", "null", "\"tool\"", "{\"tool\":0}", "{\"tool\":\"x\"}",
                          "{\"points\":[[1]]}", "{\"colorRGBA\":[]}", "1e400", "-0", "\u{FFFD}"]
