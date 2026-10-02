@@ -1,5 +1,25 @@
 import Cocoa
 
+/// What Enter / Quick Capture does with the image. Raw values are the
+/// persisted `quickCaptureMode` and the Settings popup's item order.
+enum QuickCaptureMode: Int, CaseIterable {
+    case save = 0
+    case copy = 1
+    case saveAndCopy = 2
+    case nothing = 3
+
+    static let userDefaultsKey = "quickCaptureMode"
+
+    /// An unknown stored value (e.g. a hand-edited settings file) falls back to
+    /// the default instead of silently doing nothing.
+    static var current: QuickCaptureMode {
+        (UserDefaults.standard.object(forKey: userDefaultsKey) as? Int).flatMap(QuickCaptureMode.init(rawValue:)) ?? .copy
+    }
+
+    var copies: Bool { self == .copy || self == .saveAndCopy }
+    var saves: Bool { self == .save || self == .saveAndCopy }
+}
+
 enum SaveActionPreference: Int, CaseIterable {
     case saveToFolder = 0
     case askWhereToSave = 1

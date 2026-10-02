@@ -53,7 +53,7 @@ Upgrade with `brew upgrade --cask simpleshot`, remove with `brew uninstall --cas
 - Window snap: hover a window and click to capture it exactly (`Tab` cycles window snap, off and interface-element snap; `F` selects the full screen)
 - Boundary snap to strong edges while dragging (hold `Option` to bypass)
 - Exact pixel size and aspect-ratio presets, editable while selecting
-- Multi-monitor capture, optional capture delay (3/5/10/30 s); the mouse cursor is never captured
+- Multi-monitor capture, optional capture delay (3/5/10/30 s); the mouse cursor is not captured on macOS 14 and later (on macOS 12–13, an enlarged accessibility or shake-to-find cursor can appear)
 - Scroll capture: select a region and scroll, SimpleShot stitches it into one tall image
 - OCR & QR: extract text with Apple Vision and read QR codes
 - Open an image file or the clipboard image in the editor
@@ -66,7 +66,7 @@ Upgrade with `brew upgrade --cask simpleshot`, remove with `brew uninstall --cas
 
 **Output**
 - Copy to clipboard, save to a folder (default `~/Downloads`), or ask where to save
-- PNG, JPEG, HEIC and WebP, adjustable quality, optional 1x downscale on Retina
+- PNG, JPEG, HEIC, WebP and AVIF (where macOS can encode it), adjustable quality, optional 1x downscale on Retina
 - Filename templates (`{date}`, `{window}`, `{random}` and more)
 - Standalone editor window with crop, flip, zoom, Add Capture (compose several regions) and paste
 
@@ -121,7 +121,7 @@ Off by default; enable it in Settings > General. While it is on, any app on your
 | `simpleshot://settings`                  | Open Settings                                     |
 | `simpleshot://open?file=/path.png`       | Open an image in the editor                       |
 
-Every capture command except `capture-fullscreen-quick` still needs a person to select a region and/or confirm. `capture-fullscreen-quick` completes on its own: it captures the full screen and copies and/or saves it per your "Enter / Quick Capture" setting, so it is the only one safe to call from a script or another program with nobody watching.
+Every capture command except `capture-fullscreen-quick` still needs a person to select a region and/or confirm. `capture-fullscreen-quick` completes on its own: it captures the full screen and copies and/or saves it per your "Enter / Quick Capture" setting, so it is the only one safe to call from a script or another program with nobody watching. Two settings change what it does: with "Do nothing" it produces no file and copies nothing, and with "Also open in Editor" it opens an editor window.
 
 </details>
 

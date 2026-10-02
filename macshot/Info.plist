@@ -31,6 +31,7 @@
 				<string>public.heic</string>
 				<string>public.heif</string>
 				<string>org.webmproject.webp</string>
+				<string>public.avif</string>
 				<string>com.microsoft.bmp</string>
 			</array>
 		</dict>

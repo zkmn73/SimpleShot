@@ -807,7 +807,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // Restored in dismissOverlays once capture is over.
         stashBackgroundWindows()
 
-        let delay = UserDefaults.standard.integer(forKey: "captureDelaySeconds")
+        // The menu offers up to 30 s; clamp anything a settings file smuggled in.
+        let delay = min(UserDefaults.standard.integer(forKey: "captureDelaySeconds"), 30)
 
         if delay > 0 {
             showPreCaptureCountdown(seconds: delay)
@@ -949,7 +950,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // path. Older SCK fallback still fetches fresh shareable content so
         // transient UI (menus, Spotlight) is preserved. If SCK fails or can't
         // cover every display, fall back to the synchronous CGWindowListCreateImage
-        // path (which manually composites the cursor from the prebuilt context).
+        // path, which can include an enlarged cursor.
         Task { [weak self] in
             var captures: [ScreenCapture]? = nil
             if #available(macOS 14.0, *) {
@@ -986,9 +987,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let capturesByScreen = Dictionary(uniqueKeysWithValues: captures.map { ($0.screen, $0.image) })
 
         for controller in controllers {
-            if let image = capturesByScreen[controller.screen] {
-                controller.setScreenshot(image)
-            }
+            // The CGWindowList fallback can return only some screens. A screen
+            // without an image keeps its idle, click-through, ordered-out panel
+            // instead of an empty overlay that swallows clicks.
+            guard let image = capturesByScreen[controller.screen] else { continue }
+            controller.setScreenshot(image)
             controller.showOverlay()
             let isMouseScreen = (controller.screen == mouseScreen)
                 || (mouseScreen == nil && controller.screen == NSScreen.main)
@@ -1244,7 +1247,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func handleOpenURLs(_ urls: [URL]) {
-        let imageExtensions: Set<String> = ["png", "jpg", "jpeg", "tiff", "tif", "bmp", "gif", "heic", "heif", "webp", "icns"]
+        let imageExtensions: Set<String> = ["png", "jpg", "jpeg", "tiff", "tif", "bmp", "gif", "heic", "heif", "webp", "avif", "icns"]
         for url in urls {
             if url.scheme == "simpleshot" {
                 // Off by default: any local app can open these URLs, and
@@ -1655,12 +1658,11 @@ extension AppDelegate: OverlayWindowControllerDelegate {
 
         guard let image = finalImage else { return }
 
-        // quickCaptureMode: 0=save, 1=copy, 2=both, 3=do nothing
-        let mode = UserDefaults.standard.object(forKey: "quickCaptureMode") as? Int ?? 1
-        if mode == 1 || mode == 2 {
+        let mode = QuickCaptureMode.current
+        if mode.copies {
             ImageEncoder.copyToClipboard(image)
         }
-        if mode == 0 || mode == 2 {
+        if mode.saves {
             saveImageToConfiguredFolder(image)
         }
 

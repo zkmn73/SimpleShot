@@ -99,3 +99,33 @@ final class LineStyleTests: XCTestCase {
     }
 }
 
+
+/// Enter / Quick Capture: the stored mode decides whether a capture is copied,
+/// saved, both or neither, so a bad value must not turn into "neither".
+final class QuickCaptureModeTests: XCTestCase {
+
+    func testEachModeCopiesAndSavesAsLabelled() {
+        XCTAssertEqual(QuickCaptureMode.allCases.map { [$0.copies, $0.saves] },
+                       [[false, true], [true, false], [true, true], [false, false]])
+    }
+
+    func testMissingValueDefaultsToCopy() {
+        withDefaults([QuickCaptureMode.userDefaultsKey: nil]) {
+            XCTAssertEqual(QuickCaptureMode.current, .copy)
+        }
+    }
+
+    func testOutOfRangeOrWrongTypeFallsBackToCopy() {
+        for bad: Any in [99, -1, "save", true] {
+            withDefaults([QuickCaptureMode.userDefaultsKey: bad]) {
+                XCTAssertEqual(QuickCaptureMode.current, .copy, "stored \(bad)")
+            }
+        }
+    }
+
+    func testStoredModeIsRead() {
+        withDefaults([QuickCaptureMode.userDefaultsKey: 3]) {
+            XCTAssertEqual(QuickCaptureMode.current, .nothing)
+        }
+    }
+}

@@ -39,7 +39,7 @@ enum SettingsPortability {
             // Output
             "imageFormat", "imageQuality", "downscaleRetina",
             FilenameFormatter.userDefaultsKey, SaveActionPreference.userDefaultsKey,
-            "quickCaptureMode", "quickCaptureOpenEditor", "closeEditorAfterCopy",
+            QuickCaptureMode.userDefaultsKey, "quickCaptureOpenEditor", "closeEditorAfterCopy",
             // Capture
             "captureDelaySeconds", "captureSnapMode", "hideCaptureInstructions",
             "scrollAutoScrollEnabled", "scrollAutoScrollSpeed", "scrollFrozenDetection", "scrollMaxHeight",

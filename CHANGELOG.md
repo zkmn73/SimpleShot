@@ -14,6 +14,12 @@ SimpleShot is a slimmed-down fork of [macshot](https://github.com/sw33tLie/macsh
 - **Settings import/export only touches SimpleShot's own settings** — both directions now use a fixed list of known settings instead of guessing from key names. Importing a file never writes anything else (leftover keys from older builds or upstream macshot, or anything added by hand). Your save folder still stays on this Mac.
 - **Simpler internals, no behavior change** — the creation code for the retired Highlight, Loupe and Measure tools was deleted (existing annotations of those types still display and can be moved, resized and deleted), along with an unused entry in `Info.plist` and leftover references to the removed screenshot history.
 
+### Fixed
+
+- **AVIF files can be opened** — SimpleShot could save AVIF but refused AVIF files from Finder's "Open With", a drag onto the app icon, or `simpleshot://open?file=`.
+- **No empty overlay when a screen can't be captured** — if the fallback capture path got images for only some displays, the others showed an overlay with no screenshot that blocked clicks until Esc. Those displays are now left alone.
+- **Out-of-range settings fall back to defaults** — an invalid Enter / Quick Capture action (for example from a hand-edited settings file) is treated as "Copy to clipboard" instead of silently doing nothing, and the capture delay and pencil smoothing are clamped to the values Settings offers.
+
 ## [1.5.1] - 2026-09-26
 
 ### Added
