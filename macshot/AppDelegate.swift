@@ -1247,8 +1247,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let imageExtensions: Set<String> = ["png", "jpg", "jpeg", "tiff", "tif", "bmp", "gif", "heic", "heif", "webp", "icns"]
         for url in urls {
             if url.scheme == "simpleshot" {
-                let urlSchemeEnabled = UserDefaults.standard.object(forKey: "urlSchemeEnabled") as? Bool ?? true
-                guard urlSchemeEnabled else { continue }
+                // Off by default: any local app can open these URLs, and
+                // capture-fullscreen-quick captures with no confirmation.
+                guard UserDefaults.standard.bool(forKey: "urlSchemeEnabled") else { continue }
                 if Self.screenCaptureURLActions.contains(url.host ?? "") {
                     if !isReadyForScreenCaptureURLs,
                        PermissionOnboardingController.hasScreenRecordingPermission() {

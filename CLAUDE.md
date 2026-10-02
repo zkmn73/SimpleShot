@@ -128,7 +128,7 @@ macshot/
 #### AppDelegate — Entry Point & Orchestrator
 - `NSStatusItem` menu: Capture Area, Capture Screen, Capture OCR & QR, Quick Capture, Scroll Capture, Capture Delay, Open Image…, Open from Clipboard, Settings…, Quit.
 - Registers global hotkeys via `HotkeyManager`. Defaults: `Cmd+Shift+X` area, `Cmd+Shift+F` full screen, `Cmd+Shift+S` quick capture, `Cmd+Shift+T` OCR & QR. Scroll capture and Open from Clipboard have no default.
-- Handles the `simpleshot://` URL scheme (`capture`, `capture-fullscreen`, `quick-capture`, `capture-fullscreen-quick`, `ocr`, `scroll-capture`, `settings`, `open?file=`). Only `capture-fullscreen-quick` completes with zero interaction (full screen + auto quick-save); the others still need a human to drag/click a selection and/or confirm — see `finishSelectionPostProcessing()` in `OverlayView.swift` for where the four `auto*Mode` flags actually fire.
+- Handles the `simpleshot://` URL scheme, **off by default** (`urlSchemeEnabled`; any local app can open these URLs) (`capture`, `capture-fullscreen`, `quick-capture`, `capture-fullscreen-quick`, `ocr`, `scroll-capture`, `settings`, `open?file=`). Only `capture-fullscreen-quick` completes with zero interaction (full screen + auto quick-save); the others still need a human to drag/click a selection and/or confirm — see `finishSelectionPostProcessing()` in `OverlayView.swift` for where the four `auto*Mode` flags actually fire.
 - On trigger: `ScreenCaptureManager` captures all screens → one `OverlayWindowController` per screen (pooled and pre-warmed).
 - Implements `OverlayWindowControllerDelegate`: confirm, cancel, OCR, scroll capture, cross-screen selection sync.
 - Manages `overlayControllers[]`, `ocrController`, `scrollCaptureController`.
@@ -217,7 +217,7 @@ Only remembered choices are stored, and nothing is written as a side effect of t
 - **Capture:** `captureDelaySeconds`, `captureSnapMode`, `hideCaptureInstructions`, `scrollAutoScrollEnabled`, `scrollAutoScrollSpeed`, `scrollFrozenDetection`, `scrollMaxHeight`, resolution preset keys (`keepAspectRatio*`, `resolutionUnitIsPoints`, preselection preset keys)
 - **Hotkeys:** per slot key code, modifiers and disabled flag (`HotkeyManager.HotkeySlot`); editor undo/redo chords
 - **Annotation styles:** `currentStrokeWidth`, `numberStrokeWidth`, `markerStrokeWidth`, `loupeSize`, `lastUsedColor`, `lastUsedColorOpacity`, `customColors`, line/arrow/rect styles, text formatting, `numberFormat`, `censorMode`, pencil smoothing, highlight dim/dashed keys, outline colors
-- **App:** `launchAtLogin`, `hideMenuBarIcon`, `urlSchemeEnabled`, `suppressMoveToApplications`
+- **App:** `launchAtLogin`, `hideMenuBarIcon`, `urlSchemeEnabled` (default off), `suppressMoveToApplications`
 
 ### Threading Model
 - **Capture:** async/await `TaskGroup` for concurrent multi-display capture

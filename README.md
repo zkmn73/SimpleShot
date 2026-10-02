@@ -108,7 +108,7 @@ Upgrade with `brew upgrade --cask simpleshot`, remove with `brew uninstall --cas
 <details>
 <summary><b>URL scheme</b></summary>
 
-Enable it in Settings > General.
+Off by default; enable it in Settings > General. While it is on, any app on your Mac can open these URLs, so any app can trigger a capture — including `capture-fullscreen-quick`, which copies and/or saves the full screen without asking.
 
 | URL                                     | Action                                            |
 | ---------------------------------------- | ------------------------------------------------- |

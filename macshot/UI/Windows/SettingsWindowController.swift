@@ -293,7 +293,7 @@ class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSWindowD
         stack.setCustomSpacing(10, after: stack.arrangedSubviews.last!)
 
         let urlSchemeCheckbox = NSButton(checkboxWithTitle: L("Enable simpleshot:// URL scheme"), target: self, action: #selector(urlSchemeChanged(_:)))
-        urlSchemeCheckbox.state = (UserDefaults.standard.object(forKey: "urlSchemeEnabled") as? Bool ?? true) ? .on : .off
+        urlSchemeCheckbox.state = UserDefaults.standard.bool(forKey: "urlSchemeEnabled") ? .on : .off
 
         let urlSchemeInfoIcon = HoverPopoverIconView(
             image: NSImage(systemSymbolName: "info.circle", accessibilityDescription: L("URL scheme info")),
