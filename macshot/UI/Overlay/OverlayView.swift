@@ -208,11 +208,8 @@ class OverlayView: NSView {
             FilledRectangleToolHandler(),
             EllipseToolHandler(),
             PixelateToolHandler(),
-            LoupeToolHandler(),
-            MeasureToolHandler(),
             NumberToolHandler(),
             StampToolHandler(),
-            HighlightToolHandler(),
         ]
         return Dictionary(uniqueKeysWithValues: handlers.map { ($0.tool, $0) })
     }()

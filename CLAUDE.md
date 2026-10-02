@@ -13,7 +13,7 @@ Native macOS screenshot & annotation tool. Swift + AppKit, no Qt, no Electron. S
 
 **Removed on purpose — do not reintroduce unless asked:** cloud upload (imgbb / Google Drive / S3), screenshot history, screen recording and the video editor, Pin to screen, Beautify / image effects / Invert Colors / Remove Background, Share, translation, Sparkle auto-update and the beta channel, multi-language localization, the floating thumbnail, capture sound, single-key tool shortcuts, toolbar theme and menu bar customization, the Tools settings tab, Capture Last Area, mouse cursor capture, OCR "AI Search", the Censor tool's auto-redact (All Text / PII / Faces / People and "Text Only" drawing), diagnostic logs, the Offline build variant, the toggles for snap guides / boundary snap / browser element snap / selection dimming, the Filename reset button, and the Highlight / Loupe / Measure toolbar tools.
 
-**Kept as inert internals:** `AnnotationTool` has implicit raw values, so cases are never deleted. `translateOverlay` is retired but still decodes; `stamp` is only created by the editor's Add Capture; `crop` and `blur` are not toolbar tools; `highlight`, `loupe` and `measure` have no toolbar entry point (removed — see Project Direction) but keep their full drawing/hit-test/options-row machinery so old copy-pasted or cross-version annotations of those types still render. Never reorder or remove cases.
+**Kept as inert internals:** `AnnotationTool` has implicit raw values, so cases are never deleted. `translateOverlay` is retired but still decodes; `stamp` is only created by the editor's Add Capture; `crop` and `blur` are not toolbar tools; `highlight`, `loupe` and `measure` have no toolbar entry point (removed — see Project Direction) and no tool handler (nothing can create them any more), but keep their drawing/hit-test/options-row machinery so old copy-pasted or cross-version annotations of those types still render and can be moved, resized and deleted. Never reorder or remove cases.
 
 ## Project Setup
 
@@ -104,7 +104,7 @@ macshot/
 │   ├── Tools/
 │   │   ├── AnnotationToolHandler.swift # AnnotationToolHandler + AnnotationCanvas protocols, shared helpers
 │   │   ├── *ToolHandler.swift          # Pencil, Marker, Line, Arrow, Rectangle, FilledRectangle, Ellipse,
-│   │   │                               # Pixelate (Censor), Loupe, Measure, Number, Highlight, Stamp
+│   │   │                               # Pixelate (Censor), Number, Stamp
 │   │   ├── TextEditingController.swift # Text tool: NSTextView lifecycle, formatting, commit, cancel
 │   │   ├── OutlineTextRenderer.swift   # Outlined text attributes/layout manager
 │   │   └── ScopedUndoTextView.swift    # NSTextView with view-owned undo history
