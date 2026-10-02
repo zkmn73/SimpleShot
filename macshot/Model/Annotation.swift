@@ -239,7 +239,7 @@ class Annotation {
     }
 
     // NOTE: When adding new properties, also update CodableAnnotation in AnnotationCodable.swift
-    // (toCodable + fromCodable) so they are preserved in editable history.
+    // (toCodable + fromCodable) so they survive annotation copy / paste.
     func clone() -> Annotation {
         let c = Annotation(tool: tool, startPoint: startPoint, endPoint: endPoint, color: color, strokeWidth: strokeWidth)
         c.text = text

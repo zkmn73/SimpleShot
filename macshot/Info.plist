@@ -35,8 +35,6 @@
 			</array>
 		</dict>
 	</array>
-	<key>Privacy - Screen Capture Usage Description</key>
-	<string>SimpleShot needs screen recording permission to capture screenshots.</string>
 	<key>NSSupportsAutomaticTermination</key>
 	<false/>
 </dict>

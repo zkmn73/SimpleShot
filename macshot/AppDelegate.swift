@@ -82,7 +82,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private var isReadyForOpenRequests = false
     private var pendingOpenURLs: [URL] = []
     /// Capture/record URL actions additionally wait for Screen Recording
-    /// permission. Non-capture actions (settings, history, file opens, etc.)
+    /// permission. Non-capture actions (settings, file opens)
     /// remain usable while the onboarding window is shown.
     private var isReadyForScreenCaptureURLs = false
     private var pendingScreenCaptureURLs: [URL] = []
@@ -1490,8 +1490,8 @@ extension AppDelegate: OverlayWindowControllerDelegate {
 
     func overlayDidRequestCancelScrollCapture(_ controller: OverlayWindowController) {
         // Esc cancels scroll capture: tear down WITHOUT delivering an image
-        // (cancelSession never fires onSessionDone), so nothing is saved, copied,
-        // or added to history. Mirrors the Accessibility-denied teardown block.
+        // (cancelSession never fires onSessionDone), so nothing is saved or
+        // copied. Mirrors the Accessibility-denied teardown block.
         let captureController = scrollCaptureController
         scrollCaptureController = nil
         // Detach callbacks first so even an already-in-flight initial capture
