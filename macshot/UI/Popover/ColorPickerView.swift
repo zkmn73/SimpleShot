@@ -62,7 +62,6 @@ class ColorPickerView: NSView {
     private var opacitySliderRect: NSRect = .zero
     private var gradientRect: NSRect = .zero
     private var brightnessSliderRect: NSRect = .zero
-    private var hexDisplayRect: NSRect = .zero
     private var customSlotRects: [NSRect] = []
 
     // MARK: - Drag state
@@ -190,7 +189,6 @@ class ColorPickerView: NSView {
         // --- 6. Hex display ---
         cursorY -= padding
         let hRect = NSRect(x: padding, y: cursorY - hexRowHeight, width: pickerWidth - padding * 2, height: hexRowHeight)
-        hexDisplayRect = hRect
         drawHexDisplay(in: hRect)
     }
 

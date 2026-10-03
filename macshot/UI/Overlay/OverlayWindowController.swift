@@ -399,10 +399,6 @@ class OverlayWindowController {
         return snapshotAnnotationData(rawImage: rawImage)
     }
 
-    private func copyImageToClipboard(_ image: NSImage) {
-        ImageEncoder.copyToClipboard(image)
-    }
-
 }
 
 // MARK: - OverlayViewDelegate

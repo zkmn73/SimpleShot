@@ -100,7 +100,6 @@
 "Browse…" = "Browse…";
 "Freeform" = "Freeform";
 "Custom · %@" = "Custom · %@";
-"Space" = "Space";
 "Aspect ratio & resolution presets" = "Aspect ratio & resolution presets";
 "Aspect ratio" = "Aspect ratio";
 "Resolution" = "Resolution";
@@ -132,7 +131,6 @@
 "Very fast" = "Very fast";
 
 /* Preferences - About */
-"SimpleShot" = "SimpleShot";
 "Version %@ (%@)" = "Version %@ (%@)";
 "Licensed under the GPLv3" = "Licensed under the GPLv3";
 "A free, open-source screenshot tool for macOS.\nFully native — built with Swift and AppKit." = "A free, open-source screenshot tool for macOS.\nFully native — built with Swift and AppKit.";
@@ -189,11 +187,6 @@
 "Settings..." = "Settings...";
 "Also open in Editor" = "Also open in Editor";
 "Close editor after copying" = "Close editor after copying";
-"Pixelate" = "Pixelate";
-"Blur" = "Blur";
-"Solid" = "Solid";
-"Erase" = "Erase";
-"Done" = "Done";
 "Do nothing" = "Do nothing";
 "Set" = "Set";
 "Reset to default" = "Reset to default";
@@ -258,7 +251,6 @@
 "This settings file was made by a newer version of SimpleShot. Please update SimpleShot first." = "This settings file was made by a newer version of SimpleShot. Please update SimpleShot first.";
 
 /* Measure tool: clamp toggle (#212) */
-"System" = "System";
 
 /* Auto-adjust selection (#317) */
 "Auto-adjust selection" = "Auto-adjust selection";

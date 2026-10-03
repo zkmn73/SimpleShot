@@ -409,7 +409,6 @@ class OverlayView: NSView {
     var drawingCursorPoint: NSPoint = .zero
     private var smartMarkerLineHeight: CGFloat?  // detected text line height at cursor (smart marker)
     private var colorSamplerPoint: NSPoint = .zero  // canvas space, for color picker tool
-    private var colorSamplerBitmap: NSBitmapImageRep?  // cached bitmap for fast pixel sampling
     // Snap/alignment guides
     var snapGuideX: CGFloat? = nil  // vertical guide line X
     var snapGuideY: CGFloat? = nil  // horizontal guide line Y
@@ -676,7 +675,6 @@ class OverlayView: NSView {
     private static let preSelectionPresetAspectKey = "preSelectionResolutionPresetAspect"
     private static let preSelectionPresetWidthKey = "preSelectionResolutionPresetWidth"
     private static let preSelectionPresetHeightKey = "preSelectionResolutionPresetHeight"
-    var snappedWindowID: CGWindowID? = nil
     /// Independently captured window image (with transparent corners) for window-snap mode.
     var snappedWindowImage: NSImage? = nil
     private var snapQueryInFlight: Bool = false
@@ -914,7 +912,6 @@ class OverlayView: NSView {
         } else if colorSamplerPoint != .zero {
             let oldPt = colorSamplerPoint
             colorSamplerPoint = .zero
-            colorSamplerBitmap = nil
             invalidateCursorPreview(oldCanvas: oldPt, newCanvas: oldPt, radius: 200)
         }
 
@@ -1795,8 +1792,6 @@ class OverlayView: NSView {
             withAttributes: attrs)
     }
 
-    private static let sizeLabelFont = NSFont.monospacedDigitSystemFont(ofSize: 11, weight: .medium)
-
     /// Compute where the resolution box sits relative to the selection. Aligns
     /// the box's W↔H midpoint (the "×") with the selection's horizontal center,
     /// so the dimensions read as centered on the selection — the trailing presets
@@ -1988,15 +1983,6 @@ class OverlayView: NSView {
         updateResolutionBox()
         repositionToolbars()
         updateResolutionBox()
-    }
-
-    /// Human label of the currently locked aspect ratio, if any.
-    private var activeRatioLabel: String? {
-        guard let a = lockedAspect else { return nil }
-        return ResolutionPresetCatalog.ratios.first {
-            if case .ratio(_, let v) = $0 { return abs(v - a) < 0.001 }
-            return false
-        }?.label
     }
 
     /// True if a non-nil locked aspect doesn't match any named ratio preset —
@@ -2468,7 +2454,7 @@ class OverlayView: NSView {
             NSBezierPath(ovalIn: rect).fill()
         }
     }
-    /// Compare two colors by RGB components (ignoring minor floating point differences)    /// Convert NSColor to hex string like "FF3B30"
+    /// Convert NSColor to hex string like "FF3B30"
     private func colorToHexString(_ color: NSColor) -> String {
         guard let rgb = color.usingColorSpace(.deviceRGB) else { return "000000" }
         let r = Int(round(rgb.redComponent * 255))
@@ -4345,7 +4331,6 @@ class OverlayView: NSView {
                 if handle != .none {
                     isResizingSelection = true
                     selectionIsWindowSnap = false
-                    snappedWindowID = nil
                     snappedWindowImage = nil
                     resizeHandle = handle
                     return
@@ -5066,7 +5051,6 @@ class OverlayView: NSView {
             // Click (no drag) with snap on — select the hovered target.
             selectionRect = snapRect
             selectionIsWindowSnap = snapMode == .window
-            snappedWindowID = selectionIsWindowSnap ? hoveredSnapWindowID : nil
             // Only whole-window snaps use the independent capture that preserves
             // transparent corners. Element snaps are ordinary screen crops.
             if selectionIsWindowSnap, let wid = hoveredSnapWindowID, let screen = window?.screen {
@@ -5245,7 +5229,6 @@ class OverlayView: NSView {
         } else if snapMode != .off, let snapRect = hoveredSnapRect, !snapRect.isEmpty {
             selectionRect = snapRect
             selectionIsWindowSnap = snapMode == .window
-            snappedWindowID = selectionIsWindowSnap ? hoveredSnapWindowID : nil
             if selectionIsWindowSnap, let wid = hoveredSnapWindowID, let screen = window?.screen {
                 Task {
                     if let cgImage = await ScreenCaptureManager.captureWindow(windowID: wid, screen: screen) {
@@ -5738,7 +5721,6 @@ class OverlayView: NSView {
         boundarySnapGuideY = nil
         if selectionIsWindowSnap {
             selectionIsWindowSnap = false
-            snappedWindowID = nil
             snappedWindowImage = nil
             rebuildToolbarLayout()
         }
@@ -5903,7 +5885,6 @@ class OverlayView: NSView {
 
         if selectionIsWindowSnap {
             selectionIsWindowSnap = false
-            snappedWindowID = nil
             snappedWindowImage = nil
             rebuildToolbarLayout()
             setToolbarHoverSuppressed(true)
@@ -6398,7 +6379,6 @@ class OverlayView: NSView {
                 x: viewPoint.x - selectionRect.origin.x, y: viewPoint.y - selectionRect.origin.y)
             if selectionIsWindowSnap {
                 selectionIsWindowSnap = false
-                snappedWindowID = nil
                 snappedWindowImage = nil
                 rebuildToolbarLayout()
             }
@@ -7624,7 +7604,6 @@ class OverlayView: NSView {
         state = .idle
         selectionRect = .zero
         selectionIsWindowSnap = false
-        snappedWindowID = nil
         snappedWindowImage = nil
         remoteSelectionRect = .zero
         remoteSelectionFullRect = .zero
@@ -7667,7 +7646,6 @@ class OverlayView: NSView {
         lockedAspect = activePreSelectionRatio
         isResizingAnnotation = false
         colorSamplerPoint = .zero
-        colorSamplerBitmap = nil
         overlayErrorTimer?.invalidate()
         overlayErrorTimer = nil
         overlayErrorMessage = nil

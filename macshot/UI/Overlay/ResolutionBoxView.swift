@@ -1,6 +1,6 @@
 import Cocoa
 
-/// The selection resolution control shown over a capture/recording selection:
+/// The selection resolution control shown over a capture selection:
 ///   [ W field ] × [ H field ]  [▾ presets]
 /// Two real, separately-editable number fields with a non-editable "×" between
 /// them (so the separator can't be deleted), plus a presets dropdown button for

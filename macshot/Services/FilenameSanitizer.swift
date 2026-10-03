@@ -1,6 +1,6 @@
 import Foundation
 
-/// Shared boundary for template results and direct recording display names.
+/// Shared boundary for rendered filename templates.
 /// Returns an extension-free component; callers choose an appropriate fallback.
 enum FilenameSanitizer {
     nonisolated static func sanitize(_ value: String, maximumBytes: Int = 200) -> String {

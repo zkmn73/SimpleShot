@@ -117,7 +117,7 @@ macshot/
 │       └── CountdownView.swift                # Delay-capture countdown
 │
 ├── Info.plist, macshot.entitlements
-├── Assets.xcassets/                    # StatusBarIcon, Logo, PermissionsGuide, AccentColor
+├── Assets.xcassets/                    # StatusBarIcon, PermissionsGuide, AccentColor
 ├── en.lproj/Localizable.strings        # The only strings table
 └── Base.lproj/Main.storyboard
 ```
