@@ -4,8 +4,6 @@ class OCRResultController: NSObject {
 
     private var window: NSPanel?
     private var textView: ScopedUndoTextView?
-    private var charCountLabel: NSTextField?
-    private var copyButton: NSButton?
 
     private var qrCodes: [QRCodePayload]
 
@@ -114,7 +112,6 @@ class OCRResultController: NSObject {
         countLbl.frame = NSRect(x: countX, y: (footerH - 16) / 2, width: rightW - 110 - countX - 8, height: 16)
         countLbl.autoresizingMask = [.width]
         footer.addSubview(countLbl)
-        self.charCountLabel = countLbl
 
         // Copy button (primary, right-aligned)
         let copyBtn = NSButton(title: L("Copy") + "  ⌘↩", target: self, action: #selector(copyAll))
@@ -125,7 +122,6 @@ class OCRResultController: NSObject {
         copyBtn.keyEquivalentModifierMask = [.command]
         (copyBtn.cell as? NSButtonCell)?.backgroundColor = NSColor.controlAccentColor
         footer.addSubview(copyBtn)
-        self.copyButton = copyBtn
 
         let qrSectionH = qrCodes.isEmpty ? CGFloat(0) : min(CGFloat(46 + qrCodes.count * 36), 168)
 
@@ -288,12 +284,6 @@ class OCRResultController: NSObject {
         guard sender.tag >= 0, sender.tag < qrCodes.count,
               let url = qrCodes[sender.tag].url else { return }
         NSWorkspace.shared.open(url)
-    }
-
-    private func updateCharCount(for text: String) {
-        let chars = text.count
-        let words = text.split(whereSeparator: { $0.isWhitespace || $0.isNewline }).count
-        charCountLabel?.stringValue = String(format: L("%d chars · %d words"), chars, words)
     }
 }
 

@@ -54,7 +54,7 @@ enum ImageSaveService {
     /// Called with a user-facing message when a save fails. AppDelegate wires
     /// this to a toast at launch. Before it existed, a failed write was logged
     /// in DEBUG only and every call site ignored the `false` completion — the
-    /// overlay dismissed, the thumbnail animated, and the screenshot was gone
+    /// overlay dismissed and the screenshot was gone
     /// with no indication it had ever been lost.
     nonisolated(unsafe) static var onFailure: ((String) -> Void)?
 

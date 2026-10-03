@@ -6,7 +6,7 @@ SimpleShot is a slimmed-down fork of [macshot](https://github.com/sw33tLie/macsh
 
 ### Changed
 
-- **Simpler internals** — the drawing, editing and option code still kept for the Highlight, Loupe and Measure tools (removed from the toolbar in 1.5.0) is gone, including the unused hold-1/2 auto-measure. About 1,500 lines removed. The only visible effect: annotations of those types copied from SimpleShot 1.4 or earlier are now skipped when pasted; everything else in the paste comes through. Leftover screen-recording checks and an unused filled-rectangle tool handler were removed as well.
+- **Simpler internals** — the drawing, editing and option code still kept for the Highlight, Loupe and Measure tools (removed from the toolbar in 1.5.0) is gone, including the unused hold-1/2 auto-measure. About 1,500 lines removed. The only visible effect: annotations of those types copied from SimpleShot 1.4 or earlier are now skipped when pasted; everything else in the paste comes through. Leftover screen-recording checks, an unused filled-rectangle tool handler, a few never-read properties, unused strings and an unused image asset were removed as well.
 - **No more inert emoji buttons on Add Capture images** — selecting an image added with the editor's Add Capture showed the emoji stamp options (quick emojis, More Emojis, Load Image), which did nothing since there is no stamp tool. That options row and the unused emoji stamp tool behind it are gone; a selected capture still moves and resizes with its handles.
 
 ## [1.5.3] - 2026-10-03

@@ -66,7 +66,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private var delayTimer: Timer?
     private var delayEscMonitor: Any?
     /// Transient toast for failures that would otherwise be invisible — a save
-    /// that couldn't be written, a recording that produced no file.
+    /// that couldn't be written, an image that couldn't be opened or copied.
     private var errorToastController: FailureToastController?
     private let terminationCoordinator = ApplicationTerminationCoordinator()
     private var scrollCaptureController: ScrollCaptureController?
@@ -274,7 +274,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             setMenuBarIconVisible(true)
         }
         // Only open settings if no windows are visible (e.g. pure menu-bar state).
-        // If editor/video editor is already open, just bring the app to the front.
+        // If an editor window is already open, just bring the app to the front.
         if !flag {
             openSettings()
         }
@@ -382,7 +382,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationWillTerminate(_ aNotification: Notification) {
-        // Normal quit drains the recording writer and coordinated exports.
+        // Normal quit waits for in-flight image saves.
         // A force quit leaves the durable take in place.
         for (_, controller) in overlayControllerPool {
             controller.tearDown()
