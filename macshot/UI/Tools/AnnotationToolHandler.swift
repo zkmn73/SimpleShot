@@ -13,12 +13,6 @@ protocol AnnotationCanvas: AnyObject {
     var arrowReversed: Bool { get }
     var currentRectFillStyle: RectFillStyle { get }
     var currentRectCornerRadius: CGFloat { get }
-    var currentMeasureInPoints: Bool { get }
-    var currentMeasureClampToSelection: Bool { get }
-    var currentLoupeSize: CGFloat { get }
-    var currentLoupeMagnification: CGFloat { get }
-    var currentLoupeOutlineColor: NSColor { get }
-    var currentLoupeOutlineEnabled: Bool { get }
     var pencilSmoothMode: Int { get }  // 0=None, 1=Smooth, 2=Extra
     var pencilPressureEnabled: Bool { get }
     var currentPressure: CGFloat { get }
@@ -35,9 +29,6 @@ protocol AnnotationCanvas: AnyObject {
     var nextNumberValue: Int { get }
 
     // Stamp tool
-    var currentStampImage: NSImage? { get set }
-    var currentStampEmoji: String? { get set }
-    var currentStampSize: CGFloat { get }
 
     /// currentColor with tool-appropriate opacity applied.
     func opacityAppliedColor(for tool: AnnotationTool) -> NSColor
@@ -149,27 +140,4 @@ func snapSquare(_ point: NSPoint, from ref: NSPoint) -> NSPoint {
         x: ref.x + side * (dx >= 0 ? 1 : -1),
         y: ref.y + side * (dy >= 0 ? 1 : -1)
     )
-}
-
-// OverlayView uses these to keep a measure annotation's endpoints inside the
-// selection while its handles are dragged.
-extension NSPoint {
-    func clampedToRect(_ rect: NSRect) -> NSPoint {
-        NSPoint(x: min(max(x, rect.minX), rect.maxX),
-                y: min(max(y, rect.minY), rect.maxY))
-    }
-
-    /// Shorten the segment start→self so it stays inside rect without
-    /// changing its direction (start must already be inside rect).
-    func clampedAlongRay(from start: NSPoint, in rect: NSRect) -> NSPoint {
-        let dx = x - start.x
-        let dy = y - start.y
-        var t: CGFloat = 1
-        if dx > 0 { t = min(t, (rect.maxX - start.x) / dx) }
-        else if dx < 0 { t = min(t, (rect.minX - start.x) / dx) }
-        if dy > 0 { t = min(t, (rect.maxY - start.y) / dy) }
-        else if dy < 0 { t = min(t, (rect.minY - start.y) / dy) }
-        t = max(0, t)
-        return NSPoint(x: start.x + dx * t, y: start.y + dy * t)
-    }
 }

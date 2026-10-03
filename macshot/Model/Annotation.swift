@@ -1,5 +1,7 @@
 import Cocoa
 
+/// Raw values are implicit and persisted (annotation clipboard), so cases are
+/// never removed or reordered. Retired tools keep their slot; decoding drops them.
 enum AnnotationTool: Int, CaseIterable {
     case pencil          // freeform draw
     case line            // straight line
@@ -12,14 +14,22 @@ enum AnnotationTool: Int, CaseIterable {
     case number          // auto-incrementing numbered circle
     case pixelate        // pixelate/blur region
     case blur            // gaussian blur region
-    case measure         // pixel ruler / measurement line
-    case loupe           // magnifying glass
+    case measure         // retired: reserved raw value, never created
+    case loupe           // retired: reserved raw value, never created
     case select          // select & move existing annotations
-    case translateOverlay // retired: kept as a reserved raw value so old saved captures still decode correctly
+    case translateOverlay // retired: reserved raw value, never created
     case crop            // crop image (detached editor only)
     case colorSampler    // pick color from screen
     case stamp           // emoji or image stamp
-    case highlight       // spotlight: dims everything outside the drawn rect
+    case highlight       // retired: reserved raw value, never created
+
+    /// Tools that were removed. They are never created, drawn or restored.
+    var isRetired: Bool {
+        switch self {
+        case .measure, .loupe, .translateOverlay, .highlight: return true
+        default: return false
+        }
+    }
 }
 
 enum LineStyle: Int, CaseIterable {
@@ -163,11 +173,6 @@ class Annotation {
     var isUnderline: Bool = false
     var isStrikethrough: Bool = false
     var rotation: CGFloat = 0         // rotation angle in radians
-    /// For .highlight: opacity of the dim applied OUTSIDE the highlighted rect
-    /// (0 = no dimming, 1 = fully black). The highlighted region itself stays
-    /// bright. The dim is rendered globally (union of all highlight rects), not
-    /// baked per-annotation.
-    var dimOpacity: CGFloat = 0.55
 
     var supportsRotation: Bool {
         switch tool {
@@ -205,7 +210,6 @@ class Annotation {
     /// (as opposed to an emoji/image placed with the stamp tool). Capture stamps
     /// don't update the remembered default stamp size when resized.
     var isCaptureStamp: Bool = false
-    var measureInPoints: Bool = false  // true = show pt, false = show px
     var censorMode: CensorMode = .pixelate
     var textBgColor: NSColor?         // background pill color (nil = no background)
     var textOutlineColor: NSColor?    // text outline/stroke color (nil = no outline)
@@ -218,17 +222,6 @@ class Annotation {
     /// preserved across clone/codable so the same arrow renders identically
     /// across redraws and reloads.
     var randomSeed: UInt32 = UInt32.random(in: 1...UInt32.max)
-    /// Magnification factor for loupe annotations.
-    var loupeMagnification: CGFloat = 2.0
-    /// Rooted-magnifier source circle (#197). When non-nil, the loupe is a
-    /// two-circle magnifier: this rect is the SOURCE spot that's sampled, and the
-    /// annotation's bounding box (startPoint/endPoint) is the LENS circle that
-    /// shows the magnified view. The two are connected by a line. nil = legacy
-    /// single-circle loupe that magnifies the region under itself.
-    var loupeSourceRect: NSRect?
-    /// When true, the loupe ring (and connecting line) use `outlineColor` instead
-    /// of the default gray gradient ring.
-    var loupeOutlineEnabled: Bool = false
 
     init(tool: AnnotationTool, startPoint: NSPoint, endPoint: NSPoint, color: NSColor, strokeWidth: CGFloat) {
         self.tool = tool
@@ -268,7 +261,6 @@ class Annotation {
         c.rectFillStyle = rectFillStyle
         c.stampImage = stampImage
         c.isCaptureStamp = isCaptureStamp
-        c.measureInPoints = measureInPoints
         c.censorMode = censorMode
         c.textBgColor = textBgColor
         c.textOutlineColor = textOutlineColor
@@ -277,10 +269,6 @@ class Annotation {
         c.fontFamilyName = fontFamilyName
         c.outlineColor = outlineColor
         c.randomSeed = randomSeed
-        c.loupeMagnification = loupeMagnification
-        c.loupeSourceRect = loupeSourceRect
-        c.loupeOutlineEnabled = loupeOutlineEnabled
-        c.dimOpacity = dimOpacity
         return c
     }
 
@@ -304,9 +292,7 @@ class Annotation {
         textAlignment = src.textAlignment
         fontFamilyName = src.fontFamilyName
         numberFormat = src.numberFormat
-        loupeMagnification = src.loupeMagnification
         outlineColor = src.outlineColor
-        loupeOutlineEnabled = src.loupeOutlineEnabled
         // Restore geometry/position too, so this can undo a move/resize as well as
         // a style edit. For a pure style change the source geometry is identical,
         // so this is a no-op there.
@@ -317,18 +303,12 @@ class Annotation {
         anchorPoints = src.anchorPoints
         textDrawRect = src.textDrawRect
         rotation = src.rotation
-        if tool == .loupe {
-            loupeSourceRect = src.loupeSourceRect
-            bakedBlurNSImage = nil
-            bakeLoupe()
-        } else if tool == .pixelate || tool == .blur {
+        if tool == .pixelate || tool == .blur {
             // Position changed — the baked censor must re-render at the new spot.
             bakedBlurNSImage = nil
             bakePixelate()
         }
-        measureInPoints = src.measureInPoints
         censorMode = src.censorMode
-        dimOpacity = src.dimOpacity
     }
 
     var boundingRect: NSRect {
@@ -362,8 +342,8 @@ class Annotation {
     /// Whether this annotation type can be moved
     var isMovable: Bool {
         switch tool {
-        case .select, .translateOverlay:
-            return false
+        case .select, .translateOverlay, .measure, .loupe, .highlight:
+            return false  // select is not an annotation; the rest are retired
         default:
             return true
         }
@@ -391,7 +371,7 @@ class Annotation {
                 if hypot(p.x - point.x, p.y - point.y) < effectiveThreshold { return true }
             }
             return false
-        case .line, .measure:
+        case .line:
             if hasMultiAnchor {
                 return distanceToPolyline(point: point, waypoints: waypoints) < threshold
             }
@@ -442,21 +422,6 @@ class Annotation {
             }
             let rNorm = threshold / min(rx, ry)
             return abs(d - 1.0) < rNorm * 2
-        case .loupe:
-            let rect = boundingRect
-            guard rect.width > 0, rect.height > 0 else { return false }
-            let cx = rect.midX, cy = rect.midY
-            let rx = rect.width / 2, ry = rect.height / 2
-            let nx = (point.x - cx) / rx, ny = (point.y - cy) / ry
-            let d = nx * nx + ny * ny
-            let rNorm = threshold / min(rx, ry)
-            if d <= (1.0 + rNorm) * (1.0 + rNorm) { return true }
-            // Two-circle loupe: also hit the rooted source circle.
-            if let src = loupeSourceRect, src.width > 0, src.height > 0 {
-                let sr = min(src.width, src.height) / 2 + threshold
-                if hypot(point.x - src.midX, point.y - src.midY) <= sr { return true }
-            }
-            return false
         case .text:
             return textDrawRect.insetBy(dx: -threshold, dy: -threshold).contains(point)
         case .number:
@@ -468,7 +433,7 @@ class Annotation {
             guard pointerDistance > 4 else { return false }
             let pointerThreshold = max(threshold, strokeWidth * 2)
             return distanceToLineSegment(point: point, from: startPoint, to: endPoint) < pointerThreshold
-        case .stamp, .pixelate, .blur, .highlight:
+        case .stamp, .pixelate, .blur:
             return boundingRect.insetBy(dx: -threshold, dy: -threshold).contains(point)
         default:
             return false
@@ -504,11 +469,8 @@ class Annotation {
             }
             anchorPoints = anchors
         }
-        // NOTE: loupeSourceRect is intentionally NOT moved here. The standard
-        // annotation drag moves the LENS only (the source stays rooted, #197).
-        // Moving the source is handled separately (drag the small source circle).
         // Clear baked image so it re-renders at the new position
-        if tool == .loupe || tool == .pixelate {
+        if tool == .pixelate {
             bakedBlurNSImage = nil
         }
         // Shift the cached glow rect instead of invalidating — the glow shape
@@ -638,22 +600,16 @@ class Annotation {
             // Legacy: existing blur annotations from before the merge
             censorMode = .blur
             drawCensor(in: context)
-        case .measure:
-            drawMeasure()
-        case .loupe:
-            drawLoupe(in: context)
         case .select:
             break  // not a drawable tool
         case .crop:
             break  // handled separately in OverlayView
-        case .translateOverlay:
-            break  // feature removed; retained only so old raw values keep decoding correctly
+        case .translateOverlay, .measure, .loupe, .highlight:
+            break  // retired tools; the cases stay only so raw values keep their meaning
         case .colorSampler:
             break  // preview-only tool, no annotation drawn
         case .stamp:
             drawStamp()
-        case .highlight:
-            drawHighlight()
         }
 
         if rotation != 0 && supportsRotation {
@@ -1831,87 +1787,6 @@ class Annotation {
         image.draw(in: rect, from: .zero, operation: .sourceOver, fraction: 1.0, respectFlipped: true, hints: [.interpolation: NSNumber(value: NSImageInterpolation.high.rawValue)])
     }
 
-    private func drawMeasure() {
-        let dx = endPoint.x - startPoint.x
-        let dy = endPoint.y - startPoint.y
-        let distance = hypot(dx, dy)
-        guard distance > 1 else { return }
-
-        let scale = NSScreen.main?.backingScaleFactor ?? 2.0
-
-        // Main measurement line
-        let lineColor = color
-        let path = NSBezierPath()
-        path.lineWidth = 1.5
-        path.lineCapStyle = .round
-        lineColor.setStroke()
-        path.move(to: startPoint)
-        path.line(to: endPoint)
-        path.stroke()
-
-        // Perpendicular end caps (small ticks at each end)
-        let angle = atan2(dy, dx)
-        let perpAngle = angle + .pi / 2
-        let capLength: CGFloat = 6
-        let capDx = capLength * cos(perpAngle)
-        let capDy = capLength * sin(perpAngle)
-
-        let capPath = NSBezierPath()
-        capPath.lineWidth = 1.5
-        capPath.lineCapStyle = .round
-        lineColor.setStroke()
-        // Start cap
-        capPath.move(to: NSPoint(x: startPoint.x - capDx, y: startPoint.y - capDy))
-        capPath.line(to: NSPoint(x: startPoint.x + capDx, y: startPoint.y + capDy))
-        // End cap
-        capPath.move(to: NSPoint(x: endPoint.x - capDx, y: endPoint.y - capDy))
-        capPath.line(to: NSPoint(x: endPoint.x + capDx, y: endPoint.y + capDy))
-        capPath.stroke()
-
-        // Dimension label
-        let unit = measureInPoints ? "pt" : "px"
-        let s = measureInPoints ? 1.0 : scale
-        let dispDistance = Int(distance * s)
-        let dispWidth = Int(abs(dx) * s)
-        let dispHeight = Int(abs(dy) * s)
-        let labelText: String
-        if dispWidth < 3 {
-            labelText = "\(dispHeight)\(unit)"
-        } else if dispHeight < 3 {
-            labelText = "\(dispWidth)\(unit)"
-        } else {
-            labelText = "\(dispDistance)\(unit) (\(dispWidth) × \(dispHeight))"
-        }
-
-        let fontSize: CGFloat = 11
-        let attrs: [NSAttributedString.Key: Any] = [
-            .font: NSFont.monospacedDigitSystemFont(ofSize: fontSize, weight: .semibold),
-            .foregroundColor: NSColor.white,
-        ]
-        let str = labelText as NSString
-        let strSize = str.size(withAttributes: attrs)
-
-        // Position label at midpoint, offset perpendicular to the line
-        let midX = (startPoint.x + endPoint.x) / 2
-        let midY = (startPoint.y + endPoint.y) / 2
-        let offsetDist: CGFloat = 12
-        let labelX = midX + offsetDist * cos(perpAngle) - strSize.width / 2
-        let labelY = midY + offsetDist * sin(perpAngle) - strSize.height / 2
-
-        // Background pill for readability
-        let padding: CGFloat = 4
-        let bgRect = NSRect(
-            x: labelX - padding,
-            y: labelY - padding / 2,
-            width: strSize.width + padding * 2,
-            height: strSize.height + padding
-        )
-        NSColor(white: 0.0, alpha: 0.75).setFill()
-        NSBezierPath(roundedRect: bgRect, xRadius: 4, yRadius: 4).fill()
-
-        str.draw(at: NSPoint(x: labelX, y: labelY), withAttributes: attrs)
-    }
-
     // MARK: - Shared region crop
 
     /// Render the source image region matching boundingRect into a new NSImage.
@@ -2041,78 +1916,6 @@ class Annotation {
         border.setLineDash(pattern, count: 2, phase: 0)
         NSColor.white.withAlphaComponent(censorMode == .blur ? 0.7 : 0.5).setStroke()
         border.stroke()
-    }
-
-    /// Highlight (spotlight) only draws its own thin border — the dimming of the
-    /// area OUTSIDE the rect is rendered globally as a single union pass (see
-    /// `Annotation.drawHighlightDim`), so overlapping highlights don't stack.
-    private func drawHighlight() {
-        let rect = boundingRect
-        guard rect.width > 1, rect.height > 1 else { return }
-        let border = NSBezierPath(rect: rect)
-        border.lineWidth = 1.5
-        // Border style follows lineStyle: .solid = clean rect, .dashed = dashes.
-        if lineStyle == .dashed {
-            border.setLineDash([4, 4], count: 2, phase: 0)
-        }
-        NSColor.white.withAlphaComponent(0.6).setStroke()
-        border.stroke()
-    }
-
-    /// Draw a single dim layer covering `bounds` MINUS the union of all
-    /// `highlightRects` (so a pixel inside ANY highlight stays bright). Drawn
-    /// once per render pass — AFTER the screenshot/censor effects and BEFORE the
-    /// regular shape annotations, so shapes stay readable over the dimming.
-    /// No-op when there are no highlight rects.
-    ///
-    /// Uses fill + destination-out punch-through (not an even-odd combined path):
-    /// even-odd would re-dim the OVERLAP of two highlights (a point inside the
-    /// outer rect + two inner rects has odd winding). Clearing each rect from an
-    /// already-dimmed layer is idempotent, giving a true union of bright regions.
-    static func drawHighlightDim(highlightRects: [NSRect], in bounds: NSRect, opacity: CGFloat) {
-        let rects = highlightRects.compactMap { r -> NSRect? in
-            let i = r.intersection(bounds)
-            return (i.width > 1 && i.height > 1) ? i : nil
-        }
-        guard !rects.isEmpty, bounds.width > 0, bounds.height > 0, opacity > 0,
-              let ctx = NSGraphicsContext.current?.cgContext else { return }
-
-        ctx.saveGState()
-        // Clip to the bounds so the dim never spills outside the canvas/selection.
-        ctx.clip(to: bounds)
-        // Build the dim in an isolated transparency layer so the destination-out
-        // punch-through only clears the DIM, not the screenshot already drawn
-        // beneath it in this context.
-        ctx.beginTransparencyLayer(auxiliaryInfo: nil)
-        // 1) Dim the whole area.
-        ctx.setFillColor(NSColor.black.withAlphaComponent(min(1, opacity)).cgColor)
-        ctx.fill(bounds)
-        // 2) Punch the bright holes (union — overlaps clear once, idempotent).
-        ctx.setBlendMode(.destinationOut)
-        ctx.setFillColor(CGColor(gray: 0, alpha: 1))
-        for r in rects { ctx.fill(r) }
-        ctx.endTransparencyLayer()
-        ctx.restoreGState()
-    }
-
-    /// Convenience: draw the union highlight dim for all `.highlight` annotations
-    /// in `list` (optionally including an in-progress one) over `bounds`. The dim
-    /// opacity is taken from the strongest (max) highlight so a stack reads as one
-    /// consistent dim. No-op when there are no highlights. Call this AFTER the
-    /// screenshot/censor effects and BEFORE the regular shape annotations.
-    static func drawHighlightDim(for list: [Annotation], extra: Annotation? = nil, in bounds: NSRect) {
-        var rects: [NSRect] = []
-        var opacity: CGFloat = 0
-        for a in list where a.tool == .highlight {
-            rects.append(a.boundingRect)
-            opacity = max(opacity, a.dimOpacity)
-        }
-        if let extra, extra.tool == .highlight {
-            rects.append(extra.boundingRect)
-            opacity = max(opacity, extra.dimOpacity)
-        }
-        guard !rects.isEmpty else { return }
-        drawHighlightDim(highlightRects: rects, in: bounds, opacity: opacity)
     }
 
     /// Erase mode: sample the border pixels around the rect from the source image,
@@ -2257,252 +2060,4 @@ class Annotation {
         let outputRect = CGRect(x: 0, y: 0, width: w, height: h)
         return Annotation.ciContext.createCGImage(output, from: outputRect)
     }
-
-    // MARK: - Loupe (Magnifying Glass)
-
-    // MARK: - Loupe (Magnifying Glass)
-
-    func bakeLoupe() {
-        guard tool == .loupe else { return }
-        if let live = generateLoupeImage() {
-            bakedBlurNSImage = live
-        }
-        // Do NOT set self.sourceImage = nil so that if the user moves it later, it can still magnify!
-    }
-
-    private func generateLoupeImage() -> NSImage? {
-        // Real-time geometric magnification of the source underlying the circle
-        guard let image = sourceImage else { return nil }
-
-        let bounds = sourceImageBounds
-        let imageSize = image.size
-        let scaleX = imageSize.width / bounds.width
-        let scaleY = imageSize.height / bounds.height
-        
-        let rect = boundingRect
-        let scale = max(1.1, loupeMagnification)
-        
-        // Always force a perfect circle
-        let size = min(rect.width, rect.height)
-        guard size > 10 else { return nil }
-
-        // Two-circle magnifier: sample under the rooted SOURCE circle. Legacy
-        // single loupe: sample under itself.
-        let centerX: CGFloat
-        let centerY: CGFloat
-        if let src = loupeSourceRect {
-            centerX = src.midX
-            centerY = src.midY
-        } else {
-            centerX = rect.origin.x + rect.width / 2
-            centerY = rect.origin.y + rect.height / 2
-        }
-
-        let srcSize = size / scale
-        let srcX = centerX - srcSize / 2
-        let srcY = centerY - srcSize / 2
-        
-        // Extract the original region.
-        // NSImage and the overlay view share the same coordinate system (Y=0 at bottom),
-        // so no Y-flip is needed — just scale directly.
-        let cropRect = NSRect(
-            x: srcX * scaleX,
-            y: srcY * scaleY,
-            width: srcSize * scaleX,
-            height: srcSize * scaleY
-        )
-        
-        let magnifiedImage = NSImage(size: NSSize(width: size, height: size), flipped: false) { _ in
-            if let ctx = NSGraphicsContext.current {
-                ctx.imageInterpolation = .high
-            }
-            image.draw(in: NSRect(x: 0, y: 0, width: size, height: size),
-                       from: cropRect,
-                       operation: .copy,
-                       fraction: 1.0)
-            return true
-        }
-        
-        return magnifiedImage
-    }
-
-    // Cached loupe chrome objects (shared across all loupe annotations)
-    private static let loupeOuterShadow: NSShadow = {
-        let s = NSShadow()
-        s.shadowColor = NSColor.black.withAlphaComponent(0.4)
-        s.shadowOffset = NSSize(width: 0, height: -6)
-        s.shadowBlurRadius = 14
-        return s
-    }()
-    private static let loupeInnerShadow: NSShadow = {
-        let s = NSShadow()
-        s.shadowColor = NSColor.black.withAlphaComponent(0.5)
-        s.shadowOffset = NSSize(width: 0, height: -3)
-        s.shadowBlurRadius = 6
-        return s
-    }()
-    private static let loupeGradient: CGGradient? = {
-        let colors = [
-            NSColor.white.withAlphaComponent(0.95).cgColor,
-            NSColor(white: 0.7, alpha: 0.85).cgColor,
-        ] as CFArray
-        return CGGradient(colorsSpace: CGColorSpace(name: CGColorSpace.sRGB)!, colors: colors, locations: [0.0, 1.0])
-    }()
-
-    /// Outline ring thickness used both for the colored ring and (so preview ==
-    /// committed) the selection chrome.
-    static let loupeOutlineWidth: CGFloat = 4.0
-
-    /// The circular lens rect (the magnified circle) for this loupe.
-    var loupeLensSquareRect: NSRect {
-        let rect = boundingRect
-        let size = min(rect.width, rect.height)
-        return NSRect(x: rect.origin.x + (rect.width - size) / 2,
-                      y: rect.origin.y + (rect.height - size) / 2,
-                      width: size, height: size)
-    }
-
-    /// Two-circle loupe invariant: the source circle frames exactly the region
-    /// the lens magnifies, so its diameter = lensDiameter / magnification. Resize
-    /// the source (keeping it centered) to satisfy this. No-op for a single loupe.
-    func syncLoupeSourceToMagnification() {
-        guard tool == .loupe, let src = loupeSourceRect else { return }
-        let lensSize = loupeLensSquareRect.width
-        let mag = max(1.1, loupeMagnification)
-        let newSize = lensSize / mag
-        let cx = src.midX, cy = src.midY
-        loupeSourceRect = NSRect(x: cx - newSize / 2, y: cy - newSize / 2,
-                                 width: newSize, height: newSize)
-    }
-
-    private func drawLoupe(in context: NSGraphicsContext) {
-        let rect = boundingRect
-        guard rect.width > 10, rect.height > 10 else { return }
-
-        let squareRect = loupeLensSquareRect
-        let size = squareRect.width
-        let colored = loupeOutlineEnabled
-        let ringColor = outlineColor ?? .systemRed
-
-        // Two-circle (rooted) magnifier: draw the connecting line + source ring
-        // first, behind the lens. The lens samples the region under the SOURCE
-        // circle, magnified to fill the lens.
-        if let src = loupeSourceRect, src.width > 4, src.height > 4 {
-            let srcCenter = NSPoint(x: src.midX, y: src.midY)
-            let lensCenter = NSPoint(x: squareRect.midX, y: squareRect.midY)
-            let lineColor = colored ? ringColor : NSColor.white
-            let lineWidth = colored ? Self.loupeOutlineWidth * 0.6 : 2.0
-            let srcRadius = min(src.width, src.height) / 2
-            let lensRadius = size / 2
-
-            // Connecting line: trim each end to the circle's circumference so it
-            // touches the edges instead of running into the centers.
-            let dx = lensCenter.x - srcCenter.x
-            let dy = lensCenter.y - srcCenter.y
-            let dist = hypot(dx, dy)
-            if dist > srcRadius + lensRadius {
-                let ux = dx / dist, uy = dy / dist
-                let from = NSPoint(x: srcCenter.x + ux * srcRadius, y: srcCenter.y + uy * srcRadius)
-                let to = NSPoint(x: lensCenter.x - ux * lensRadius, y: lensCenter.y - uy * lensRadius)
-                let line = NSBezierPath()
-                line.move(to: from)
-                line.line(to: to)
-                line.lineWidth = lineWidth
-                lineColor.setStroke()
-                line.stroke()
-            }
-
-            // Source ring (outline only — shows the real, un-magnified spot).
-            let srcSize = min(src.width, src.height)
-            let srcSquare = NSRect(x: srcCenter.x - srcSize / 2, y: srcCenter.y - srcSize / 2,
-                                   width: srcSize, height: srcSize)
-            let srcRing = NSBezierPath(ovalIn: srcSquare)
-            srcRing.lineWidth = colored ? Self.loupeOutlineWidth : 2.0
-            (colored ? ringColor : NSColor.white).setStroke()
-            srcRing.stroke()
-        }
-
-        // Source center to sample the magnified content from. With a source rect,
-        // sample under it; otherwise sample under the lens itself (legacy loupe).
-        let sampleCenter: NSPoint
-        if let src = loupeSourceRect {
-            sampleCenter = NSPoint(x: src.midX, y: src.midY)
-        } else {
-            sampleCenter = NSPoint(x: rect.midX, y: rect.midY)
-        }
-
-        let path = NSBezierPath(ovalIn: squareRect)
-
-        // 1. Outer drop shadow
-        context.saveGraphicsState()
-        Self.loupeOuterShadow.set()
-        NSColor.white.setFill()
-        path.fill()
-        context.restoreGraphicsState()
-
-        // 2. Magnified content clipped to circle
-        context.saveGraphicsState()
-        path.addClip()
-
-        if let baked = bakedBlurNSImage {
-            baked.draw(in: squareRect, from: NSRect(origin: .zero, size: baked.size),
-                       operation: .sourceOver, fraction: 1.0)
-        } else if let image = sourceImage {
-            // Draw directly from source without creating an intermediate image.
-            let imgSize = image.size
-            let scaleX = imgSize.width / sourceImageBounds.width
-            let scaleY = imgSize.height / sourceImageBounds.height
-            let magnification = max(1.1, loupeMagnification)
-            let srcSize = size / magnification
-            let fromRect = NSRect(
-                x: (sampleCenter.x - srcSize/2) * scaleX,
-                y: (sampleCenter.y - srcSize/2) * scaleY,
-                width: srcSize * scaleX,
-                height: srcSize * scaleY
-            )
-            context.imageInterpolation = .high
-            image.draw(in: squareRect, from: fromRect, operation: .copy, fraction: 1.0)
-        }
-        context.restoreGraphicsState()
-
-        // 3. Border ring — colored solid ring, or the default gray gradient.
-        let cgCtx = context.cgContext
-        let borderWidth: CGFloat = Self.loupeOutlineWidth
-        if colored {
-            context.saveGraphicsState()
-            let ring = NSBezierPath(ovalIn: squareRect.insetBy(dx: borderWidth / 2, dy: borderWidth / 2))
-            ring.lineWidth = borderWidth
-            ringColor.setStroke()
-            ring.stroke()
-            context.restoreGraphicsState()
-        } else {
-            let innerPath = NSBezierPath(ovalIn: squareRect.insetBy(dx: borderWidth, dy: borderWidth))
-            let ringPath = NSBezierPath()
-            ringPath.append(path)
-            ringPath.append(innerPath.reversed)
-            cgCtx.saveGState()
-            ringPath.addClip()
-            if let gradient = Self.loupeGradient {
-                cgCtx.drawLinearGradient(
-                    gradient,
-                    start: CGPoint(x: squareRect.midX, y: squareRect.maxY),
-                    end:   CGPoint(x: squareRect.midX, y: squareRect.minY),
-                    options: []
-                )
-            }
-            cgCtx.restoreGState()
-        }
-
-        // 4. Inner shadow
-        context.saveGraphicsState()
-        Self.loupeInnerShadow.set()
-        let holeRect = squareRect.insetBy(dx: -30, dy: -30)
-        let innerHole = NSBezierPath(rect: holeRect)
-        innerHole.append(NSBezierPath(ovalIn: squareRect).reversed)
-        path.addClip()
-        NSColor.black.withAlphaComponent(0.8).setFill()
-        innerHole.fill()
-        context.restoreGraphicsState()
-    }
-
 }

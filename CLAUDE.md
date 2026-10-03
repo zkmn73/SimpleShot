@@ -11,9 +11,9 @@ Native macOS screenshot & annotation tool. Swift + AppKit, no Qt, no Electron. S
 - English only. There is a single `en.lproj/Localizable.strings`.
 - One build, no variants. Use `AppInfo.displayName` for the display name.
 
-**Removed on purpose — do not reintroduce unless asked:** cloud upload (imgbb / Google Drive / S3), screenshot history, screen recording and the video editor, Pin to screen, Beautify / image effects / Invert Colors / Remove Background, Share, translation, Sparkle auto-update and the beta channel, multi-language localization, the floating thumbnail, capture sound, single-key tool shortcuts, toolbar theme and menu bar customization, the Tools settings tab, Capture Last Area, mouse cursor capture, OCR "AI Search", the Censor tool's auto-redact (All Text / PII / Faces / People and "Text Only" drawing), diagnostic logs, the Offline build variant, the toggles for snap guides / boundary snap / browser element snap / selection dimming, the Filename reset button, and the Highlight / Loupe / Measure toolbar tools.
+**Removed on purpose — do not reintroduce unless asked:** cloud upload (imgbb / Google Drive / S3), screenshot history, screen recording and the video editor, Pin to screen, Beautify / image effects / Invert Colors / Remove Background, Share, translation, Sparkle auto-update and the beta channel, multi-language localization, the floating thumbnail, capture sound, single-key tool shortcuts, toolbar theme and menu bar customization, the Tools settings tab, Capture Last Area, mouse cursor capture, OCR "AI Search", the Censor tool's auto-redact (All Text / PII / Faces / People and "Text Only" drawing), diagnostic logs, the Offline build variant, the toggles for snap guides / boundary snap / browser element snap / selection dimming, the Filename reset button, the Highlight / Loupe / Measure toolbar tools, and the emoji stamp tool (quick emojis, emoji picker, Load Image).
 
-**Kept as inert internals:** `AnnotationTool` has implicit raw values, so cases are never deleted. `translateOverlay` is retired but still decodes; `stamp` is only created by the editor's Add Capture; `crop` and `blur` are not toolbar tools; `highlight`, `loupe` and `measure` have no toolbar entry point (removed — see Project Direction) and no tool handler (nothing can create them any more), but keep their drawing/hit-test/options-row machinery so old copy-pasted or cross-version annotations of those types still render and can be moved, resized and deleted. Never reorder or remove cases.
+**Kept as inert internals:** `AnnotationTool` has implicit raw values, so cases are never deleted or reordered. `translateOverlay`, `measure`, `loupe` and `highlight` are retired (`AnnotationTool.isRetired`): no code creates, draws or edits them, and decoding drops them. `stamp` is only created by the editor's Add Capture (there is no stamp tool or emoji picker; a selected capture shows no options row); `crop` and `blur` are not toolbar tools.
 
 ## Project Setup
 
@@ -85,7 +85,6 @@ macshot/
 ├── UI/
 │   ├── Overlay/
 │   │   ├── OverlayView.swift           # Base canvas: selection, drawing, annotation rendering, input routing
-│   │   ├── OverlayView+Popovers.swift  # Popover factories
 │   │   ├── OverlayView+WindowSnapping.swift  # Window/element detection + snap highlight (Tab cycles modes)
 │   │   ├── OverlayWindowController.swift     # One per screen: pooled fullscreen borderless overlay window
 │   │   ├── ResolutionBoxView.swift / ResolutionPresets.swift  # Selection size box + aspect/pixel presets
@@ -104,12 +103,12 @@ macshot/
 │   ├── Tools/
 │   │   ├── AnnotationToolHandler.swift # AnnotationToolHandler + AnnotationCanvas protocols, shared helpers
 │   │   ├── *ToolHandler.swift          # Pencil, Marker, Line, Arrow, Rectangle, FilledRectangle, Ellipse,
-│   │   │                               # Pixelate (Censor), Number, Stamp
+│   │   │                               # Pixelate (Censor), Number
 │   │   ├── TextEditingController.swift # Text tool: NSTextView lifecycle, formatting, commit, cancel
 │   │   ├── OutlineTextRenderer.swift   # Outlined text attributes/layout manager
 │   │   └── ScopedUndoTextView.swift    # NSTextView with view-owned undo history
 │   ├── Popover/                        # PopoverHelper, ColorPickerView, FontPickerView,
-│   │                                   # ResolutionPresetsView, EmojiPickerView (stamp only)
+│   │                                   # ResolutionPresetsView
 │   └── Windows/
 │       ├── SettingsWindowController.swift     # Settings: General, Capture, Shortcuts, About
 │       ├── OCRResultController.swift          # OCR text + QR code results window
@@ -153,7 +152,7 @@ The core canvas view: selection state machine, annotation rendering, input routi
 - **Never call `viewToCanvas()` on a point that's already in canvas space.** `startAnnotation(at:)` receives canvas-space points.
 - **When positioning NSViews (e.g. the text tool's NSTextView),** convert canvas coordinates back with `canvasToView()`.
 - **`compositedImage()`** renders at `captureDrawRect.size`, not `bounds.size`.
-- **`sourceImageBounds`** for pixelate/blur/loupe must be `captureDrawRect`, not `bounds`.
+- **`sourceImageBounds`** for pixelate/blur must be `captureDrawRect`, not `bounds`.
 - **For Vision region crops** (OCR, barcode, smart marker), draw the screenshot at `captureDrawRect` size.
 - **Cursor management** is fully imperative (`updateCursorForPoint()` + `mouseMoved`, no cursor rects). Each window only sets cursors when the mouse is actually over it, which prevents cross-window flicker on multi-monitor.
 
@@ -216,7 +215,7 @@ Only remembered choices are stored, and nothing is written as a side effect of t
 - **Output:** `imageFormat` (png/jpeg/heic/webp/avif; AVIF only where the OS can encode it), `imageQuality`, `downscaleRetina`, `saveDirectory` + `saveDirectoryBookmark` (only after the user picks a folder; default is `~/Downloads`), `filenameTemplate`, `saveAction`, `quickCaptureMode`, `quickCaptureOpenEditor`, `closeEditorAfterCopy`
 - **Capture:** `captureDelaySeconds`, `captureSnapMode`, `hideCaptureInstructions`, `scrollAutoScrollEnabled`, `scrollAutoScrollSpeed`, `scrollFrozenDetection`, `scrollMaxHeight`, resolution preset keys (`keepAspectRatio*`, `resolutionUnitIsPoints`, preselection preset keys)
 - **Hotkeys:** per slot key code, modifiers and disabled flag (`HotkeyManager.HotkeySlot`); editor undo/redo chords
-- **Annotation styles:** `currentStrokeWidth`, `numberStrokeWidth`, `markerStrokeWidth`, `loupeSize`, `lastUsedColor`, `lastUsedColorOpacity`, `customColors`, line/arrow/rect styles, text formatting, `numberFormat`, `censorMode`, pencil smoothing, highlight dim/dashed keys, outline colors
+- **Annotation styles:** `currentStrokeWidth`, `numberStrokeWidth`, `markerStrokeWidth`, `lastUsedColor`, `lastUsedColorOpacity`, `customColors`, line/arrow/rect styles, text formatting, `numberFormat`, `censorMode`, pencil smoothing, outline colors
 - **App:** `launchAtLogin`, `hideMenuBarIcon`, `urlSchemeEnabled` (default off), `suppressMoveToApplications`
 
 ### Threading Model
@@ -241,7 +240,7 @@ Only remembered choices are stored, and nothing is written as a side effect of t
 - Minimal allocations during mouse tracking (reuse paths, avoid per-`mouseMoved` object creation).
 - `[weak self]` in closures to avoid retain cycles.
 - Tear down overlay windows and images promptly after capture; use `autoreleasepool` for overlay teardown.
-- Extension files (`OverlayView+Feature.swift`) for self-contained feature code that touches `OverlayView` state (window snapping, popovers).
+- Extension files (`OverlayView+Feature.swift`) for self-contained feature code that touches `OverlayView` state (e.g. window snapping).
 - **Light/dark mode.** The toolbar and popovers always use a dark background regardless of system appearance. `ToolOptionsRowView` and `PopoverHelper` force `NSAppearance(named: .darkAqua)`. Never use system-adaptive colors (`.labelColor`, `.secondaryLabelColor`) for text in toolbar/popover contexts without verifying contrast. Theme colors come from `ToolbarLayout` and are fixed.
 - **Focus management.** SimpleShot is an `LSUIElement` app that temporarily shows windows. All focus return goes through `AppDelegate.returnFocusIfNeeded()`:
   - `previousApp` is captured in `startCapture()` before the overlay steals focus, and cleared after single use.

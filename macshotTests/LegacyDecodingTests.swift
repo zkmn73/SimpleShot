@@ -27,8 +27,6 @@ final class LegacyDecodingTests: XCTestCase {
         XCTAssertEqual(ann.strokeWidth, 4)
         // Fields that didn't exist yet fall back to today's defaults.
         XCTAssertEqual(ann.fontSize, 20)
-        XCTAssertEqual(ann.dimOpacity, 0.55, accuracy: 0.0001)
-        XCTAssertEqual(ann.loupeMagnification, 2.0)
         XCTAssertEqual(ann.censorMode, .pixelate)
         XCTAssertEqual(ann.lineStyle, .solid)
     }
@@ -86,7 +84,6 @@ final class LegacyDecodingTests: XCTestCase {
         let decoded = try XCTUnwrap(AnnotationSerializer.decode(data)?.first)
         XCTAssertEqual(decoded.arrowStyle, ann.arrowStyle)
         XCTAssertEqual(decoded.randomSeed, ann.randomSeed)
-        XCTAssertEqual(decoded.dimOpacity, ann.dimOpacity, accuracy: 0.0001)
     }
 
     // MARK: - LenientArrayDecoder itself

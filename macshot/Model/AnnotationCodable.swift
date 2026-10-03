@@ -58,17 +58,10 @@ struct CodableAnnotation: Codable {
     // Censor (pixelate/blur) baked result
     var bakedBlurPNG: Data?
 
-    // Loupe
-    var loupeMagnification: CGFloat?
-    var loupeSourceRect: [CGFloat]?      // [x, y, w, h] for the rooted source circle
-    var loupeOutlineEnabled: Bool = false
-
     // Misc
-    var measureInPoints: Bool = false
     var censorMode: Int = 0
     var groupID: String?  // UUID string
     var randomSeed: UInt32 = 0  // 0 = legacy capture, regenerate at decode
-    var dimOpacity: CGFloat = 0.55  // highlight (spotlight) dim strength
 
     init(
         tool: Int, startX: CGFloat, startY: CGFloat, endX: CGFloat, endY: CGFloat,
@@ -137,15 +130,9 @@ struct CodableAnnotation: Codable {
 
         bakedBlurPNG = c.decodeOptional(.bakedBlurPNG)
 
-        loupeMagnification = c.decodeOptional(.loupeMagnification)
-        loupeSourceRect = c.decodeOptional(.loupeSourceRect)
-        loupeOutlineEnabled = c.decode(.loupeOutlineEnabled, or: false)
-
-        measureInPoints = c.decode(.measureInPoints, or: false)
         censorMode = c.decode(.censorMode, or: 0)
         groupID = c.decodeOptional(.groupID)
         randomSeed = c.decode(.randomSeed, or: 0)
-        dimOpacity = c.decode(.dimOpacity, or: 0.55)
     }
 }
 
@@ -213,29 +200,22 @@ extension Annotation {
         if let stamp = stampImage { c.stampImagePNG = Self.encodeImage(stamp) }
         if isCaptureStamp { c.isCaptureStamp = true }
 
-        // Baked censor result (pixelate/blur/erase) — skip loupe since it
-        // needs re-baking from the editor's source image at the correct coordinates.
-        if tool != .loupe, let baked = bakedBlurNSImage { c.bakedBlurPNG = Self.encodeImage(baked) }
-
-        // Loupe
-        c.loupeMagnification = loupeMagnification
-        if let r = loupeSourceRect {
-            c.loupeSourceRect = [r.origin.x, r.origin.y, r.size.width, r.size.height]
-        }
-        c.loupeOutlineEnabled = loupeOutlineEnabled
+        // Baked censor result (pixelate/blur/erase)
+        if let baked = bakedBlurNSImage { c.bakedBlurPNG = Self.encodeImage(baked) }
 
         // Misc
-        c.measureInPoints = measureInPoints
         c.censorMode = censorMode.rawValue
         if let gid = groupID { c.groupID = gid.uuidString }
         c.randomSeed = randomSeed
-        c.dimOpacity = dimOpacity
 
         return c
     }
 
     static func fromCodable(_ c: CodableAnnotation) -> Annotation? {
+        // Retired tools (no longer drawn) are dropped rather than restored as
+        // invisible annotations.
         guard let tool = AnnotationTool(rawValue: c.tool),
+              !tool.isRetired,
               let start = SavedCaptureValidation.point([c.startX, c.startY]),
               let end = SavedCaptureValidation.point([c.endX, c.endY]) else { return nil }
         let ann = Annotation(
@@ -320,17 +300,8 @@ extension Annotation {
             ann.bakedBlurNSImage = image
         }
 
-        // Loupe
-        ann.loupeMagnification = SavedCaptureValidation.bounded(c.loupeMagnification ?? 2, 0.1...100, fallback: 2)
-        if let r = c.loupeSourceRect { ann.loupeSourceRect = SavedCaptureValidation.rect(r) }
-        ann.loupeOutlineEnabled = c.loupeOutlineEnabled
-
         // Misc
-        ann.measureInPoints = c.measureInPoints
         ann.censorMode = CensorMode(rawValue: c.censorMode) ?? .pixelate
-        // Highlight dim strength; older captures lack the field (decodes to the
-        // struct default 0.55). Guard against a zero/invalid value.
-        ann.dimOpacity = c.dimOpacity.isFinite && c.dimOpacity > 0 ? min(1, c.dimOpacity) : 0.55
         if let gidStr = c.groupID { ann.groupID = UUID(uuidString: gidStr) }
         // Legacy captures have seed=0; assign a fresh one so sketchy variation
         // remains deterministic per-load even for old data.
