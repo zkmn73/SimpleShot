@@ -234,11 +234,6 @@ class PermissionOnboardingController: NSWindowController {
         return CGPreflightScreenCaptureAccess()
     }
 
-    /// Check at app launch — synchronous and dialog-free.
-    static func checkPermissionSync(completion: @escaping (Bool) -> Void) {
-        completion(hasScreenRecordingPermission())
-    }
-
     private func showGranted() {
         spinner?.stopAnimation(nil)
         spinner?.isHidden = true

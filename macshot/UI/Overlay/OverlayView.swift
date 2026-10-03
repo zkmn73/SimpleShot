@@ -70,7 +70,7 @@ class OverlayView: NSView {
     weak var overlayDelegate: OverlayViewDelegate?
 
     override var isOpaque: Bool {
-        !usesExternalScreenshotPreview && screenshotImage != nil && !isScrollCapturing && !isRecording && !isEditorMode
+        !usesExternalScreenshotPreview && screenshotImage != nil && !isScrollCapturing && !isEditorMode
     }
 
     /// When true, hides overlay-only toolbar buttons (record, delay, cancel, move, scroll capture).
@@ -205,7 +205,6 @@ class OverlayView: NSView {
             LineToolHandler(),
             ArrowToolHandler(),
             RectangleToolHandler(),
-            FilledRectangleToolHandler(),
             EllipseToolHandler(),
             PixelateToolHandler(),
             NumberToolHandler(),
@@ -465,9 +464,6 @@ class OverlayView: NSView {
     private var editorTooltipView: NSView?
     private var overlayErrorTimer: Timer? = nil
 
-    // `isRecording` never becomes true (nothing sets it), kept as a plain flag
-    // since many layout/interaction guards below still read `!isRecording`.
-    var isRecording: Bool = false
     var autoOCRMode: Bool = false  // set by "Capture OCR & QR" menu — triggers OCR immediately after selection
     var autoQuickSaveMode: Bool = false  // set by "Quick Capture" menu — quick-saves immediately after selection
     var autoScrollCaptureMode: Bool = false  // set by "Scroll Capture" menu — triggers scroll capture immediately after selection
@@ -879,7 +875,7 @@ class OverlayView: NSView {
         }
 
         // Track cursor for pencil/marker dot preview (canvas space so it scales with zoom)
-        let showDrawingCursor = state == .selected && !isRecording
+        let showDrawingCursor = state == .selected
             && (currentTool == .pencil || currentTool == .marker)
         if showDrawingCursor {
             let canvasPoint = viewToCanvas(point)
@@ -908,7 +904,7 @@ class OverlayView: NSView {
         }
 
         // Track cursor for color sampler tool (canvas space)
-        if state == .selected && currentTool == .colorSampler && !isRecording {
+        if state == .selected && currentTool == .colorSampler {
             let canvasPoint = viewToCanvas(point)
             if canvasPoint != colorSamplerPoint {
                 let oldPt = colorSamplerPoint
@@ -963,7 +959,7 @@ class OverlayView: NSView {
 
     override func resetCursorRects() {
         super.resetCursorRects()
-        if !isEditorMode && !isScrollCapturing && !isRecording && (state == .idle || state == .selecting) {
+        if !isEditorMode && !isScrollCapturing && (state == .idle || state == .selecting) {
             addCursorRect(bounds, cursor: .crosshair)
             if preSelectionPresetButton?.isHidden == false && preSelectionPresetButtonRect.width > 1 {
                 addCursorRect(preSelectionPresetButtonRect, cursor: .arrow)
@@ -996,11 +992,6 @@ class OverlayView: NSView {
             return
         }
         if state == .idle || state == .selecting {
-            // Recording mode: arrow cursor (no selection interaction)
-            if isRecording {
-                NSCursor.arrow.set()
-                return
-            }
             // Show resize cursor for remote selection handles
             if state == .idle && remoteSelectionRect.width >= 1 && remoteSelectionRect.height >= 1 {
                 let remoteHandle = hitTestRemoteHandle(at: point)
@@ -1287,10 +1278,8 @@ class OverlayView: NSView {
     /// Override to control selection border drawing. Base returns true when not in editor mode.
     func shouldDrawSelectionBorder() -> Bool { !isEditorMode }
 
-    /// Override to control size label drawing. Base returns true when not recording/scrolling/editing.
-    /// The resolution box shows whenever there's an adjustable selection — including
-    /// recording SETUP (isRecording true). When recording actually starts the
-    /// overlay is dismissed, so no separate gate is needed for that.
+    /// Override to control size label drawing. Base returns true when there's an
+    /// adjustable selection and we're not scrolling or editing.
     func shouldShowResolutionBox() -> Bool {
         state == .selected && !isScrollCapturing && !isEditorMode
             && selectionRect.width > 1 && selectionRect.height > 1
@@ -1305,8 +1294,8 @@ class OverlayView: NSView {
     /// Override to control whether selection resize handles are active. Base returns true when not in editor mode or scroll capturing.
     func shouldAllowSelectionResize() -> Bool { !isEditorMode && !isScrollCapturing }
 
-    /// Override to control whether a new selection can be started. Base returns true when not recording and not in editor mode.
-    func shouldAllowNewSelection() -> Bool { !isRecording && !isEditorMode }
+    /// Override to control whether a new selection can be started. Base returns true when not in editor mode.
+    func shouldAllowNewSelection() -> Bool { !isEditorMode }
 
     /// Override to change the rect used when drawing the screenshot in `captureSelectedRegion`. Base returns bounds.
     var captureDrawRect: NSRect { isEditorMode ? selectionRect : bounds }
@@ -1332,7 +1321,7 @@ class OverlayView: NSView {
             // During scroll capture: make the entire window transparent so the user sees
             // live screen content everywhere (not just inside the selection).
             context.cgContext.clear(bounds)
-        } else if !isRecording {
+        } else {
             if let image = screenshotImage {
                 // Screenshot ready — draw it with dark overlay
                 if !usesExternalScreenshotPreview {
@@ -1407,10 +1396,10 @@ class OverlayView: NSView {
             if shouldClipSelectionImage() {
                 context.saveGraphicsState()
                 NSBezierPath(rect: selectionRect).setClip()
-                if !isScrollCapturing, !isRecording, usesExternalScreenshotPreview, zoomLevel == 1 {
+                if !isScrollCapturing, usesExternalScreenshotPreview, zoomLevel == 1 {
                     context.cgContext.setBlendMode(.clear)
                     NSBezierPath(rect: selectionRect).fill()
-                } else if !isScrollCapturing, !isRecording, let image = screenshotImage {
+                } else if !isScrollCapturing, let image = screenshotImage {
                     applyZoomTransform(to: context)
                     image.draw(in: bounds, from: .zero, operation: .copy, fraction: 1.0)
                 }
@@ -1505,15 +1494,12 @@ class OverlayView: NSView {
             }
 
             // Draw selection highlight for selected annotations
-            // Suppressed during recording so annotations are purely visual overlays.
-            if !isRecording {
-                for selected in selectedAnnotations {
-                    // Only draw full controls (handles, buttons) for single selection
-                    drawAnnotationControls(for: selected, fullControls: selectedAnnotations.count == 1)
-                }
-                // Consolidated delete button for multi-selection
-                drawMultiSelectDeleteButton()
+            for selected in selectedAnnotations {
+                // Only draw full controls (handles, buttons) for single selection
+                drawAnnotationControls(for: selected, fullControls: selectedAnnotations.count == 1)
             }
+            // Consolidated delete button for multi-selection
+            drawMultiSelectDeleteButton()
 
             // Pencil/marker cursor dot preview inside zoom transform so it scales with zoom
             if (currentTool == .pencil || currentTool == .marker) && drawingCursorPoint != .zero && currentAnnotation == nil && !isDraggingAnnotation && !isResizingAnnotation && !isRotatingAnnotation {
@@ -1550,7 +1536,7 @@ class OverlayView: NSView {
             // Resolution box (real NSView) is managed in updateResolutionBox(),
             // called from layout/selection changes — not drawn here.
 
-            // Resize handles (drawn even in recording setup mode, but not during scroll capture)
+            // Resize handles (not during scroll capture)
             if state == .selected && !isEditorMode && !isScrollCapturing {
                 drawResizeHandles()
             }
@@ -2235,7 +2221,6 @@ class OverlayView: NSView {
         state == .idle
             && screenshotImage != nil
             && !isEditorMode
-            && !isRecording
             && !autoOCRMode
             && remoteSelectionRect.width < 1
             && remoteSelectionRect.height < 1
@@ -3917,8 +3902,7 @@ class OverlayView: NSView {
         let movableAnnotations = annotations.contains { $0.isMovable }
         bottomButtons = ToolbarLayout.bottomButtons(
             selectedTool: currentTool, selectedColor: currentColor,
-            hasAnnotations: movableAnnotations, isRecording: isRecording,
-            isEditorMode: isEditorMode
+            hasAnnotations: movableAnnotations, isEditorMode: isEditorMode
         )
 
         // Create the strip view if needed — add to chrome parent (window content) when in scroll view
@@ -5315,7 +5299,7 @@ class OverlayView: NSView {
         // Anchored selection toggle: right-click in idle starts no-hold
         // tracking from that point; a second right-click while tracking
         // commits. Left-click during tracking also commits (handled in
-        // mouseDown). ESC cancels. Locked during recording and editor mode.
+        // mouseDown). ESC cancels. Locked in editor mode.
         if isAnchoredSelecting {
             updateSelectionRect(to: point, shiftHeld: event.modifierFlags.contains(.shift), modifiers: event.modifierFlags)
             commitAnchoredSelection()
@@ -6281,9 +6265,6 @@ class OverlayView: NSView {
     // MARK: - Annotation Creation
 
     private func startAnnotation(at point: NSPoint) {
-        // No drawing in recording setup mode
-        guard !isRecording else { return }
-
         // Click-to-select: if clicking on an existing annotation, select it instead of
         // starting a new annotation. Pencil and marker use long-press instead (so taps
         // and drags always draw, even single dots).
@@ -7697,7 +7678,6 @@ class OverlayView: NSView {
         }
         browserAccessibilityRetryWorkItems.removeAll()
         Self.resetBrowserAccessibilityPreparation()
-        isRecording = false
         // Auto-mode flags — these are set per-session by the controller and
         // must NOT leak into the next session.
         autoOCRMode = false

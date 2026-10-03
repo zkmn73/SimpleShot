@@ -159,13 +159,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         // Check screen recording permission. If not yet granted, show the
         // custom onboarding window instead of letting macOS throw its own dialogs.
-        PermissionOnboardingController.checkPermissionSync { [weak self] granted in
-            guard let self = self else { return }
-            if granted {
-                self.markScreenCaptureURLsReady()
-            } else {
-                self.showOnboarding()
-            }
+        if PermissionOnboardingController.hasScreenRecordingPermission() {
+            markScreenCaptureURLsReady()
+        } else {
+            showOnboarding()
         }
 
         // Replay requests on the next run-loop turn so AppKit has completely
@@ -391,7 +388,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             controller.tearDown()
         }
         overlayControllerPool.removeAll()
-        HotkeyManager.shared.unregister()
+        HotkeyManager.shared.unregisterAll()
         DistributedNotificationCenter.default().removeObserver(self)
     }
 
