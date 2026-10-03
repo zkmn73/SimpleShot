@@ -3304,7 +3304,7 @@ class OverlayView: NSView {
     // MARK: - Annotation Controls
 
     private func drawAnnotationControls(for annotation: Annotation, fullControls: Bool = true) {
-        // Arrow, line, and measure: show only 2 endpoint handles, no bounding box
+        // Arrow and line: show only 2 endpoint handles, no bounding box
         if annotation.tool == .arrow || annotation.tool == .line {
             if !fullControls {
                 drawAnnotationOutlineGlow(annotation)
@@ -5331,7 +5331,7 @@ class OverlayView: NSView {
             return
         }
 
-        // Right-click on a line/arrow/measure: add anchor point.
+        // Right-click on a line/arrow: add anchor point.
         // Auto-selects the annotation if it isn't selected yet.
         if state == .selected {
             let canvasPoint = viewToCanvas(point)

@@ -20,7 +20,7 @@ enum AnnotationTool: Int, CaseIterable {
     case translateOverlay // retired: reserved raw value, never created
     case crop            // crop image (detached editor only)
     case colorSampler    // pick color from screen
-    case stamp           // emoji or image stamp
+    case stamp           // image placed by the editor's Add Capture
     case highlight       // retired: reserved raw value, never created
 
     /// Tools that were removed. They are never created, drawn or restored.
@@ -205,10 +205,10 @@ class Annotation {
     var arrowStyle: ArrowStyle = .single // arrow head style
     var arrowReversed: Bool = false      // head at start instead of end
     var rectFillStyle: RectFillStyle = .stroke // rectangle fill mode
-    var stampImage: NSImage?          // rendered emoji or loaded picture for stamp tool
-    /// True when the stamp is a full capture added via "Add Capture" in the editor
-    /// (as opposed to an emoji/image placed with the stamp tool). Capture stamps
-    /// don't update the remembered default stamp size when resized.
+    var stampImage: NSImage?          // the image a stamp draws
+    /// True when the stamp is a capture added via "Add Capture" in the editor.
+    /// Older builds could also place emoji/image stamps; this tells them apart
+    /// in pasted annotations. Kept for persistence, no behavior depends on it.
     var isCaptureStamp: Bool = false
     var censorMode: CensorMode = .pixelate
     var textBgColor: NSColor?         // background pill color (nil = no background)

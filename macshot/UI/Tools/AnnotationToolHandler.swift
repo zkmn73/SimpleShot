@@ -28,8 +28,6 @@ protocol AnnotationCanvas: AnyObject {
     /// configured start value when none exist).
     var nextNumberValue: Int { get }
 
-    // Stamp tool
-
     /// currentColor with tool-appropriate opacity applied.
     func opacityAppliedColor(for tool: AnnotationTool) -> NSColor
 
