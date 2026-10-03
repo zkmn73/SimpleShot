@@ -102,7 +102,7 @@ macshot/
 │   │   └── ToolOptionsRowView.swift    # Tool options bar (sliders, segments, text formatting)
 │   ├── Tools/
 │   │   ├── AnnotationToolHandler.swift # AnnotationToolHandler + AnnotationCanvas protocols, shared helpers
-│   │   ├── *ToolHandler.swift          # Pencil, Marker, Line, Arrow, Rectangle, FilledRectangle, Ellipse,
+│   │   ├── *ToolHandler.swift          # Pencil, Marker, Line, Arrow, Rectangle, Ellipse,
 │   │   │                               # Pixelate (Censor), Number
 │   │   ├── TextEditingController.swift # Text tool: NSTextView lifecycle, formatting, commit, cancel
 │   │   ├── OutlineTextRenderer.swift   # Outlined text attributes/layout manager

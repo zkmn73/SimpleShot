@@ -144,9 +144,6 @@ class HotkeyManager {
         }
     }
 
-    /// Legacy — kept for backward compatibility.
-    func unregister() { unregisterAll() }
-
     /// Stop every global hotkey without forgetting its callback. Carbon hotkeys
     /// are taken before any window sees the key, so while Settings records a
     /// shortcut they must be off, or pressing a bound chord starts a capture

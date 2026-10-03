@@ -58,11 +58,8 @@ class ToolbarLayout {
     /// Copy, Save, OCR and — overlay only — Scroll Capture, Open in Editor, Cancel.
     static func bottomButtons(
         selectedTool: AnnotationTool, selectedColor: NSColor,
-        hasAnnotations: Bool = false, isRecording: Bool = false, isEditorMode: Bool = false
+        hasAnnotations: Bool = false, isEditorMode: Bool = false
     ) -> [ToolbarButton] {
-        // Hide the bar entirely while recording
-        if isRecording { return [] }
-
         var buttons: [ToolbarButton] = []
 
         let tools: [(AnnotationTool, String, String)] = [
