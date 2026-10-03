@@ -43,7 +43,7 @@ enum UndoEntry {
         case .propertyChange(let a, _): return a
         case .imageTransform:
             return Annotation(
-                tool: .measure, startPoint: .zero, endPoint: .zero, color: .clear, strokeWidth: 0)  // dummy
+                tool: .select, startPoint: .zero, endPoint: .zero, color: .clear, strokeWidth: 0)  // dummy
         }
     }
 }
@@ -209,7 +209,6 @@ class OverlayView: NSView {
             EllipseToolHandler(),
             PixelateToolHandler(),
             NumberToolHandler(),
-            StampToolHandler(),
         ]
         return Dictionary(uniqueKeysWithValues: handlers.map { ($0.tool, $0) })
     }()
@@ -228,7 +227,7 @@ class OverlayView: NSView {
             updateToolbarColorSwatch()
         }
     }
-    /// currentColor with opacity applied — used for all tools except marker, loupe, measure, pixelate, blur
+    /// currentColor with opacity applied — used for all tools except marker, pixelate, blur
     private var annotationColor: NSColor { currentColor.withAlphaComponent(currentColorOpacity) }
     var currentStrokeWidth: CGFloat = {
         let saved = UserDefaults.standard.object(forKey: "currentStrokeWidth") as? Double
@@ -317,13 +316,6 @@ class OverlayView: NSView {
     /// move so the drag can be pushed as an undo entry (and counts as an edit).
     private var preMoveSnapshots: [(annotation: Annotation, snapshot: Annotation)] = []
     private var annotationDragStart: NSPoint = .zero
-    /// Two-circle loupe: dragging the small SOURCE circle (re-roots what's
-    /// magnified) independently of the lens.
-    private var isDraggingLoupeSource: Bool = false
-    private var loupeSourceDragStart: NSPoint = .zero
-    private var loupeSourceDragOrig: NSRect = .zero
-    /// Two-circle loupe: resizing the SOURCE circle (changes the zoom).
-    private var isResizingLoupeSource: Bool = false
     /// When ctrl+clicking an already-selected annotation, defer the deselect
     /// to mouseUp so the user can still drag the full multi-selection.
     private weak var shiftClickPendingDeselect: Annotation?
@@ -384,13 +376,10 @@ class OverlayView: NSView {
     private var preSelectionPresetButtonRect: NSRect = .zero
 
     // Color picker target
-    enum ColorPickerTarget { case drawColor, textBg, textOutline, textGlyphStroke, annotationOutline, loupeOutline }
+    enum ColorPickerTarget { case drawColor, textBg, textOutline, textGlyphStroke, annotationOutline }
     private var colorPickerTarget: ColorPickerTarget = .drawColor
 
     // Tool options row (second row below bottom bar)
-    var currentMeasureInPoints: Bool = UserDefaults.standard.bool(forKey: "measureInPoints")
-    // Default ON: measuring outside the capture area is almost always an accident (#212)
-    var currentMeasureClampToSelection: Bool = UserDefaults.standard.object(forKey: "measureClampToSelection") as? Bool ?? true
     var currentLineStyle: LineStyle =
         LineStyle(rawValue: UserDefaults.standard.integer(forKey: "currentLineStyle")) ?? .solid
     var currentArrowStyle: ArrowStyle =
@@ -400,13 +389,6 @@ class OverlayView: NSView {
     var currentRectFillStyle: RectFillStyle =
         RectFillStyle(rawValue: UserDefaults.standard.integer(forKey: "currentRectFillStyle"))
         ?? .stroke
-    var currentStampImage: NSImage?  // selected emoji/image for stamp tool
-    var currentStampEmoji: String?  // emoji string for highlight tracking
-    var currentStampSize: CGFloat = {
-        let v = UserDefaults.standard.object(forKey: "stampSize") as? Double
-        return v != nil ? CGFloat(v!) : 64
-    }()
-    private var stampPreviewPoint: NSPoint?  // mouse position for stamp cursor preview
     var currentRectCornerRadius: CGFloat = {
         let v = UserDefaults.standard.object(forKey: "currentRectCornerRadius") as? Double
         return v != nil ? CGFloat(v!) : 0
@@ -425,35 +407,10 @@ class OverlayView: NSView {
         UserDefaults.standard.object(forKey: "smartMarkerEnabled") as? Bool ?? false
 
 
-    var currentLoupeSize: CGFloat = {
-        let saved = UserDefaults.standard.object(forKey: "loupeSize") as? Double
-        return saved != nil ? CGFloat(saved!) : 120.0
-    }()
-    var currentLoupeMagnification: CGFloat = {
-        let saved = UserDefaults.standard.object(forKey: "loupeMagnification") as? Double
-        return saved != nil ? CGFloat(saved!) : 2.0
-    }()
-    var currentLoupeOutlineColor: NSColor = {
-        if let data = UserDefaults.standard.data(forKey: "loupeOutlineColor"),
-           let c = try? NSKeyedUnarchiver.unarchivedObject(ofClass: NSColor.self, from: data) {
-            return c
-        }
-        return .systemRed
-    }()
-    var currentLoupeOutlineEnabled: Bool =
-        UserDefaults.standard.object(forKey: "loupeOutlineEnabled") as? Bool ?? false
-    private var loupeCursorPoint: NSPoint = .zero
     var drawingCursorPoint: NSPoint = .zero
     private var smartMarkerLineHeight: CGFloat?  // detected text line height at cursor (smart marker)
     private var colorSamplerPoint: NSPoint = .zero  // canvas space, for color picker tool
     private var colorSamplerBitmap: NSBitmapImageRep?  // cached bitmap for fast pixel sampling
-    // Auto-measure preview (live while holding 1 or 2 key)
-    private var autoMeasurePreview: Annotation?  // temporary, drawn but not in annotations[]
-    private var autoMeasureVertical: Bool = true  // true = "1" key, false = "2" key
-    private var autoMeasureKeyHeld: Bool = false  // true while 1 or 2 is held down
-    private var autoMeasureBitmapCtx: CGContext?  // cached pixel data for fast scanning
-    private var autoMeasureBitmapW: Int = 0
-    private var autoMeasureBitmapH: Int = 0
     // Snap/alignment guides
     var snapGuideX: CGFloat? = nil  // vertical guide line X
     var snapGuideY: CGFloat? = nil  // horizontal guide line Y
@@ -488,8 +445,6 @@ class OverlayView: NSView {
     private var annotationResizeMouseStart: NSPoint = .zero
     private var annotationDeleteButtonRect: NSRect = .zero
     private var annotationEditButtonRect: NSRect = .zero
-    /// Resize handle on a two-circle loupe's SOURCE circle (.zero when none).
-    private var loupeSourceHandleRect: NSRect = .zero
     private var annotationResizeHandleRects: [(ResizeHandle, NSRect)] = []
     private var multiSelectDeleteButtonRect: NSRect = .zero  // consolidated delete for multi-selection
 
@@ -903,43 +858,8 @@ class OverlayView: NSView {
             return
         }
 
-        // Stamp cursor preview — track in view coords (same as annotations)
-        if currentTool == .stamp && currentStampImage != nil && state == .selected && !isRecording {
-            let canvasStampPt = viewToCanvas(point)
-            let hoveringStamp = annotations.reversed().contains {
-                $0.tool == .stamp && $0.hitTest(point: canvasStampPt)
-            }
-            let previewPoint: NSPoint? = hoveringStamp ? nil : canvasStampPt
-            let shouldMovePreview: Bool
-            if let previewPoint, let stampPreviewPoint {
-                shouldMovePreview = hypot(
-                    previewPoint.x - stampPreviewPoint.x,
-                    previewPoint.y - stampPreviewPoint.y) > 0.5
-            } else {
-                shouldMovePreview = previewPoint != stampPreviewPoint
-            }
-            if shouldMovePreview {
-                let oldPt = stampPreviewPoint ?? .zero
-                stampPreviewPoint = previewPoint
-                // Radius must cover the drawn preview (centered, max side = currentStampSize)
-                invalidateCursorPreview(
-                    oldCanvas: oldPt, newCanvas: previewPoint ?? .zero,
-                    radius: max(40, currentStampSize / 2))
-            }
-        } else if stampPreviewPoint != nil {
-            let oldPt = stampPreviewPoint!
-            stampPreviewPoint = nil
-            invalidateCursorPreview(
-                oldCanvas: oldPt, newCanvas: oldPt, radius: max(40, currentStampSize / 2))
-        }
-
         // Update cursor on every mouse move
         updateCursorForPoint(point)
-
-        // Auto-measure: update preview as cursor moves while key is held
-        if autoMeasureKeyHeld {
-            updateAutoMeasurePreview()
-        }
 
         // Snap highlight for the hovered window or accessibility element.
         // CGWindowListCopyWindowInfo is expensive — run it on a background thread,
@@ -956,21 +876,6 @@ class OverlayView: NSView {
                 })
             else { return }
             querySnapTarget(at: screenPoint)
-        }
-
-        // Track cursor for loupe live preview (use canvas space for zoom correctness)
-        if state == .selected && currentTool == .loupe && !isRecording {
-            let canvasPoint = viewToCanvas(point)
-            let hoveringLoupe = annotations.reversed().contains {
-                $0.tool == .loupe && $0.hitTest(point: canvasPoint)
-            }
-            let newPoint = hoveringLoupe ? NSPoint.zero : canvasPoint
-            if newPoint != loupeCursorPoint {
-                let oldPt = loupeCursorPoint
-                loupeCursorPoint = newPoint
-                let r = currentLoupeSize / 2 + 4
-                invalidateCursorPreview(oldCanvas: oldPt, newCanvas: newPoint, radius: r)
-            }
         }
 
         // Track cursor for pencil/marker dot preview (canvas space so it scales with zoom)
@@ -1149,7 +1054,7 @@ class OverlayView: NSView {
 
                 // Resize handles — directional cursors for shapes, open hand for line/arrow points
                 let isShapeTool = [AnnotationTool.rectangle, .filledRectangle, .ellipse, .text,
-                                   .pixelate, .stamp, .loupe, .highlight].contains(selectedAnnotation?.tool)
+                                   .pixelate, .stamp].contains(selectedAnnotation?.tool)
                 for (_, handleEntry) in annotationResizeHandleRects.enumerated() {
                     let (handle, rect) = handleEntry
                     if rect.insetBy(dx: -4, dy: -4).contains(handlePoint) {
@@ -1406,12 +1311,6 @@ class OverlayView: NSView {
     /// Override to change the rect used when drawing the screenshot in `captureSelectedRegion`. Base returns bounds.
     var captureDrawRect: NSRect { isEditorMode ? selectionRect : bounds }
 
-    /// Bounds the spotlight dim is clipped to: only the screenshot SELECTION
-    /// region should dim, never the dark area outside it. In editor mode the
-    /// drawn region is the whole document (selectionRect); in overlay mode the
-    /// selection is a sub-rect of the full-screen overlay.
-    var highlightDimBounds: NSRect { isEditorMode ? captureDrawRect : selectionRect }
-
     /// Override to position toolbars for editor mode. Base pins bottom bar centered at bottom, right bar at top-right.    /// Override to control whether detach (open in editor) is allowed. Base returns true when not in editor mode.
     func shouldAllowDetach() -> Bool { !isEditorMode }
 
@@ -1520,7 +1419,6 @@ class OverlayView: NSView {
 
             // Skip annotation drawing if the editor already drew them via the cached composite.
             let editorDrawnFromCache = (self as? EditorView)?.drewFromCompositeCache ?? false
-            let drawingHighlightPreview = currentAnnotation?.tool == .highlight
 
             if !editorDrawnFromCache {
                 // Use cached annotation layer whenever possible — even during active
@@ -1534,22 +1432,7 @@ class OverlayView: NSView {
                         context.saveGraphicsState()
                         applyCanvasTransform(to: context)
                         staticLayer.draw(in: bounds, from: .zero, operation: .sourceOver, fraction: 1.0)
-                        // The static layer skipped the highlight dim; draw it live
-                        // here over the union of ALL highlights at their current
-                        // (possibly mid-drag) positions, before the selected
-                        // annotations' borders.
-                        Annotation.drawHighlightDim(for: annotations, in: highlightDimBounds)
                         for annotation in selectedAnnotations {
-                            annotation.draw(in: context)
-                        }
-                    } else if drawingHighlightPreview {
-                        // Drawing a NEW highlight: draw only pre-dim effects here.
-                        // The live union dim and all annotation borders are drawn
-                        // below in final render order so existing highlight borders
-                        // do not appear thinner while dragging.
-                        context.saveGraphicsState()
-                        applyCanvasTransform(to: context)
-                        for annotation in annotations where annotation.tool == .pixelate {
                             annotation.draw(in: context)
                         }
                     } else {
@@ -1567,15 +1450,8 @@ class OverlayView: NSView {
                     for annotation in annotations where annotation.tool == .pixelate {
                         annotation.draw(in: context)
                     }
-                    // Skip the committed-highlight dim while a new highlight is
-                    // being drawn — it's drawn live below over the full union
-                    // (committed + in-progress) so the existing ones don't get
-                    // re-dimmed by the preview pass.
-                    if !drawingHighlightPreview {
-                        Annotation.drawHighlightDim(for: annotations, in: highlightDimBounds)
-                        for annotation in annotations where annotation.tool != .pixelate {
-                            annotation.draw(in: context)
-                        }
+                    for annotation in annotations where annotation.tool != .pixelate {
+                        annotation.draw(in: context)
                     }
                 } else {
                     context.saveGraphicsState()
@@ -1586,17 +1462,7 @@ class OverlayView: NSView {
                 context.saveGraphicsState()
                 applyCanvasTransform(to: context)
             }
-            // Live spotlight dim preview while a new highlight is being dragged:
-            // dim the union of ALL highlights (committed + the in-progress one) so
-            // previously-placed highlights stay bright instead of being re-dimmed.
-            if let cur = currentAnnotation, cur.tool == .highlight {
-                Annotation.drawHighlightDim(for: annotations, extra: cur, in: highlightDimBounds)
-                for annotation in annotations where annotation.tool != .pixelate {
-                    annotation.draw(in: context)
-                }
-            }
             currentAnnotation?.draw(in: context)
-            autoMeasurePreview?.draw(in: context)
 
             // Crop selection rectangle preview
             if isCropDragging && cropDragRect.width > 1 && cropDragRect.height > 1 {
@@ -1634,12 +1500,6 @@ class OverlayView: NSView {
                 }
             }
 
-            // Live loupe preview when loupe tool is active
-            if currentTool == .loupe && selectionRect.contains(loupeCursorPoint)
-                && loupeCursorPoint != .zero
-            {
-                drawLoupePreview(at: loupeCursorPoint)
-            }
             if currentTool == .colorSampler && colorSamplerPoint != .zero {
                 drawColorSamplerPreview(at: colorSamplerPoint)
             }
@@ -1783,44 +1643,13 @@ class OverlayView: NSView {
                 }
             }
 
-            // Stamp cursor preview
-            if let previewPt = stampPreviewPoint, let img = currentStampImage,
-                currentTool == .stamp, !isRecording
-            {
-                let stampSize: CGFloat = currentStampSize
-                let aspect = img.size.width / max(img.size.height, 1)
-                let w = aspect >= 1 ? stampSize : stampSize * aspect
-                let h = aspect >= 1 ? stampSize / aspect : stampSize
-                let previewRect = NSRect(
-                    x: previewPt.x - w / 2, y: previewPt.y - h / 2, width: w, height: h)
-                context.saveGraphicsState()
-                applyCanvasTransform(to: context)
-                img.draw(
-                    in: previewRect, from: .zero, operation: .sourceOver, fraction: 0.5,
-                    respectFlipped: true, hints: nil)
-                context.restoreGraphicsState()
-            }
-
             // Toolbars — reposition only when selection/layout changes (not every draw).
             // In editor mode toolbars have autoresizingMask, so they only need repositioning
             // on explicit layout changes (handled by rebuildToolbarLayout).
             // In overlay mode the selection rect moves, so we must reposition here.
             if showToolbars && state == .selected && !isScrollCapturing {
                 if !isEditorMode { repositionToolbars() }
-                // Toolbars are real NSView subviews (ToolbarStripView) — no custom drawing needed.
-                // Tool options row handled by ToolOptionsRowView (real NSView subview)
-                if !toolHasOptionsRow || isRecording {
-                    // options row rect managed by ToolOptionsRowView
-                }
-
-                // Color picker popover
-
-                // Stroke width picker popover
-
-                // Loupe size picker
-
-                // Redact type picker
-
+                // Toolbars and the tool options row are real NSView subviews, not drawn here.
             }
 
             // Radial color wheel
@@ -2674,13 +2503,13 @@ class OverlayView: NSView {
     }
     /// Whether the current tool should show the options row
     var toolHasOptionsRow: Bool {
-        // Show options row for a selected annotation's tool even when currentTool is .select
-        if selectedAnnotation != nil && toolOptionsRowView?.editingAnnotation != nil {
-            return true
+        // Show options row for a selected annotation's tool even when currentTool is .select.
+        // An Add Capture image (stamp) has nothing to adjust; it resizes via its handles.
+        if selectedAnnotation != nil, let editing = toolOptionsRowView?.editingAnnotation {
+            return editing.tool != .stamp
         }
         switch currentTool {
-        case .pencil, .line, .arrow, .rectangle, .ellipse, .marker, .number, .loupe, .measure,
-            .pixelate, .stamp, .highlight:
+        case .pencil, .line, .arrow, .rectangle, .ellipse, .marker, .number, .pixelate:
             return true
         case .text:
             return true
@@ -3260,132 +3089,6 @@ class OverlayView: NSView {
         }
     }
 
-    // MARK: - Auto Measure
-
-    /// Update the auto-measure live preview based on cursor position.
-    /// Called on keyDown repeat and mouseMoved while key is held.
-    private func updateAutoMeasurePreview() {
-        let vertical = autoMeasureVertical
-        autoMeasurePreview = computeAutoMeasure(vertical: vertical)
-        needsDisplay = true
-    }
-
-    /// Compute an auto-measure annotation from the cursor position along a vertical or horizontal axis
-    /// by scanning outward until the pixel color changes significantly.
-    private func computeAutoMeasure(vertical: Bool) -> Annotation? {
-        guard let screenshot = screenshotImage,
-            let cgImage = screenshot.cgImage(forProposedRect: nil, context: nil, hints: nil)
-        else { return nil }
-
-        guard let window = window else { return nil }
-        let windowPoint = window.mouseLocationOutsideOfEventStream
-        let viewPoint = convert(windowPoint, from: nil)
-        let canvasPoint = viewToCanvas(viewPoint)
-
-        let drawRect = captureDrawRect
-        let normX = (canvasPoint.x - drawRect.minX) / drawRect.width
-        let normY = (canvasPoint.y - drawRect.minY) / drawRect.height
-
-        let w = cgImage.width
-        let h = cgImage.height
-
-        let pixelX = Int(normX * CGFloat(w))
-        let pixelY = Int((1.0 - normY) * CGFloat(h))
-
-        guard pixelX >= 0, pixelX < w, pixelY >= 0, pixelY < h else {
-            return nil
-        }
-
-        // Cache the bitmap context — only recreate if the image dimensions changed
-        if autoMeasureBitmapCtx == nil || autoMeasureBitmapW != w || autoMeasureBitmapH != h {
-            let srgb = CGColorSpace(name: CGColorSpace.sRGB)!
-            guard let ctx = CGContext(
-                data: nil, width: w, height: h,
-                bitsPerComponent: 8, bytesPerRow: w * 4,
-                space: srgb,
-                bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)
-            else { return nil }
-            ctx.draw(cgImage, in: CGRect(x: 0, y: 0, width: w, height: h))
-            autoMeasureBitmapCtx = ctx
-            autoMeasureBitmapW = w
-            autoMeasureBitmapH = h
-        }
-
-        guard let data = autoMeasureBitmapCtx?.data else { return nil }
-        let ptr = data.assumingMemoryBound(to: UInt8.self)
-
-        func pixelAt(_ x: Int, _ y: Int) -> (UInt8, UInt8, UInt8) {
-            let offset = (y * w + x) * 4
-            return (ptr[offset], ptr[offset + 1], ptr[offset + 2])
-        }
-
-        func colorDiff(_ a: (UInt8, UInt8, UInt8), _ b: (UInt8, UInt8, UInt8)) -> Int {
-            abs(Int(a.0) - Int(b.0)) + abs(Int(a.1) - Int(b.1)) + abs(Int(a.2) - Int(b.2))
-        }
-
-        let refColor = pixelAt(pixelX, pixelY)
-        let threshold = 30
-
-        func toCanvas(px: Int, py: Int) -> NSPoint {
-            let nx = CGFloat(px) / CGFloat(w)
-            let ny = 1.0 - CGFloat(py) / CGFloat(h)
-            return NSPoint(
-                x: drawRect.minX + nx * drawRect.width,
-                y: drawRect.minY + ny * drawRect.height)
-        }
-
-        var startPx: Int
-        var endPx: Int
-
-        if vertical {
-            startPx = pixelY
-            for py in stride(from: pixelY - 1, through: 0, by: -1) {
-                if colorDiff(refColor, pixelAt(pixelX, py)) > threshold { break }
-                startPx = py
-            }
-            endPx = pixelY
-            for py in (pixelY + 1)..<h {
-                if colorDiff(refColor, pixelAt(pixelX, py)) > threshold { break }
-                endPx = py
-            }
-            var p1 = toCanvas(px: pixelX, py: startPx)
-            var p2 = toCanvas(px: pixelX, py: endPx)
-            // Auto-measure scans the whole screenshot; when clamping is on and the
-            // cursor is inside the selection, stop the ruler at the selection edges.
-            if currentMeasureClampToSelection && selectionRect.contains(canvasPoint) {
-                p1.y = min(max(p1.y, selectionRect.minY), selectionRect.maxY)
-                p2.y = min(max(p2.y, selectionRect.minY), selectionRect.maxY)
-            }
-            let ann = Annotation(
-                tool: .measure, startPoint: p1, endPoint: p2,
-                color: annotationColor, strokeWidth: currentStrokeWidth)
-            ann.measureInPoints = currentMeasureInPoints
-            return ann
-        } else {
-            startPx = pixelX
-            for px in stride(from: pixelX - 1, through: 0, by: -1) {
-                if colorDiff(refColor, pixelAt(px, pixelY)) > threshold { break }
-                startPx = px
-            }
-            endPx = pixelX
-            for px in (pixelX + 1)..<w {
-                if colorDiff(refColor, pixelAt(px, pixelY)) > threshold { break }
-                endPx = px
-            }
-            var p1 = toCanvas(px: startPx, py: pixelY)
-            var p2 = toCanvas(px: endPx, py: pixelY)
-            if currentMeasureClampToSelection && selectionRect.contains(canvasPoint) {
-                p1.x = min(max(p1.x, selectionRect.minX), selectionRect.maxX)
-                p2.x = min(max(p2.x, selectionRect.minX), selectionRect.maxX)
-            }
-            let ann = Annotation(
-                tool: .measure, startPoint: p1, endPoint: p2,
-                color: annotationColor, strokeWidth: currentStrokeWidth)
-            ann.measureInPoints = currentMeasureInPoints
-            return ann
-        }
-    }
-
     // MARK: - Marker Cursor Preview
 
     private func drawCropPreview() {
@@ -3468,35 +3171,6 @@ class OverlayView: NSView {
             NSColor.black.withAlphaComponent(0.3).setStroke()
             inner.stroke()
         }
-    }
-
-    // MARK: - Loupe Preview
-
-    private func drawLoupePreview(at center: NSPoint) {
-        guard let screenshot = screenshotImage, let context = NSGraphicsContext.current else {
-            return
-        }
-        // Build a throwaway loupe annotation with the SAME settings used on commit
-        // and render it through the real drawLoupe path, so the cursor-follow
-        // preview matches the placed loupe exactly (outline color + thickness).
-        let size = currentLoupeSize
-        let preview = Annotation(
-            tool: .loupe,
-            startPoint: NSPoint(x: center.x - size / 2, y: center.y - size / 2),
-            endPoint: NSPoint(x: center.x + size / 2, y: center.y + size / 2),
-            color: currentColor,
-            strokeWidth: size)
-        preview.loupeMagnification = currentLoupeMagnification
-        preview.outlineColor = currentLoupeOutlineColor
-        preview.loupeOutlineEnabled = currentLoupeOutlineEnabled
-        preview.sourceImage = screenshot
-        preview.sourceImageBounds = captureDrawRect
-        preview.bakeLoupe()
-
-        context.saveGraphicsState()
-        context.cgContext.setAlpha(0.75)
-        preview.draw(in: context)
-        context.restoreGraphicsState()
     }
 
     // MARK: - Zoom helpers
@@ -3630,8 +3304,8 @@ class OverlayView: NSView {
     // MARK: - Annotation Controls
 
     private func drawAnnotationControls(for annotation: Annotation, fullControls: Bool = true) {
-        // Arrow, line, and measure: show only 2 endpoint handles, no bounding box
-        if annotation.tool == .arrow || annotation.tool == .line || annotation.tool == .measure {
+        // Arrow and line: show only 2 endpoint handles, no bounding box
+        if annotation.tool == .arrow || annotation.tool == .line {
             if !fullControls {
                 drawAnnotationOutlineGlow(annotation)
                 return
@@ -3768,8 +3442,6 @@ class OverlayView: NSView {
                 let size = text?.size() ?? NSSize(width: 50, height: 20)
                 baseRect = NSRect(origin: annotation.startPoint, size: size)
             }
-        case .loupe:
-            baseRect = annotation.boundingRect
         default:
             let strokePad = annotation.strokeWidth / 2
             baseRect = annotation.boundingRect.insetBy(dx: -strokePad, dy: -strokePad)
@@ -3896,30 +3568,6 @@ class OverlayView: NSView {
         annotationDeleteButtonRect = deleteRect
         drawDeleteCircle(in: deleteRect)
 
-        // Two-circle loupe: resize handle on the SOURCE circle (drag to change
-        // zoom — the source frames exactly what the lens shows).
-        loupeSourceHandleRect = .zero
-        if annotation.tool == .loupe, let src = annotation.loupeSourceRect, src.width > 4 {
-            let r = min(src.width, src.height) / 2
-            // Place on the source circle's outer edge, away from the lens.
-            let lensCenter = NSPoint(x: annotation.loupeLensSquareRect.midX,
-                                     y: annotation.loupeLensSquareRect.midY)
-            let srcCenter = NSPoint(x: src.midX, y: src.midY)
-            var ux = srcCenter.x - lensCenter.x, uy = srcCenter.y - lensCenter.y
-            let d = hypot(ux, uy)
-            if d > 0.001 { ux /= d; uy /= d } else { ux = 0; uy = -1 }
-            let hp = NSPoint(x: srcCenter.x + ux * r, y: srcCenter.y + uy * r)
-            let hs: CGFloat = 12
-            let hrect = NSRect(x: hp.x - hs / 2, y: hp.y - hs / 2, width: hs, height: hs)
-            loupeSourceHandleRect = hrect
-            NSColor.white.setFill()
-            NSBezierPath(ovalIn: hrect).fill()
-            ToolbarLayout.accentColor.setStroke()
-            let hb = NSBezierPath(ovalIn: hrect.insetBy(dx: 0.5, dy: 0.5))
-            hb.lineWidth = 1.5
-            hb.stroke()
-        }
-
         // Edit button (pencil) for text annotations — matches delete button style
         if annotation.tool == .text {
             let editRect = NSRect(
@@ -4025,9 +3673,7 @@ class OverlayView: NSView {
             if annotation.tool == .number { return }
             let rect = annotation.boundingRect.insetBy(dx: -2, dy: -2)
             ToolbarLayout.accentColor.withAlphaComponent(0.5).setStroke()
-            let path = annotation.tool == .loupe
-                ? NSBezierPath(ovalIn: rect)
-                : NSBezierPath(roundedRect: rect, xRadius: 2, yRadius: 2)
+            let path = NSBezierPath(roundedRect: rect, xRadius: 2, yRadius: 2)
             path.lineWidth = 2
             path.stroke()
             return
@@ -4039,8 +3685,6 @@ class OverlayView: NSView {
         switch annotation.tool {
         case .marker:
             effectiveStroke = annotation.strokeWidth * 6
-        case .loupe:
-            effectiveStroke = 4
         default:
             effectiveStroke = annotation.strokeWidth
         }
@@ -4098,16 +3742,7 @@ class OverlayView: NSView {
         guard let offNSCtx = NSGraphicsContext.current else { annotation.rotation = savedRotation; offscreen.unlockFocus(); return }
         offNSCtx.cgContext.scaleBy(x: scale, y: scale)
         offNSCtx.cgContext.translateBy(x: -unrotatedBBox.origin.x, y: -unrotatedBBox.origin.y)
-        if annotation.tool == .loupe {
-            // Glow only the lens circle. Drawing the full loupe would trace the
-            // connecting line + source ring too, and since the glow bitmap is
-            // clipped to the lens bounding box, the line produced a broken stray
-            // segment. A filled lens circle gives a clean ring glow.
-            NSColor.black.setFill()
-            NSBezierPath(ovalIn: annotation.loupeLensSquareRect).fill()
-        } else {
-            annotation.draw(in: offNSCtx)
-        }
+        annotation.draw(in: offNSCtx)
         offscreen.unlockFocus()
         annotation.rotation = savedRotation
 
@@ -4579,18 +4214,6 @@ class OverlayView: NSView {
         currentPressure = p > 0 ? CGFloat(p) : 1.0
         #endif
 
-        // Auto-measure: click to commit the preview annotation
-        if autoMeasureKeyHeld, let preview = autoMeasurePreview {
-            annotations.append(preview)
-            undoStack.append(.added(preview))
-            redoStack.removeAll()
-            autoMeasurePreview = nil
-            cachedCompositedImage = nil
-            // Recompute a new preview at the current position
-            updateAutoMeasurePreview()
-            return
-        }
-
         // Note: toolbar strips and options row are routed by hitTest() — they never reach here
         if preSelectionPresetButton?.isHidden == false && preSelectionPresetButtonRect.contains(point) {
             return
@@ -4613,7 +4236,7 @@ class OverlayView: NSView {
         // Control-click on line/arrow: add anchor point (same as right-click)
         if event.modifierFlags.contains(.control) && state == .selected {
             if let ann = selectedAnnotation,
-                ann.tool == .arrow || ann.tool == .line || ann.tool == .measure
+                ann.tool == .arrow || ann.tool == .line
             {
                 let canvasPoint = viewToCanvas(point)
                 if ann.hitTest(point: canvasPoint) {
@@ -4931,10 +4554,6 @@ class OverlayView: NSView {
                     annotationResizeMouseStart.x += dx
                     annotationResizeMouseStart.y += dy
                     spaceRepositionLast = canvasPoint
-                    if annotation.tool == .loupe {
-                        annotation.bakedBlurNSImage = nil
-                        annotation.bakeLoupe()
-                    }
                     if annotation.tool == .pixelate { annotation.bakedBlurNSImage = nil }
                     cachedCompositedImage = nil
                     needsDisplay = true
@@ -5046,10 +4665,8 @@ class OverlayView: NSView {
                     return
                 }
 
-                // Arrow/line/measure: .bottomLeft = startPoint, .topRight = endPoint, others = anchor points
-                if annotation.tool == .arrow || annotation.tool == .line
-                    || annotation.tool == .measure
-                {
+                // Arrow/line: .bottomLeft = startPoint, .topRight = endPoint, others = anchor points
+                if annotation.tool == .arrow || annotation.tool == .line {
                     let newPt = NSPoint(
                         x: annotationResizeOrigControlPoint.x + dx,
                         y: annotationResizeOrigControlPoint.y + dy)
@@ -5066,11 +4683,6 @@ class OverlayView: NSView {
                             newStart = NSPoint(
                                 x: anchor.x + dist * cos(snapped), y: anchor.y + dist * sin(snapped)
                             )
-                        }
-                        if annotation.tool == .measure && currentMeasureClampToSelection {
-                            newStart = shiftHeld
-                                ? newStart.clampedAlongRay(from: annotation.endPoint, in: selectionRect)
-                                : newStart.clampedToRect(selectionRect)
                         }
                         annotation.startPoint = newStart
                         if var anchors = annotation.anchorPoints, !anchors.isEmpty {
@@ -5089,11 +4701,6 @@ class OverlayView: NSView {
                             newEnd = NSPoint(
                                 x: anchor.x + dist * cos(snapped), y: anchor.y + dist * sin(snapped)
                             )
-                        }
-                        if annotation.tool == .measure && currentMeasureClampToSelection {
-                            newEnd = shiftHeld
-                                ? newEnd.clampedAlongRay(from: annotation.startPoint, in: selectionRect)
-                                : newEnd.clampedToRect(selectionRect)
                         }
                         annotation.endPoint = newEnd
                         if var anchors = annotation.anchorPoints, anchors.count >= 2 {
@@ -5151,67 +4758,8 @@ class OverlayView: NSView {
                         break
                     }
 
-                    // Loupe is always circular; shift forces square/circle for other shape corner handles.
-                    if annotation.tool == .loupe {
-                        let w = newMaxX - newMinX
-                        let h = newMaxY - newMinY
-                        let side: CGFloat
-                        switch annotationResizeHandle {
-                        case .left, .right:
-                            side = max(40, w)
-                        case .top, .bottom:
-                            side = max(40, h)
-                        default:
-                            side = max(40, max(w, h))
-                        }
-                        let centerX = (origMinX + origMaxX) / 2
-                        let centerY = (origMinY + origMaxY) / 2
-                        switch annotationResizeHandle {
-                        case .topLeft:
-                            newMinX = origMaxX - side
-                            newMaxX = origMaxX
-                            newMinY = origMinY
-                            newMaxY = origMinY + side
-                        case .topRight:
-                            newMinX = origMinX
-                            newMaxX = origMinX + side
-                            newMinY = origMinY
-                            newMaxY = origMinY + side
-                        case .bottomLeft:
-                            newMinX = origMaxX - side
-                            newMaxX = origMaxX
-                            newMinY = origMaxY - side
-                            newMaxY = origMaxY
-                        case .bottomRight:
-                            newMinX = origMinX
-                            newMaxX = origMinX + side
-                            newMinY = origMaxY - side
-                            newMaxY = origMaxY
-                        case .top:
-                            newMinX = centerX - side / 2
-                            newMaxX = centerX + side / 2
-                            newMinY = origMinY
-                            newMaxY = origMinY + side
-                        case .bottom:
-                            newMinX = centerX - side / 2
-                            newMaxX = centerX + side / 2
-                            newMinY = origMaxY - side
-                            newMaxY = origMaxY
-                        case .left:
-                            newMinX = origMaxX - side
-                            newMaxX = origMaxX
-                            newMinY = centerY - side / 2
-                            newMaxY = centerY + side / 2
-                        case .right:
-                            newMinX = origMinX
-                            newMaxX = origMinX + side
-                            newMinY = centerY - side / 2
-                            newMaxY = centerY + side / 2
-                        default:
-                            break
-                        }
-                        annotation.strokeWidth = side
-                    } else if annotation.tool == .stamp {
+                    // Shift forces square/circle for shape corner handles.
+                    if annotation.tool == .stamp {
                         // Stamps always keep their aspect ratio, whichever handle is dragged.
                         let origW = max(origMaxX - origMinX, 1)
                         let origH = max(origMaxY - origMinY, 1)
@@ -5296,14 +4844,6 @@ class OverlayView: NSView {
 
                     annotation.startPoint = NSPoint(x: newMinX, y: newMinY)
                     annotation.endPoint = NSPoint(x: newMaxX, y: newMaxY)
-                    if annotation.tool == .loupe {
-                        // Two-circle loupe: resizing the lens keeps the zoom
-                        // (magnification) fixed and re-frames the source so it
-                        // still outlines exactly what the lens shows.
-                        annotation.syncLoupeSourceToMagnification()
-                        annotation.bakedBlurNSImage = nil
-                        annotation.bakeLoupe()
-                    }
                 }
                 if annotation.tool == .pixelate { annotation.bakedBlurNSImage = nil }
                 cachedCompositedImage = nil
@@ -5315,35 +4855,6 @@ class OverlayView: NSView {
                 let w = abs(canvasPoint.x - lassoStart.x)
                 let h = abs(canvasPoint.y - lassoStart.y)
                 lassoRect = NSRect(x: x, y: y, width: w, height: h)
-                needsDisplay = true
-            } else if isResizingLoupeSource, let loupe = selectedAnnotation, loupe.tool == .loupe {
-                // Resize the source circle by dragging its handle → changes zoom.
-                // magnification = lensSize / sourceSize; the source is re-framed to
-                // match via syncLoupeSourceToMagnification on the next draw/bake.
-                let cx = loupeSourceDragOrig.midX, cy = loupeSourceDragOrig.midY
-                let newR = max(6, hypot(canvasPoint.x - cx, canvasPoint.y - cy))
-                let lensSize = loupe.loupeLensSquareRect.width
-                let mag = max(1.1, min(12, lensSize / (newR * 2)))
-                loupe.loupeMagnification = mag
-                let newSize = lensSize / mag
-                loupe.loupeSourceRect = NSRect(x: cx - newSize / 2, y: cy - newSize / 2,
-                                               width: newSize, height: newSize)
-                loupe.bakedBlurNSImage = nil
-                loupe.bakeLoupe()
-                didMoveAnnotation = true
-                cachedCompositedImage = nil
-                needsDisplay = true
-            } else if isDraggingLoupeSource, let loupe = selectedAnnotation, loupe.tool == .loupe {
-                // Move the rooted source circle independently; the lens stays put
-                // and the connecting line re-adjusts. Magnification is kept, so
-                // the source size is unchanged.
-                let dx = canvasPoint.x - loupeSourceDragStart.x
-                let dy = canvasPoint.y - loupeSourceDragStart.y
-                loupe.loupeSourceRect = loupeSourceDragOrig.offsetBy(dx: dx, dy: dy)
-                loupe.bakedBlurNSImage = nil
-                loupe.bakeLoupe()
-                didMoveAnnotation = true
-                cachedCompositedImage = nil
                 needsDisplay = true
             } else if isDraggingAnnotation, !selectedAnnotations.isEmpty {
                 // Snapshot the pre-move state once, on the first actual move, so
@@ -5371,10 +4882,6 @@ class OverlayView: NSView {
                 }
                 for annotation in selectedAnnotations {
                     annotation.move(dx: finalDx, dy: finalDy)
-                    if annotation.tool == .loupe {
-                        annotation.bakedBlurNSImage = nil
-                        annotation.bakeLoupe()
-                    }
                 }
                 didMoveAnnotation = true
                 cachedCompositedImage = nil
@@ -5480,26 +4987,6 @@ class OverlayView: NSView {
             needsDisplay = true
             return
         }
-        if isDraggingLoupeSource || isResizingLoupeSource {
-            let wasResize = isResizingLoupeSource
-            isDraggingLoupeSource = false
-            isResizingLoupeSource = false
-            commitAnnotationManipulationUndo()
-            cachedAnnotationLayerExcludingSelected = nil
-            cachedAnnotationLayer = nil
-            if let ann = selectedAnnotation, ann.tool == .loupe {
-                ann.bakedBlurNSImage = nil
-                ann.bakeLoupe()
-                if wasResize {
-                    // Reflect the new zoom in the options row slider/label.
-                    toolOptionsRowView?.rebuild(forAnnotation: ann)
-                }
-            }
-            cachedCompositedImage = nil
-            NSCursor.openHand.set()
-            needsDisplay = true
-            return
-        }
         if isResizingAnnotation {
             isResizingAnnotation = false
             commitAnnotationManipulationUndo()
@@ -5507,12 +4994,7 @@ class OverlayView: NSView {
             cachedAnnotationLayer = nil
             annotationResizeHandle = .none
             if let ann = selectedAnnotation {
-                if ann.tool == .loupe { ann.bakeLoupe() }
                 if ann.tool == .pixelate { ann.bakedBlurNSImage = nil; ann.bakePixelate() }
-                if ann.tool == .stamp && !ann.isCaptureStamp {
-                    // Remember the size so the next stamp is placed to match.
-                    setActiveStampSize(max(ann.boundingRect.width, ann.boundingRect.height))
-                }
                 toolOptionsRowView?.rebuild(forAnnotation: ann)
             }
             NSCursor.openHand.set()
@@ -5558,7 +5040,6 @@ class OverlayView: NSView {
                 snapGuideY = nil
                 NSCursor.openHand.set()
                 for ann in selectedAnnotations {
-                    if ann.tool == .loupe { ann.bakeLoupe() }
                     if ann.tool == .pixelate { ann.bakedBlurNSImage = nil; ann.bakePixelate() }
                 }
                 // Auto-expand canvas if annotation was dragged outside bounds (editor mode)
@@ -5850,13 +5331,13 @@ class OverlayView: NSView {
             return
         }
 
-        // Right-click on a line/arrow/measure: add anchor point.
+        // Right-click on a line/arrow: add anchor point.
         // Auto-selects the annotation if it isn't selected yet.
         if state == .selected {
             let canvasPoint = viewToCanvas(point)
             // Check already-selected annotation first
             if let ann = selectedAnnotation,
-                (ann.tool == .arrow || ann.tool == .line || ann.tool == .measure),
+                (ann.tool == .arrow || ann.tool == .line),
                 ann.hitTest(point: canvasPoint)
             {
                 addAnchorPoint(to: ann, at: canvasPoint)
@@ -5864,9 +5345,9 @@ class OverlayView: NSView {
                 needsDisplay = true
                 return
             }
-            // Check any unselected line/arrow/measure under the cursor
+            // Check any unselected line/arrow under the cursor
             if let ann = annotations.reversed().first(where: {
-                ($0.tool == .arrow || $0.tool == .line || $0.tool == .measure)
+                ($0.tool == .arrow || $0.tool == .line)
                 && $0.hitTest(point: canvasPoint)
             }) {
                 selectedAnnotation = ann
@@ -6670,11 +6151,6 @@ class OverlayView: NSView {
         case .tool(let tool):
             commitTextFieldIfNeeded()
             currentTool = tool
-            // Auto-select first emoji when switching to stamp tool with nothing selected
-            if tool == .stamp && currentStampImage == nil {
-                currentStampImage = StampEmojis.renderEmoji(StampEmojis.common[0])
-                currentStampEmoji = StampEmojis.common[0]
-            }
             needsDisplay = true
         case .color:
             if PopoverHelper.toggleClosedIfOpen() { break }
@@ -6792,10 +6268,10 @@ class OverlayView: NSView {
     }
 
     /// Returns currentColor with opacity applied for tools that respect it.
-    /// Marker uses a fixed alpha in its draw method; loupe/measure/pixelate/blur are color-independent.
+    /// Marker uses a fixed alpha in its draw method; pixelate/blur are color-independent.
     func opacityAppliedColor(for tool: AnnotationTool) -> NSColor {
         switch tool {
-        case .marker, .loupe, .measure, .pixelate, .blur:
+        case .marker, .pixelate, .blur:
             return currentColor
         default:
             return annotationColor
@@ -6870,26 +6346,6 @@ class OverlayView: NSView {
                 } else if !isSelected(clicked) {
                     // Not Ctrl, not already selected: replace selection
                     selectedAnnotation = clicked
-                }
-                // Two-circle loupe: if the click landed on the small SOURCE circle
-                // (and not the lens), drag the source — even on the first click
-                // that also selects the loupe. Otherwise the first click would
-                // fall through to the lens drag below.
-                if clicked.tool == .loupe, let src = clicked.loupeSourceRect, src.width > 4 {
-                    let sr = min(src.width, src.height) / 2 + 6
-                    let onSource = hypot(point.x - src.midX, point.y - src.midY) <= sr
-                    let onLens = NSBezierPath(ovalIn: clicked.loupeLensSquareRect).contains(point)
-                    if onSource && !onLens {
-                        isDraggingLoupeSource = true
-                        didMoveAnnotation = false
-                        preMoveSnapshots = [(clicked, clicked.clone())]
-                        loupeSourceDragStart = point
-                        loupeSourceDragOrig = src
-                        cachedAnnotationLayerExcludingSelected = buildAnnotationLayer(excluding: Set(selectedAnnotations.map { ObjectIdentifier($0) }))
-                        NSCursor.closedHand.set()
-                        needsDisplay = true
-                        return
-                    }
                 }
                 // If already selected without Ctrl: keep current selection (allows multi-drag)
                 isDraggingAnnotation = true
@@ -7070,19 +6526,6 @@ class OverlayView: NSView {
         } else {
             handleTestPoint = point
         }
-        // Two-circle loupe: source-circle resize handle (changes zoom).
-        if selected.tool == .loupe, loupeSourceHandleRect != .zero,
-           loupeSourceHandleRect.insetBy(dx: -6, dy: -6).contains(point) {
-            isResizingLoupeSource = true
-            didMoveAnnotation = false
-            preMoveSnapshots = [(selected, selected.clone())]
-            loupeSourceDragStart = point
-            loupeSourceDragOrig = selected.loupeSourceRect ?? .zero
-            cachedAnnotationLayerExcludingSelected = buildAnnotationLayer(excluding: Set(selectedAnnotations.map { ObjectIdentifier($0) }))
-            NSCursor.closedHand.set()
-            needsDisplay = true
-            return true
-        }
         // Check resize handles (populated by drawAnnotationControls)
         for (handleIdx, handleEntry) in annotationResizeHandleRects.enumerated() {
             let (handle, rect) = handleEntry
@@ -7171,25 +6614,6 @@ class OverlayView: NSView {
                     at: selected.textDrawRect.origin, existingText: selected.attributedText,
                     existingFrame: selected.textDrawRect)
                 cachedCompositedImage = nil
-                return true
-            }
-        }
-        // Two-circle loupe: pressing the small SOURCE circle drags it
-        // independently (re-roots what's magnified), with the connecting line
-        // auto-adjusting. Check this BEFORE the lens body so the source wins when
-        // the press is over it but not over the lens.
-        if selected.tool == .loupe, let src = selected.loupeSourceRect, src.width > 4 {
-            let sr = min(src.width, src.height) / 2 + 6
-            let onSource = hypot(point.x - src.midX, point.y - src.midY) <= sr
-            let onLens = NSBezierPath(ovalIn: selected.loupeLensSquareRect).contains(point)
-            if onSource && !onLens {
-                isDraggingLoupeSource = true
-                didMoveAnnotation = false
-                loupeSourceDragStart = point
-                loupeSourceDragOrig = src
-                cachedAnnotationLayerExcludingSelected = buildAnnotationLayer(excluding: Set(selectedAnnotations.map { ObjectIdentifier($0) }))
-                NSCursor.closedHand.set()
-                needsDisplay = true
                 return true
             }
         }
@@ -7304,14 +6728,6 @@ class OverlayView: NSView {
             updateAnnotation(at: lastPoint, shiftHeld: shiftHeld)
             needsDisplay = true
         }
-    }
-
-    /// Called by the Character Palette when the user selects an emoji.
-    override func insertText(_ insertString: Any) {
-        guard currentTool == .stamp, let str = insertString as? String, !str.isEmpty else { return }
-        currentStampImage = StampEmojis.renderEmoji(str)
-        currentStampEmoji = str
-        needsDisplay = true
     }
 
     override func performKeyEquivalent(with event: NSEvent) -> Bool {
@@ -7516,21 +6932,6 @@ class OverlayView: NSView {
             cachedCompositedImage = nil
             needsDisplay = true
         default:
-            // Auto-measure: hold "1" = vertical preview, hold "2" = horizontal preview
-            if state == .selected && currentTool == .measure && textEditView == nil
-                && !event.modifierFlags.contains(.command)
-            {
-                if let char = event.charactersIgnoringModifiers {
-                    if char == "1" || char == "2" {
-                        autoMeasureVertical = (char == "1")
-                        if !autoMeasureKeyHeld {
-                            autoMeasureKeyHeld = true
-                            updateAutoMeasurePreview()
-                        }
-                        return
-                    }
-                }
-            }
             if event.modifierFlags.contains(.command) {
                 // Editing and history commands are handled in performKeyEquivalent.
                 // Only Cmd+S and zoom shortcuts remain here.
@@ -7604,16 +7005,6 @@ class OverlayView: NSView {
             && !event.modifierFlags.contains(.control)
         {
             return
-        }
-        // Clear auto-measure preview on key release (click to commit instead)
-        if let char = event.charactersIgnoringModifiers, char == "1" || char == "2" {
-            if autoMeasureKeyHeld {
-                autoMeasureKeyHeld = false
-                autoMeasurePreview = nil
-                autoMeasureBitmapCtx = nil  // free cached bitmap
-                needsDisplay = true
-                return
-            }
         }
         super.keyUp(with: event)
     }
@@ -7718,8 +7109,6 @@ class OverlayView: NSView {
         if (a.points ?? []) != (b.points ?? []) { return true }
         if (a.anchorPoints ?? []) != (b.anchorPoints ?? []) { return true }
         if a.textDrawRect != b.textDrawRect { return true }
-        if a.loupeSourceRect != b.loupeSourceRect { return true }
-        if abs(a.loupeMagnification - b.loupeMagnification) > 0.0001 { return true }
         return false
     }
 
@@ -7891,20 +7280,16 @@ class OverlayView: NSView {
     }
 
     /// Build annotation layer excluding specific annotations (used during drag/resize).
-    /// Skips the highlight dim: while dragging/resizing, the dim is a moving union
-    /// of ALL highlights, so it's drawn live in the draw pass over this static
-    /// layer rather than baked here (which would dim using stale positions and
-    /// double up with the live pass).
     private func buildAnnotationLayer(excluding: Set<ObjectIdentifier>) -> NSImage {
         let filtered = annotations.filter { !excluding.contains(ObjectIdentifier($0)) }
-        return renderAnnotationBitmap(annotations: filtered, skipHighlightDim: true)
+        return renderAnnotationBitmap(annotations: filtered)
     }
 
     /// Render annotations into a fixed bitmap at the current backing scale.
     /// Uses CGBitmapContext with the window's color space so colors match exactly.
     /// Returns an NSImage backed by a CGImage so AppKit never re-invokes a
     /// drawing handler when the image is drawn into a zoomed context.
-    private func renderAnnotationBitmap(annotations: [Annotation], skipHighlightDim: Bool = false) -> NSImage {
+    private func renderAnnotationBitmap(annotations: [Annotation]) -> NSImage {
         let size = bounds.size
         let scale = window?.backingScaleFactor ?? 2.0
         let pxW = Int(ceil(size.width * scale))
@@ -7925,12 +7310,6 @@ class OverlayView: NSView {
         for annotation in annotations where annotation.tool == .pixelate {
             annotation.draw(in: nsCtx)
         }
-        // Spotlight dim: a single union pass over all highlight rects, after the
-        // censor effects and before the shape annotations (so shapes stay
-        // readable over the dimming). Highlights' own draw() only adds a border.
-        if !skipHighlightDim {
-            Annotation.drawHighlightDim(for: annotations, in: highlightDimBounds)
-        }
         for annotation in annotations where annotation.tool != .pixelate {
             annotation.draw(in: nsCtx)
         }
@@ -7950,7 +7329,6 @@ class OverlayView: NSView {
         if annotations.isEmpty { return screenshot }
 
         let drawRect = captureDrawRect
-        let dimBounds = highlightDimBounds
         let annotationsCopy = annotations
         var success = false
         let image = NSImage(size: drawRect.size, flipped: false) { _ in
@@ -7966,7 +7344,6 @@ class OverlayView: NSView {
             for annotation in annotationsCopy where annotation.tool == .pixelate {
                 annotation.draw(in: context)
             }
-            Annotation.drawHighlightDim(for: annotationsCopy, in: dimBounds)
             for annotation in annotationsCopy where annotation.tool != .pixelate {
                 annotation.draw(in: context)
             }
@@ -8062,13 +7439,11 @@ class OverlayView: NSView {
         }
 
         if includeAnnotations {
-            // Match the live draw order: censor effects first, then the spotlight
-            // dim (union of highlight rects), then the regular shape annotations
-            // on top — so the exported image matches what's on screen.
+            // Match the live draw order: censor effects first, then the regular
+            // annotations on top — so the exported image matches what's on screen.
             for annotation in annotations where annotation.tool == .pixelate {
                 annotation.draw(in: nsContext)
             }
-            Annotation.drawHighlightDim(for: annotations, in: highlightDimBounds)
             for annotation in annotations where annotation.tool != .pixelate {
                 annotation.draw(in: nsContext)
             }
@@ -8102,15 +7477,14 @@ class OverlayView: NSView {
     /// Restore editor state.
     /// Translates annotation coordinates by `offset` (the selection origin in the original view).
     func setAnnotations(_ anns: [Annotation]) {
-        // Set sourceImage on loupe annotations so they can re-bake from the editor's image.
-        // Also set it on pixelate/blur without a baked result (shouldn't happen, but defensive).
+        // Give pixelate/blur without a baked result the editor's image so they
+        // can re-bake (shouldn't happen, but defensive).
         if let img = screenshotImage {
             let bounds = captureDrawRect
             for ann in anns {
-                if ann.tool == .loupe || ((ann.tool == .pixelate || ann.tool == .blur) && ann.bakedBlurNSImage == nil) {
+                if (ann.tool == .pixelate || ann.tool == .blur) && ann.bakedBlurNSImage == nil {
                     ann.sourceImage = img
                     ann.sourceImageBounds = bounds
-                    if ann.tool == .loupe { ann.bakeLoupe() }
                     if ann.tool == .pixelate { ann.bakePixelate() }
                 }
             }
@@ -8155,7 +7529,6 @@ class OverlayView: NSView {
         switch tool {
         case .number: return currentNumberSize
         case .marker: return currentMarkerSize
-        case .loupe: return currentLoupeSize
         default: return currentStrokeWidth
         }
     }
@@ -8168,34 +7541,11 @@ class OverlayView: NSView {
         case .marker:
             currentMarkerSize = value
             UserDefaults.standard.set(Double(value), forKey: "markerStrokeWidth")
-        case .loupe:
-            currentLoupeSize = value
-            UserDefaults.standard.set(Double(value), forKey: "loupeSize")
         default:
             currentStrokeWidth = value
             UserDefaults.standard.set(Double(value), forKey: "currentStrokeWidth")
         }
         needsDisplay = true
-    }
-
-    func setActiveStampSize(_ value: CGFloat) {
-        currentStampSize = min(256, max(16, value))
-        UserDefaults.standard.set(Double(currentStampSize), forKey: "stampSize")
-    }
-
-    func setActiveLoupeMagnification(_ value: CGFloat) {
-        currentLoupeMagnification = min(6.0, max(1.1, value))
-        UserDefaults.standard.set(Double(currentLoupeMagnification), forKey: "loupeMagnification")
-        needsDisplay = true
-    }
-
-
-    /// Invalidate the cached layers so loupe appearance changes (outline color/
-    /// toggle) repaint immediately.
-    func invalidateLoupeCaches() {
-        cachedAnnotationLayer = nil
-        cachedAnnotationLayerExcludingSelected = nil
-        cachedCompositedImage = nil
     }
 
     func showColorPickerPopover(target: ColorPickerTarget, anchorView: NSView? = nil, anchorRect: NSRect = .zero) {
@@ -8214,10 +7564,6 @@ class OverlayView: NSView {
             } else {
                 initialColor = .white
             }
-        case .loupeOutline:
-            let editingLoupe = toolOptionsRowView?.editingAnnotation.flatMap { $0.tool == .loupe ? $0 : nil }
-            initialColor = (editingLoupe ?? selectedAnnotations.first { $0.tool == .loupe })?.outlineColor
-                ?? currentLoupeOutlineColor
         }
         picker.setColor(initialColor, opacity: currentColorOpacity)
         picker.customColors = customColors
@@ -8289,27 +7635,6 @@ class OverlayView: NSView {
                 ann.outlineColor = color
             }
             cachedCompositedImage = nil
-        case .loupeOutline:
-            currentLoupeOutlineColor = color
-            currentLoupeOutlineEnabled = true
-            if let data = try? NSKeyedArchiver.archivedData(withRootObject: color, requiringSecureCoding: false) {
-                UserDefaults.standard.set(data, forKey: "loupeOutlineColor")
-            }
-            UserDefaults.standard.set(true, forKey: "loupeOutlineEnabled")
-            // Apply to the loupe being edited / selected loupes.
-            var targets = selectedAnnotations.filter { $0.tool == .loupe }
-            if let editing = toolOptionsRowView?.editingAnnotation, editing.tool == .loupe,
-               !targets.contains(where: { $0 === editing }) {
-                targets.append(editing)
-            }
-            for ann in targets {
-                ann.outlineColor = color
-                ann.loupeOutlineEnabled = true
-            }
-            cachedAnnotationLayer = nil
-            cachedAnnotationLayerExcludingSelected = nil
-            cachedCompositedImage = nil
-            toolOptionsRowView?.updateSwatchColors()
         }
         needsDisplay = true
     }
@@ -8336,9 +7661,6 @@ class OverlayView: NSView {
         editorTooltipView?.removeFromSuperview()
         editorTooltipView = nil
         captureSourceImage = nil
-        autoMeasurePreview = nil
-        autoMeasureKeyHeld = false
-        autoMeasureBitmapCtx = nil
         isKeyboardMoveSelectionActive = false
         isToolbarMoveDragActive = false
         pendingAutoAdjustSelection = false
@@ -8363,7 +7685,6 @@ class OverlayView: NSView {
         hidePreSelectionPresetButton()
         lockedAspect = activePreSelectionRatio
         isResizingAnnotation = false
-        loupeCursorPoint = .zero
         colorSamplerPoint = .zero
         colorSamplerBitmap = nil
         overlayErrorTimer?.invalidate()

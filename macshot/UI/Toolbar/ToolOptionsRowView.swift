@@ -111,26 +111,10 @@ class ToolOptionsRowView: NSView {
         var curX: CGFloat = padding
 
         // ── Stroke width slider (most drawing tools) ──
-        let hasStroke = [.pencil, .line, .arrow, .rectangle, .ellipse, .marker, .number, .loupe].contains(tool)
+        let hasStroke = [.pencil, .line, .arrow, .rectangle, .ellipse, .marker, .number].contains(tool)
         if hasStroke {
             curX = addStrokeSlider(at: curX, tool: tool, ov: ov)
         }
-        if tool == .loupe {
-            curX = addSeparator(at: curX)
-            curX = addLoupeMagnificationSlider(at: curX, ov: ov)
-            curX = addSeparator(at: curX)
-            curX = addLoupeOutlineControls(at: curX, ov: ov)
-        }
-        if tool == .highlight {
-            curX = addHighlightDimSlider(at: curX, ov: ov)
-            curX = addSeparator(at: curX)
-            curX = addHighlightBorderSegment(at: curX, ov: ov)
-            let totalW = max(curX + padding, 200)
-            contentWidth = totalW
-            frame.size = NSSize(width: totalW, height: rowHeight)
-            return
-        }
-
         // ── Line style (line, pencil, rectangle) ──
         let hasLineStyle = [.line, .pencil, .rectangle, .arrow, .ellipse].contains(tool)
         if hasLineStyle {
@@ -236,16 +220,6 @@ class ToolOptionsRowView: NSView {
             curX = addTextOptions(at: curX, ov: ov)
         }
 
-        // ── Measure px/pt toggle ──
-        if tool == .measure {
-            curX = addMeasureToggle(at: curX, ov: ov)
-        }
-
-        // ── Stamp/emoji row ──
-        if tool == .stamp {
-            curX = addStampOptions(at: curX, ov: ov)
-        }
-
         // ── Censor tool: mode selector ──
         if tool == .pixelate {
             curX = addCensorModeSegment(at: curX, ov: ov)
@@ -285,7 +259,7 @@ class ToolOptionsRowView: NSView {
     private func addStrokeSlider(at x: CGFloat, tool: AnnotationTool, ov: OverlayView) -> CGFloat {
         var curX = x
 
-        let nameLabel = NSTextField(labelWithString: tool == .loupe ? L("Size") : L("Stroke"))
+        let nameLabel = NSTextField(labelWithString: L("Stroke"))
         nameLabel.font = NSFont.systemFont(ofSize: 9.5, weight: .medium)
         nameLabel.textColor = ToolbarLayout.iconColor.withAlphaComponent(0.4)
         nameLabel.sizeToFit()
@@ -293,15 +267,10 @@ class ToolOptionsRowView: NSView {
         addSubview(nameLabel)
         curX += nameLabel.frame.width + 4
 
-        let currentVal: CGFloat
-        if tool == .loupe, let ann = editingAnnotation {
-            currentVal = min(ann.boundingRect.width, ann.boundingRect.height)
-        } else {
-            currentVal = editingAnnotation?.strokeWidth ?? ov.activeStrokeWidthForTool(tool)
-        }
+        let currentVal = editingAnnotation?.strokeWidth ?? ov.activeStrokeWidthForTool(tool)
         let sliderW: CGFloat = 100
         let slider = NSSlider(value: Double(currentVal),
-                              minValue: tool == .loupe ? 40 : 1, maxValue: tool == .loupe ? 320 : 30,
+                              minValue: 1, maxValue: 30,
                               target: self, action: #selector(strokeSliderChanged(_:)))
         slider.frame = NSRect(x: curX, y: (rowHeight - 20) / 2, width: sliderW, height: 20)
         slider.isContinuous = true
@@ -310,8 +279,8 @@ class ToolOptionsRowView: NSView {
         curX += sliderW + 4
 
         let val = Int(currentVal)
-        let valStr = tool == .loupe ? "\(val)" : "\(val)px"
-        let labelW: CGFloat = tool == .loupe ? 32 : 28
+        let valStr = "\(val)px"
+        let labelW: CGFloat = 28
         let label = NSTextField(labelWithString: valStr)
         label.font = NSFont.monospacedDigitSystemFont(ofSize: 10, weight: .medium)
         label.textColor = ToolbarLayout.iconColor.withAlphaComponent(0.6)
@@ -321,100 +290,6 @@ class ToolOptionsRowView: NSView {
         addSubview(label)
         curX += labelW
 
-        return curX
-    }
-
-    private func addLoupeMagnificationSlider(at x: CGFloat, ov: OverlayView) -> CGFloat {
-        var curX = x
-
-        let nameLabel = NSTextField(labelWithString: L("Zoom"))
-        nameLabel.font = NSFont.systemFont(ofSize: 9.5, weight: .medium)
-        nameLabel.textColor = ToolbarLayout.iconColor.withAlphaComponent(0.4)
-        nameLabel.sizeToFit()
-        nameLabel.frame.origin = NSPoint(x: curX, y: (rowHeight - nameLabel.frame.height) / 2)
-        addSubview(nameLabel)
-        curX += nameLabel.frame.width + 4
-
-        let currentVal = editingAnnotation?.loupeMagnification ?? ov.currentLoupeMagnification
-        let sliderW: CGFloat = 84
-        let slider = NSSlider(value: Double(currentVal),
-                              minValue: 1.1, maxValue: 6.0,
-                              target: self, action: #selector(loupeMagnificationChanged(_:)))
-        slider.frame = NSRect(x: curX, y: (rowHeight - 20) / 2, width: sliderW, height: 20)
-        slider.isContinuous = true
-        addSubview(slider)
-        curX += sliderW + 4
-
-        let label = NSTextField(labelWithString: String(format: "%.1fx", currentVal))
-        label.font = NSFont.monospacedDigitSystemFont(ofSize: 10, weight: .medium)
-        label.textColor = ToolbarLayout.iconColor.withAlphaComponent(0.6)
-        label.alignment = .right
-        label.frame = NSRect(x: curX, y: (rowHeight - 14) / 2, width: 38, height: 14)
-        label.tag = 994
-        addSubview(label)
-        curX += 38
-
-        return curX
-    }
-
-    private func addHighlightDimSlider(at x: CGFloat, ov: OverlayView) -> CGFloat {
-        var curX = x
-
-        let nameLabel = NSTextField(labelWithString: L("Dim"))
-        nameLabel.font = NSFont.systemFont(ofSize: 9.5, weight: .medium)
-        nameLabel.textColor = ToolbarLayout.iconColor.withAlphaComponent(0.4)
-        nameLabel.sizeToFit()
-        nameLabel.frame.origin = NSPoint(x: curX, y: (rowHeight - nameLabel.frame.height) / 2)
-        addSubview(nameLabel)
-        curX += nameLabel.frame.width + 4
-
-        let stored = UserDefaults.standard.object(forKey: "highlightDimOpacity") as? Double
-        let currentVal = editingAnnotation?.dimOpacity ?? CGFloat(stored ?? 0.55)
-        let sliderW: CGFloat = 84
-        let slider = NSSlider(value: Double(currentVal),
-                              minValue: 0.1, maxValue: 0.95,
-                              target: self, action: #selector(highlightDimChanged(_:)))
-        slider.frame = NSRect(x: curX, y: (rowHeight - 20) / 2, width: sliderW, height: 20)
-        slider.isContinuous = true
-        addSubview(slider)
-        curX += sliderW + 4
-
-        let label = NSTextField(labelWithString: "\(Int((currentVal * 100).rounded()))%")
-        label.font = NSFont.monospacedDigitSystemFont(ofSize: 10, weight: .medium)
-        label.textColor = ToolbarLayout.iconColor.withAlphaComponent(0.6)
-        label.alignment = .right
-        label.frame = NSRect(x: curX, y: (rowHeight - 14) / 2, width: 38, height: 14)
-        label.tag = 993
-        addSubview(label)
-        curX += 38
-
-        return curX
-    }
-
-    /// Solid | Dashed border-style toggle for the highlight rect.
-    private func addHighlightBorderSegment(at x: CGFloat, ov: OverlayView) -> CGFloat {
-        var curX = x
-        let seg = NSSegmentedControl()
-        seg.segmentCount = 2
-        seg.trackingMode = .selectOne
-        seg.target = self
-        seg.action = #selector(highlightBorderChanged(_:))
-        seg.tag = 992
-        seg.setImage(Self.lineStyleImage(.solid), forSegment: 0)
-        seg.setImage(Self.lineStyleImage(.dashed), forSegment: 1)
-        seg.setWidth(36, forSegment: 0)
-        seg.setWidth(36, forSegment: 1)
-        let dashed: Bool
-        if let ann = editingAnnotation, ann.tool == .highlight {
-            dashed = ann.lineStyle == .dashed
-        } else {
-            dashed = UserDefaults.standard.object(forKey: "highlightBorderDashed") as? Bool ?? true
-        }
-        seg.selectedSegment = dashed ? 1 : 0
-        seg.frame = NSRect(x: curX, y: (rowHeight - 22) / 2, width: 72, height: 22)
-        (seg.cell as? NSSegmentedCell)?.segmentStyle = .roundRect
-        addSubview(seg)
-        curX += 72
         return curX
     }
 
@@ -1009,235 +884,22 @@ class ToolOptionsRowView: NSView {
         return curX
     }
 
-    private func addMeasureToggle(at x: CGFloat, ov: OverlayView) -> CGFloat {
-        var curX = x
-        let seg = NSSegmentedControl(labels: ["px", "pt"], trackingMode: .selectOne,
-                                     target: self, action: #selector(measureUnitChanged(_:)))
-        seg.selectedSegment = ov.currentMeasureInPoints ? 1 : 0
-        seg.frame = NSRect(x: curX, y: (rowHeight - 22) / 2, width: 60, height: 22)
-        (seg.cell as? NSSegmentedCell)?.segmentStyle = .roundRect
-        addSubview(seg)
-        curX += 72
-
-        curX = addToggle(at: curX, title: L("Limit to selection"), isOn: ov.currentMeasureClampToSelection) { [weak ov] isOn in
-            ov?.currentMeasureClampToSelection = isOn
-            UserDefaults.standard.set(isOn, forKey: "measureClampToSelection")
-        }
-
-        // Hint
-        curX = addHintLabel(at: curX, text: L("Hold 1 auto-vertical  ·  Hold 2 auto-horizontal"))
-        return curX
-    }
-
-    private func addStampOptions(at x: CGFloat, ov: OverlayView) -> CGFloat {
-        var curX = x
-
-        // Size slider — sets the default placement size; resizes the selected stamp when
-        // editing. Skipped for capture stamps ("Add Capture" images), which are usually far
-        // larger than the slider range — those resize via their handles instead.
-        if editingAnnotation?.isCaptureStamp != true {
-            let sizeLabel = NSTextField(labelWithString: L("Size"))
-            sizeLabel.font = NSFont.systemFont(ofSize: 9.5, weight: .medium)
-            sizeLabel.textColor = ToolbarLayout.iconColor.withAlphaComponent(0.4)
-            sizeLabel.sizeToFit()
-            sizeLabel.frame.origin = NSPoint(x: curX, y: (rowHeight - sizeLabel.frame.height) / 2)
-            addSubview(sizeLabel)
-            curX += sizeLabel.frame.width + 4
-
-            let currentSize: CGFloat
-            if let ann = editingAnnotation, ann.tool == .stamp {
-                currentSize = max(ann.boundingRect.width, ann.boundingRect.height)
-            } else {
-                currentSize = ov.currentStampSize
-            }
-            let sizeSlider = NSSlider(value: Double(currentSize), minValue: 16, maxValue: 256,
-                                      target: self, action: #selector(stampSizeChanged(_:)))
-            sizeSlider.frame = NSRect(x: curX, y: (rowHeight - 20) / 2, width: 80, height: 20)
-            sizeSlider.isContinuous = true
-            addSubview(sizeSlider)
-            curX += 80 + 4
-
-            let sizeValLabel = NSTextField(labelWithString: "\(Int(currentSize))px")
-            sizeValLabel.font = NSFont.monospacedDigitSystemFont(ofSize: 10, weight: .medium)
-            sizeValLabel.textColor = ToolbarLayout.iconColor.withAlphaComponent(0.6)
-            sizeValLabel.alignment = .right
-            sizeValLabel.frame = NSRect(x: curX, y: (rowHeight - 14) / 2, width: 34, height: 14)
-            sizeValLabel.tag = 989  // stamp size value label
-            addSubview(sizeValLabel)
-            curX += 34
-
-            curX = addSeparator(at: curX)
-        }
-
-        // Quick emoji buttons
-        for emoji in StampEmojis.common {
-            let btn = NSButton(title: emoji, target: self, action: #selector(quickEmojiClicked(_:)))
-            btn.bezelStyle = .recessed
-            btn.isBordered = false
-            btn.font = NSFont.systemFont(ofSize: 18)
-            btn.frame = NSRect(x: curX, y: (rowHeight - 26) / 2, width: 26, height: 26)
-            addSubview(btn)
-            curX += 26
-        }
-        curX += 4
-
-        curX = addSeparator(at: curX)
-
-        let moreBtn = NSButton()
-        moreBtn.bezelStyle = .recessed
-        moreBtn.isBordered = false
-        moreBtn.image = NSImage(systemSymbolName: "face.smiling", accessibilityDescription: L("More Emojis"))?
-            .withSymbolConfiguration(.init(pointSize: 14, weight: .medium))
-        moreBtn.toolTip = L("More Emojis")
-        moreBtn.target = self
-        moreBtn.action = #selector(moreEmojisClicked(_:))
-        moreBtn.frame = NSRect(x: curX, y: (rowHeight - 26) / 2, width: 28, height: 26)
-        addSubview(moreBtn)
-        moreBtn.contentTintColor = ToolbarLayout.iconColor  // after addSubview to override auto-tint
-        curX += 30
-
-        let loadBtn = NSButton()
-        loadBtn.bezelStyle = .recessed
-        loadBtn.isBordered = false
-        loadBtn.image = NSImage(systemSymbolName: "photo", accessibilityDescription: L("Load Image"))?
-            .withSymbolConfiguration(.init(pointSize: 14, weight: .medium))
-        loadBtn.toolTip = L("Load Image")
-        loadBtn.target = self
-        loadBtn.action = #selector(loadImageClicked)
-        loadBtn.frame = NSRect(x: curX, y: (rowHeight - 26) / 2, width: 28, height: 26)
-        addSubview(loadBtn)
-        loadBtn.contentTintColor = ToolbarLayout.iconColor  // after addSubview to override auto-tint
-        curX += 30
-
-        return curX
-    }
-
-    private func addHintLabel(at x: CGFloat, text: String) -> CGFloat {
-        let label = NSTextField(labelWithString: text)
-        label.font = NSFont.systemFont(ofSize: 9.5, weight: .medium)
-        label.textColor = ToolbarLayout.iconColor.withAlphaComponent(0.3)
-        label.sizeToFit()
-        label.frame.origin = NSPoint(x: x, y: (rowHeight - label.frame.height) / 2)
-        addSubview(label)
-        return x + label.frame.width + 8
-    }
-
     // MARK: - Actions
 
     @objc private func strokeSliderChanged(_ sender: NSSlider) {
         guard let ov = overlayView else { return }
-        var val = CGFloat(sender.floatValue)
+        let val = CGFloat(sender.floatValue)
         if let ann = editingAnnotation {
             ensureSnapshot()
-            if ann.tool == .loupe {
-                val = max(40, val)
-                let rect = ann.boundingRect
-                let center = NSPoint(x: rect.midX, y: rect.midY)
-                ann.startPoint = NSPoint(x: center.x - val / 2, y: center.y - val / 2)
-                ann.endPoint = NSPoint(x: center.x + val / 2, y: center.y + val / 2)
-                ann.strokeWidth = val
-                ann.bakedBlurNSImage = nil
-                ann.bakeLoupe()
-            } else {
-                ann.strokeWidth = val
-            }
+            ann.strokeWidth = val
             ov.cachedCompositedImage = nil
         }
         // Always update the global default so the last-picked stroke sticks
         // for the next capture, whether or not an annotation was being edited.
         if let tool = currentTool { ov.setActiveStrokeWidth(val, for: tool) }
         if let label = viewWithTag(997) as? NSTextField {
-            label.stringValue = currentTool == .loupe ? "\(Int(val))" : "\(Int(val))px"
-        }
-        ov.needsDisplay = true
-    }
-
-    @objc private func stampSizeChanged(_ sender: NSSlider) {
-        guard let ov = overlayView else { return }
-        let val = min(256, max(16, CGFloat(sender.doubleValue)))
-        if let ann = editingAnnotation, ann.tool == .stamp, !ann.isCaptureStamp {
-            ensureSnapshot()
-            // Resize around the center, preserving aspect ratio.
-            let rect = ann.boundingRect
-            let center = NSPoint(x: rect.midX, y: rect.midY)
-            let aspect = rect.width / max(rect.height, 1)
-            let w = aspect >= 1 ? val : val * aspect
-            let h = aspect >= 1 ? val / aspect : val
-            ann.startPoint = NSPoint(x: center.x - w / 2, y: center.y - h / 2)
-            ann.endPoint = NSPoint(x: center.x + w / 2, y: center.y + h / 2)
-            ov.cachedCompositedImage = nil
-        }
-        // Always update the default so the next stamp is placed at this size.
-        ov.setActiveStampSize(val)
-        if let label = viewWithTag(989) as? NSTextField {
             label.stringValue = "\(Int(val))px"
         }
-        ov.needsDisplay = true
-    }
-
-    @objc private func loupeMagnificationChanged(_ sender: NSSlider) {
-        guard let ov = overlayView else { return }
-        let val = min(6.0, max(1.1, CGFloat(sender.doubleValue)))
-        if let ann = editingAnnotation, ann.tool == .loupe {
-            ensureSnapshot()
-            ann.loupeMagnification = val
-            // Keep the source circle framing exactly what the lens shows.
-            ann.syncLoupeSourceToMagnification()
-            ann.bakedBlurNSImage = nil
-            ann.bakeLoupe()
-            ov.cachedCompositedImage = nil
-        }
-        ov.setActiveLoupeMagnification(val)
-        if let label = viewWithTag(994) as? NSTextField {
-            label.stringValue = String(format: "%.1fx", val)
-        }
-        ov.needsDisplay = true
-    }
-
-    @objc private func highlightDimChanged(_ sender: NSSlider) {
-        guard let ov = overlayView else { return }
-        let val = min(0.95, max(0.1, CGFloat(sender.doubleValue)))
-        if let ann = editingAnnotation, ann.tool == .highlight {
-            // Editing a specific selected highlight.
-            ensureSnapshot()
-            ann.dimOpacity = val
-            ov.cachedCompositedImage = nil
-        } else {
-            // Highlight tool active with no specific selection: the dim is a
-            // single spotlight level, so apply it to every placed highlight live
-            // (not just the next one). Highlight bakes nothing — invalidating the
-            // cache re-renders the union dim at the new strength.
-            var changed = false
-            for ann in ov.annotations where ann.tool == .highlight {
-                ann.dimOpacity = val
-                changed = true
-            }
-            if changed { ov.cachedCompositedImage = nil }
-        }
-        UserDefaults.standard.set(Double(val), forKey: "highlightDimOpacity")
-        if let label = viewWithTag(993) as? NSTextField {
-            label.stringValue = "\(Int((val * 100).rounded()))%"
-        }
-        ov.needsDisplay = true
-    }
-
-    @objc private func highlightBorderChanged(_ sender: NSSegmentedControl) {
-        guard let ov = overlayView else { return }
-        let dashed = sender.selectedSegment == 1
-        let style: LineStyle = dashed ? .dashed : .solid
-        if let ann = editingAnnotation, ann.tool == .highlight {
-            ensureSnapshot()
-            ann.lineStyle = style
-            ov.cachedCompositedImage = nil
-        } else {
-            var changed = false
-            for ann in ov.annotations where ann.tool == .highlight {
-                ann.lineStyle = style
-                changed = true
-            }
-            if changed { ov.cachedCompositedImage = nil }
-        }
-        UserDefaults.standard.set(dashed, forKey: "highlightBorderDashed")
         ov.needsDisplay = true
     }
 
@@ -1345,35 +1007,6 @@ class ToolOptionsRowView: NSView {
     @objc private func italicToggled() { overlayView?.textEditor.toggleItalic(); overlayView.map { $0.applyTextFormattingToSelectedAnnotations(); $0.needsDisplay = true; rebuild(for: $0.currentTool) } }
     @objc private func underlineToggled() { overlayView?.textEditor.toggleUnderline(); overlayView.map { $0.applyTextFormattingToSelectedAnnotations(); $0.needsDisplay = true; rebuild(for: $0.currentTool) } }
     @objc private func strikethroughToggled() { overlayView?.textEditor.toggleStrikethrough(); overlayView.map { $0.applyTextFormattingToSelectedAnnotations(); $0.needsDisplay = true; rebuild(for: $0.currentTool) } }
-
-    @objc private func measureUnitChanged(_ sender: NSSegmentedControl) {
-        guard let ov = overlayView else { return }
-        ov.currentMeasureInPoints = sender.selectedSegment == 1
-        UserDefaults.standard.set(ov.currentMeasureInPoints, forKey: "measureInPoints")
-        ov.needsDisplay = true
-    }
-
-    @objc private func quickEmojiClicked(_ sender: NSButton) {
-        guard let ov = overlayView else { return }
-        ov.currentStampImage = StampEmojis.renderEmoji(sender.title)
-        ov.currentStampEmoji = sender.title
-        ov.needsDisplay = true
-    }
-
-    @objc private func moreEmojisClicked(_ sender: NSButton) {
-        if PopoverHelper.toggleClosedIfOpen() { return }
-        guard let ov = overlayView else { return }
-        ov.showEmojiPopover(anchorView: sender)
-    }
-
-    @objc private func loadImageClicked() {
-        guard let ov = overlayView else { return }
-        StampEmojis.loadStampImage { [weak ov] image in
-            ov?.currentStampImage = image
-            ov?.currentStampEmoji = nil
-            ov?.needsDisplay = true
-        }
-    }
 
     @objc private func pencilSmoothModeChanged(_ sender: NSSegmentedControl) {
         let mode = sender.selectedSegment
@@ -1566,73 +1199,6 @@ class ToolOptionsRowView: NSView {
         if PopoverHelper.toggleClosedIfOpen() { return }
         guard let ov = overlayView else { return }
         ov.showColorPickerPopover(target: .annotationOutline, anchorView: sender)
-    }
-
-    // MARK: - Loupe outline color
-
-    private func addLoupeOutlineControls(at x: CGFloat, ov: OverlayView) -> CGFloat {
-        var curX = x
-        let enabled: Bool
-        let col: NSColor
-        if let ann = editingAnnotation, ann.tool == .loupe {
-            enabled = ann.loupeOutlineEnabled
-            col = ann.outlineColor ?? ov.currentLoupeOutlineColor
-        } else {
-            enabled = ov.currentLoupeOutlineEnabled
-            col = ov.currentLoupeOutlineColor
-        }
-
-        let outlineBtn = NSButton(title: L("Outline"), target: self, action: #selector(loupeOutlineToggled(_:)))
-        outlineBtn.bezelStyle = .recessed
-        outlineBtn.setButtonType(.toggle)
-        outlineBtn.state = enabled ? .on : .off
-        outlineBtn.attributedTitle = NSAttributedString(string: L("Outline"), attributes: [
-            .font: NSFont.systemFont(ofSize: 10, weight: .medium),
-            .baselineOffset: 0.5,
-        ])
-        outlineBtn.sizeToFit()
-        let rowHeight: CGFloat = frame.height > 0 ? frame.height : 30
-        outlineBtn.frame = NSRect(x: curX, y: (rowHeight - 22) / 2, width: max(50, outlineBtn.frame.width), height: 22)
-        addSubview(outlineBtn)
-        curX += outlineBtn.frame.width + 2
-
-        let swatchSize: CGFloat = 18
-        let swatch = NSButton(frame: NSRect(x: curX, y: (rowHeight - swatchSize) / 2, width: swatchSize, height: swatchSize))
-        swatch.title = ""
-        swatch.isBordered = false
-        swatch.wantsLayer = true
-        swatch.layer?.backgroundColor = col.cgColor
-        swatch.layer?.cornerRadius = 3
-        swatch.layer?.borderWidth = 1.5
-        swatch.layer?.borderColor = ToolbarLayout.iconColor.withAlphaComponent(0.4).cgColor
-        swatch.layer?.opacity = enabled ? 1.0 : 0.3
-        swatch.tag = 976
-        swatch.target = self
-        swatch.action = #selector(loupeOutlineColorClicked(_:))
-        addSubview(swatch)
-        curX += swatchSize
-        return curX
-    }
-
-    @objc private func loupeOutlineToggled(_ sender: NSButton) {
-        guard let ov = overlayView else { return }
-        let isOn = sender.state == .on
-        ov.currentLoupeOutlineEnabled = isOn
-        UserDefaults.standard.set(isOn, forKey: "loupeOutlineEnabled")
-        if let swatch = viewWithTag(976) { swatch.layer?.opacity = isOn ? 1.0 : 0.3 }
-        if let ann = editingAnnotation, ann.tool == .loupe {
-            ensureSnapshot()
-            ann.loupeOutlineEnabled = isOn
-            if isOn, ann.outlineColor == nil { ann.outlineColor = ov.currentLoupeOutlineColor }
-            ov.invalidateLoupeCaches()
-        }
-        ov.needsDisplay = true
-    }
-
-    @objc private func loupeOutlineColorClicked(_ sender: NSButton) {
-        if PopoverHelper.toggleClosedIfOpen() { return }
-        guard let ov = overlayView else { return }
-        ov.showColorPickerPopover(target: .loupeOutline, anchorView: sender)
     }
 
     @objc private func textCancelClicked() {

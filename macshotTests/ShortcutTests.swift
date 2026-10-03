@@ -218,14 +218,49 @@ final class HotkeyManagerTests: XCTestCase {
         }
     }
 
-    func testAnUnsetHotkeyHasNoBinding() {
-        // There are no default global hotkeys; every slot starts empty.
-        for slot in HotkeyManager.HotkeySlot.allCases {
-            withDefaults([slot.keyCodeKey: nil, slot.modifiersKey: nil, slot.disabledKey: nil]) {
+    private func withCleanHotkeys(_ body: () -> Void) {
+        let keys = HotkeyManager.HotkeySlot.allCases.flatMap { [$0.keyCodeKey, $0.modifiersKey, $0.disabledKey] }
+        withDefaults(Dictionary(uniqueKeysWithValues: keys.map { ($0, nil as Any?) }), body)
+    }
+
+    func testOnlyCaptureAreaHasADefaultHotkey() {
+        withCleanHotkeys {
+            for slot in HotkeyManager.HotkeySlot.allCases {
                 let read = HotkeyManager.readHotkey(for: slot)
-                XCTAssertEqual(read.keyCode, 0, "\(slot)")
-                XCTAssertEqual(read.modifiers, 0, "\(slot)")
+                if slot == .captureArea {
+                    XCTAssertEqual(read.keyCode, UInt32(kVK_ANSI_A))
+                    XCTAssertEqual(read.modifiers, UInt32(cmdKey | shiftKey), "Capture Area defaults to ⌘⇧A")
+                } else {
+                    XCTAssertEqual(read.keyCode, 0, "\(slot) has no default")
+                    XCTAssertEqual(read.modifiers, 0, "\(slot) has no default")
+                }
             }
+        }
+    }
+
+    func testTheDefaultYieldsToAChordTheUserAlreadyAssigned() {
+        // Someone who gave ⌘⇧A to another action before the default existed
+        // must keep it; Capture Area then starts empty instead of stealing it.
+        withCleanHotkeys {
+            HotkeyManager.saveHotkey(for: .captureOCR, keyCode: UInt32(kVK_ANSI_A), modifiers: UInt32(cmdKey | shiftKey))
+            XCTAssertEqual(HotkeyManager.readHotkey(for: .captureArea).keyCode, 0)
+            XCTAssertEqual(HotkeyManager.readHotkey(for: .captureOCR).keyCode, UInt32(kVK_ANSI_A))
+        }
+    }
+
+    func testClearingTheDefaultHotkeyKeepsItCleared() {
+        withCleanHotkeys {
+            HotkeyManager.disableHotkey(for: .captureArea)
+            XCTAssertEqual(HotkeyManager.readHotkey(for: .captureArea).keyCode, 0)
+        }
+    }
+
+    func testAssigningTheDefaultChordElsewhereClearsCaptureArea() {
+        withCleanHotkeys {
+            let displaced = HotkeyManager.assignHotkey(for: .captureFullScreen, keyCode: UInt32(kVK_ANSI_A),
+                                                       modifiers: UInt32(cmdKey | shiftKey))
+            XCTAssertEqual(displaced, [.captureArea])
+            XCTAssertEqual(HotkeyManager.readHotkey(for: .captureArea).keyCode, 0)
         }
     }
 

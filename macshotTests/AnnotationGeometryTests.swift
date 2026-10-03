@@ -159,14 +159,6 @@ final class AnnotationGeometryTests: XCTestCase {
         XCTAssertFalse(number.hitTest(point: NSPoint(x: 250, y: 200)))
     }
 
-    func testRootedLoupeIsHitOnBothItsCircles() {
-        let loupe = make(.loupe, from: NSPoint(x: 0, y: 0), to: NSPoint(x: 100, y: 100))
-        loupe.loupeSourceRect = NSRect(x: 300, y: 300, width: 40, height: 40)
-        XCTAssertTrue(loupe.hitTest(point: NSPoint(x: 50, y: 50)), "the lens")
-        XCTAssertTrue(loupe.hitTest(point: NSPoint(x: 320, y: 320)), "the rooted source spot")
-        XCTAssertFalse(loupe.hitTest(point: NSPoint(x: 200, y: 200)))
-    }
-
     func testRotatedRectangleHitTestsInItsRotatedFrame() {
         let rect = make(.rectangle, from: NSPoint(x: 0, y: 40), to: NSPoint(x: 200, y: 60))
         rect.rectFillStyle = .fill
@@ -175,16 +167,16 @@ final class AnnotationGeometryTests: XCTestCase {
         XCTAssertFalse(rect.hitTest(point: NSPoint(x: 190, y: 50)), "…and no longer covers its old right edge")
     }
 
-    func testSelectAndTranslateAreNotHitTestable() {
-        XCTAssertFalse(make(.select).hitTest(point: NSPoint(x: 50, y: 50)))
-        XCTAssertFalse(make(.translateOverlay).hitTest(point: NSPoint(x: 50, y: 50)))
+    func testSelectAndRetiredToolsAreNotHitTestable() {
+        for tool in AnnotationTool.allCases where tool == .select || tool.isRetired {
+            XCTAssertFalse(make(tool).hitTest(point: NSPoint(x: 50, y: 50)), "\(tool)")
+        }
     }
 
     func testOnlyRealAnnotationsAreMovable() {
-        XCTAssertFalse(make(.select).isMovable)
-        XCTAssertFalse(make(.translateOverlay).isMovable)
-        for tool in AnnotationTool.allCases where tool != .select && tool != .translateOverlay {
-            XCTAssertTrue(make(tool).isMovable, "\(tool) should be draggable")
+        for tool in AnnotationTool.allCases {
+            let expected = tool != .select && !tool.isRetired
+            XCTAssertEqual(make(tool).isMovable, expected, "\(tool)")
         }
     }
 
@@ -225,14 +217,6 @@ final class AnnotationGeometryTests: XCTestCase {
         XCTAssertEqual(Reflect.describedProperties(of: ann), before)
     }
 
-    func testMoveLeavesTheRootedLoupeSourceInPlace() {
-        let loupe = make(.loupe)
-        loupe.loupeSourceRect = NSRect(x: 300, y: 300, width: 40, height: 40)
-        loupe.move(dx: 50, dy: 50)
-        XCTAssertEqual(loupe.loupeSourceRect, NSRect(x: 300, y: 300, width: 40, height: 40),
-                       "dragging the lens must leave the magnified spot where it is (#197)")
-    }
-
     func testMoveKeepsHitTestingConsistent() {
         let rect = make(.filledRectangle)
         XCTAssertTrue(rect.hitTest(point: NSPoint(x: 70, y: 60)))
@@ -269,7 +253,7 @@ final class AnnotationGeometryTests: XCTestCase {
         for tool in [AnnotationTool.rectangle, .filledRectangle, .ellipse, .stamp, .text, .number] {
             XCTAssertTrue(make(tool).supportsRotation, "\(tool) has a frame and should rotate")
         }
-        for tool in [AnnotationTool.pencil, .line, .arrow, .marker, .measure, .loupe, .blur] {
+        for tool in [AnnotationTool.pencil, .line, .arrow, .marker, .blur] {
             XCTAssertFalse(make(tool).supportsRotation, "\(tool) is defined by its path, not a frame")
         }
     }

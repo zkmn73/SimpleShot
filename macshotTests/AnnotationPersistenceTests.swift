@@ -62,17 +62,12 @@ final class AnnotationPersistenceTests: XCTestCase {
         // Stamp
         "stampImage": .persisted,
         "isCaptureStamp": .persisted,
-        // Censor / loupe
+        // Censor
         "bakedBlurNSImage": .persisted,
         "censorMode": .persisted,
-        "loupeMagnification": .persisted,
-        "loupeSourceRect": .persisted,
-        "loupeOutlineEnabled": .persisted,
         // Misc
-        "measureInPoints": .persisted,
         "groupID": .persisted,
         "randomSeed": .persisted,
-        "dimOpacity": .persisted,
         // Intentionally not copied
         "sourceImage": .transient,        // drawing-time reference, cleared after bake
         "sourceImageBounds": .transient,  // paired with sourceImage
@@ -132,13 +127,8 @@ final class AnnotationPersistenceTests: XCTestCase {
         ann.isCaptureStamp = true
         ann.bakedBlurNSImage = ImageProbe.quadrantImage(width: 24, height: 24)
         ann.censorMode = .erase
-        ann.loupeMagnification = 3.5
-        ann.loupeSourceRect = NSRect(x: 5, y: 6, width: 70, height: 70)
-        ann.loupeOutlineEnabled = true
-        ann.measureInPoints = true
         ann.groupID = UUID(uuidString: "11111111-2222-3333-4444-555555555555")
         ann.randomSeed = 123_456_789
-        ann.dimOpacity = 0.42
         // Transient fields set too, to prove they're dropped on purpose.
         ann.sourceImage = ImageProbe.solidImage()
         ann.sourceImageBounds = NSRect(x: 1, y: 2, width: 3, height: 4)
@@ -223,7 +213,7 @@ final class AnnotationPersistenceTests: XCTestCase {
     // MARK: - Codable round-trip
 
     func testCodableRoundTripPreservesEveryPersistedProperty() {
-        for tool in AnnotationTool.allCases {
+        for tool in AnnotationTool.allCases where !tool.isRetired {
             let original = Self.fullyPopulated(tool: tool)
             guard let data = AnnotationSerializer.encode([original]),
                   let decoded = AnnotationSerializer.decode(data)?.first else {
@@ -235,9 +225,6 @@ final class AnnotationPersistenceTests: XCTestCase {
             let decodedProps = Reflect.describedProperties(of: decoded)
 
             for (name, survival) in Self.census where survival == .persisted {
-                // The loupe re-bakes from the editor's source image on load, so
-                // its baked result is deliberately not written to history.
-                if name == "bakedBlurNSImage" && tool == .loupe { continue }
                 // Text annotations with a glyph stroke re-render their cached
                 // image on decode (legacy stroke normalization), which also
                 // resizes the box — covered by the stability test below.
@@ -252,7 +239,7 @@ final class AnnotationPersistenceTests: XCTestCase {
     /// keep changing the annotation. A field that shifts on every load drifts
     /// further with each round-trip.
     func testRoundTripIsStableAcrossRepeatedSaves() throws {
-        for tool in AnnotationTool.allCases {
+        for tool in AnnotationTool.allCases where !tool.isRetired {
             let original = Self.fullyPopulated(tool: tool)
             let first = try XCTUnwrap(
                 AnnotationSerializer.decode(try XCTUnwrap(AnnotationSerializer.encode([original])))?.first)
@@ -266,7 +253,6 @@ final class AnnotationPersistenceTests: XCTestCase {
             let thirdProps = Reflect.describedProperties(of: third)
 
             for (name, survival) in Self.census where survival == .persisted {
-                if name == "bakedBlurNSImage" && tool == .loupe { continue }
                 XCTAssertEqual(secondProps[name], firstProps[name],
                                "`\(name)` changed on the second load for tool \(tool) — it drifts every time a capture is reopened")
                 XCTAssertEqual(thirdProps[name], secondProps[name],
@@ -284,15 +270,17 @@ final class AnnotationPersistenceTests: XCTestCase {
                        "plain text must reload in exactly the same box")
     }
 
-    func testLoupeBakedImageIsNotPersisted() throws {
-        let loupe = Self.fullyPopulated(tool: .loupe)
-        let data = try XCTUnwrap(AnnotationSerializer.encode([loupe]))
-        let decoded = try XCTUnwrap(AnnotationSerializer.decode(data)?.first)
-        XCTAssertNil(decoded.bakedBlurNSImage, "loupe must re-bake from the editor's source image instead of restoring a stale bake")
+    func testRetiredToolsAreDroppedOnDecodeButOthersSurvive() throws {
+        let retired = AnnotationTool.allCases.filter(\.isRetired)
+        XCTAssertEqual(Set(retired), [.measure, .loupe, .translateOverlay, .highlight])
+        let kept = Self.fullyPopulated(tool: .arrow)
+        let data = try XCTUnwrap(AnnotationSerializer.encode(retired.map { Self.fullyPopulated(tool: $0) } + [kept]))
+        let decoded = try XCTUnwrap(AnnotationSerializer.decode(data))
+        XCTAssertEqual(decoded.map(\.tool), [.arrow], "a retired annotation is skipped, not restored as an invisible one")
     }
 
     func testRoundTripSurvivesManyAnnotationsInOrder() {
-        let annotations = AnnotationTool.allCases.map { Self.fullyPopulated(tool: $0) }
+        let annotations = AnnotationTool.allCases.filter { !$0.isRetired }.map { Self.fullyPopulated(tool: $0) }
         guard let data = AnnotationSerializer.encode(annotations),
               let decoded = AnnotationSerializer.decode(data) else {
             return XCTFail("serializer failed")
@@ -336,15 +324,13 @@ final class AnnotationPersistenceTests: XCTestCase {
           "points":[[1,2],[3],[4,5,6],[7,8]],
           "anchorPoints":[[0,0],[1]],
           "controlPointXY":[9],
-          "textDrawRect":[1,2,3],
-          "loupeSourceRect":[1,2]}]
+          "textDrawRect":[1,2,3]}]
         """
         let decoded = try XCTUnwrap(AnnotationSerializer.decode(Data(json.utf8))?.first)
         XCTAssertEqual(decoded.points?.count, 2, "malformed point pairs should be dropped, not crash")
         XCTAssertEqual(decoded.anchorPoints?.count, 1)
         XCTAssertNil(decoded.controlPoint)
         XCTAssertEqual(decoded.textDrawRect, .zero)
-        XCTAssertNil(decoded.loupeSourceRect)
     }
 
     func testDecodeToleratesShortColorArray() throws {
@@ -363,24 +349,6 @@ final class AnnotationPersistenceTests: XCTestCase {
         XCTAssertNotEqual(decoded.randomSeed, 0, "seed 0 means legacy data; a fresh seed keeps sketchy rendering deterministic")
     }
 
-    func testLegacyCaptureWithoutDimOpacityUsesDefault() throws {
-        let json = """
-        [{"tool":0,"startX":0,"startY":0,"endX":10,"endY":10,"colorRGBA":[1,0,0,1],"strokeWidth":2}]
-        """
-        let decoded = try XCTUnwrap(AnnotationSerializer.decode(Data(json.utf8))?.first)
-        XCTAssertEqual(decoded.dimOpacity, 0.55, accuracy: 0.0001)
-    }
-
-    func testDimOpacityIsClampedOnDecode() throws {
-        let json = """
-        [{"tool":0,"startX":0,"startY":0,"endX":1,"endY":1,"colorRGBA":[1,0,0,1],"strokeWidth":2,"dimOpacity":7.5},
-         {"tool":0,"startX":0,"startY":0,"endX":1,"endY":1,"colorRGBA":[1,0,0,1],"strokeWidth":2,"dimOpacity":-3}]
-        """
-        let decoded = try XCTUnwrap(AnnotationSerializer.decode(Data(json.utf8)))
-        XCTAssertEqual(decoded[0].dimOpacity, 1.0, accuracy: 0.0001, "dim over 1 would paint the capture black")
-        XCTAssertEqual(decoded[1].dimOpacity, 0.55, accuracy: 0.0001, "a negative dim falls back to the default")
-    }
-
     func testUnrepresentableCanvasGeometryIsRejectedBeforeRendering() throws {
         let json = """
         [{"tool":0,"startX":-1e18,"startY":1e18,"endX":1e18,"endY":-1e18,"colorRGBA":[1,0,0,1],"strokeWidth":1e9}]
@@ -393,7 +361,6 @@ final class AnnotationPersistenceTests: XCTestCase {
             startX: 0, startY: 0, endX: 100, endY: 100, colorRGBA: [2, -1, 0.5, 3], strokeWidth: .nan)
         saved.fontSize = .infinity
         saved.rotation = .nan
-        saved.loupeMagnification = .nan
         saved.points = [[1, 2], [3], [5, 6]]
         saved.pressures = [0.2, 0.7, 0.9]
         saved.textDrawRect = [0, 0, -1, 40]
@@ -401,7 +368,6 @@ final class AnnotationPersistenceTests: XCTestCase {
         XCTAssertEqual(annotation.strokeWidth, 3)
         XCTAssertEqual(annotation.fontSize, 20)
         XCTAssertEqual(annotation.rotation, 0)
-        XCTAssertEqual(annotation.loupeMagnification, 2)
         XCTAssertEqual(annotation.pressures, [0.2, 0.9])
         XCTAssertEqual(annotation.textDrawRect, .zero)
         let color = try XCTUnwrap(annotation.color.usingColorSpace(.sRGB))

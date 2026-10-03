@@ -41,7 +41,6 @@
 "Text" = "Text";
 "Number" = "Number";
 "Censor (Pixelate / Blur / Solid)" = "Censor (Pixelate / Blur / Solid)";
-"Dim" = "Dim";
 "Color Picker" = "Color Picker";
 "Color" = "Color";
 
@@ -54,20 +53,15 @@
 "Move (drag the selection)" = "Move (drag the selection)";
 
 /* Tool Options */
-"Size" = "Size";
 "Stroke" = "Stroke";
-"Zoom" = "Zoom";
 "Radius" = "Radius";
 "Start:" = "Start:";
 "Fill" = "Fill";
 "Outline" = "Outline";
-"More Emojis" = "More Emojis";
-"Load Image" = "Load Image";
 "Flip" = "Flip";
 "Smooth" = "Smooth";
 "Refined" = "Refined";
 "Smart" = "Smart";
-"Hold 1 auto-vertical  ·  Hold 2 auto-horizontal" = "Hold 1 auto-vertical  ·  Hold 2 auto-horizontal";
 
 /* Overlay / Canvas */
 "Click a window  ·  Drag for custom area  ·  F for full screen" = "Click a window  ·  Drag for custom area  ·  F for full screen";
@@ -264,7 +258,6 @@
 "This settings file was made by a newer version of SimpleShot. Please update SimpleShot first." = "This settings file was made by a newer version of SimpleShot. Please update SimpleShot first.";
 
 /* Measure tool: clamp toggle (#212) */
-"Limit to selection" = "Limit to selection";
 "System" = "System";
 
 /* Auto-adjust selection (#317) */

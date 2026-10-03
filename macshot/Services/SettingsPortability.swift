@@ -56,7 +56,7 @@ enum SettingsPortability {
             "annotationOutlineEnabled", "annotationOutlineColor",
             "numberFormat", "numberStartAt",
             "censorMode",
-            "pencilSmoothMode", "pencilPressureEnabled", "smartMarkerEnabled", "stampSize",
+            "pencilSmoothMode", "pencilPressureEnabled", "smartMarkerEnabled",
         ]
         for slot in HotkeyManager.HotkeySlot.allCases {
             keys.formUnion([slot.keyCodeKey, slot.modifiersKey, slot.disabledKey])
@@ -78,10 +78,6 @@ enum SettingsPortability {
         "suppressMoveToApplications",
         // Set at launch by main.swift, not a user choice.
         "NSViewUsesAutomaticLayerBackingStores",
-        // Options of the retired Loupe / Measure / Highlight tools (no toolbar entry point).
-        "loupeSize", "loupeMagnification", "loupeOutlineEnabled", "loupeOutlineColor",
-        "measureInPoints", "measureClampToSelection",
-        "highlightDimOpacity", "highlightBorderDashed",
     ]
 
     /// Whether a key is exported and accepted on import.

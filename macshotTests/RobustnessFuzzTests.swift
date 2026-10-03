@@ -24,7 +24,7 @@ final class RobustnessFuzzTests: XCTestCase {
     }
 
     private func randomAnnotation() -> Annotation {
-        let tool = AnnotationTool.allCases.randomElement(using: &random) ?? .pencil
+        let tool = AnnotationTool.allCases.filter { !$0.isRetired }.randomElement(using: &random) ?? .pencil
         let ann = Annotation(
             tool: tool,
             startPoint: randomPoint(),
@@ -47,13 +47,6 @@ final class RobustnessFuzzTests: XCTestCase {
         if Bool.random(using: &random) { ann.rotation = .random(in: -20...20, using: &random) }
         if Bool.random(using: &random) { ann.rectCornerRadius = .random(in: -10...200, using: &random) }
         if Bool.random(using: &random) { ann.fontSize = .random(in: 0...400, using: &random) }
-        if Bool.random(using: &random) { ann.loupeMagnification = .random(in: -5...50, using: &random) }
-        if Bool.random(using: &random) { ann.dimOpacity = .random(in: -1...5, using: &random) }
-        if Bool.random(using: &random) {
-            ann.loupeSourceRect = NSRect(origin: randomPoint(),
-                                         size: CGSize(width: .random(in: -50...500, using: &random),
-                                                      height: .random(in: -50...500, using: &random)))
-        }
         if Bool.random(using: &random) { ann.textDrawRect = NSRect(origin: randomPoint(), size: CGSize(width: 120, height: 40)) }
         ann.lineStyle = LineStyle.allCases.randomElement(using: &random) ?? .solid
         ann.arrowStyle = ArrowStyle.allCases.randomElement(using: &random) ?? .single
@@ -86,8 +79,6 @@ final class RobustnessFuzzTests: XCTestCase {
             XCTAssertEqual(decoded.tool, original.tool, "iteration \(iteration)")
             XCTAssertEqual(decoded.startPoint.x, original.startPoint.x, accuracy: 0.001)
             XCTAssertEqual(decoded.points?.count ?? 0, original.points?.count ?? 0)
-            // Values that must stay inside their documented range whatever went in.
-            XCTAssertTrue((0...1).contains(decoded.dimOpacity), "iteration \(iteration): dim \(decoded.dimOpacity)")
         }
     }
 

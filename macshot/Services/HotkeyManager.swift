@@ -36,6 +36,15 @@ class HotkeyManager {
             }
         }
 
+        /// Only Capture Area has a default (⌘⇧A). Every other slot starts empty:
+        /// a global hotkey takes that chord away from every other app.
+        var defaultHotkey: (keyCode: UInt32, modifiers: UInt32)? {
+            switch self {
+            case .captureArea: return (UInt32(kVK_ANSI_A), UInt32(cmdKey | shiftKey))
+            default: return nil
+            }
+        }
+
         var disabledKey: String {
             return "hotkeyDisabled_\(rawValue)"
         }
@@ -160,16 +169,26 @@ class HotkeyManager {
 
     // MARK: - UserDefaults Helpers
 
-    /// Read the stored keyCode and modifiers for a slot. There are no default
-    /// hotkeys: global shortcuts override the same chord in every other app
-    /// (e.g. Cmd+Shift+T reopens a browser tab), so the user picks them.
+    /// Read the keyCode and modifiers for a slot: what the user saved, else the
+    /// slot's default. A default never applies while another slot has saved the
+    /// same chord, so it can't silently take a hotkey the user already assigned.
     static func readHotkey(for slot: HotkeySlot) -> (keyCode: UInt32, modifiers: UInt32) {
         if UserDefaults.standard.bool(forKey: slot.disabledKey) {
             return (0, 0)
         }
-        let storedKey = UInt32(UserDefaults.standard.integer(forKey: slot.keyCodeKey))
-        let storedMods = UInt32(UserDefaults.standard.integer(forKey: slot.modifiersKey))
-        return (storedKey, storedMods)
+        let stored = storedHotkey(for: slot)
+        if stored.keyCode != 0 || stored.modifiers != 0 { return stored }
+        guard let fallback = slot.defaultHotkey else { return (0, 0) }
+        let takenElsewhere = HotkeySlot.allCases.contains { other in
+            other != slot && !UserDefaults.standard.bool(forKey: other.disabledKey)
+                && storedHotkey(for: other) == fallback
+        }
+        return takenElsewhere ? (0, 0) : fallback
+    }
+
+    private static func storedHotkey(for slot: HotkeySlot) -> (keyCode: UInt32, modifiers: UInt32) {
+        (UInt32(UserDefaults.standard.integer(forKey: slot.keyCodeKey)),
+         UInt32(UserDefaults.standard.integer(forKey: slot.modifiersKey)))
     }
 
     /// Bind `slot` to a chord, taking it away from any other slot that had it
